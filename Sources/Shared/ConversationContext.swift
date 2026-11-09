@@ -154,6 +154,8 @@ enum ConversationContextResolver {
             return ResolvedReplyContext(recipient: chosen, isExplicit: true, evidence: "Lựa chọn của người dùng")
         }
         let value = normalize(incoming)
+        let words = Set(incoming.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+        // Keep accents for disambiguating "cô" from "có", "bà" from "ba".
         // Guard common mentions of THIRD PARTIES and non-address phrases.
         let thirdParty = has(#"\b(chu|co|bac|ong|ba)\s+(ay|do|kia|nay|re|y|thich)\b"#, in: value)
         if !thirdParty {
@@ -168,6 +170,14 @@ enum ConversationContextResolver {
                 (.teacher, #"\b(thay|co)\s+(giao|oi|a)\b"#)
             ]
             for (recipient, pattern) in patterns where has(pattern, in: value) {
+                if recipient == .aunt && !words.contains("cô") { continue }
+                if recipient == .grandmother && !words.contains("bà") { continue }
+                if recipient == .father &&
+                    !words.contains("bố") && !words.contains("ba") && !words.contains("cha") { continue }
+                if recipient == .mother && !words.contains("mẹ") { continue }
+                if recipient == .teacher &&
+                    !words.contains("thầy") &&
+                    !(words.contains("cô") && words.contains("giáo")) { continue }
                 return ResolvedReplyContext(recipient: recipient, isExplicit: false, evidence: "Từ xưng hô trong tin nhắn")
             }
         }
