@@ -10,7 +10,11 @@ enum OfflineReplyEngine {
     static func suggest(for source: String) -> [ReplySuggestion] {
         let message = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return [] }
-        if CoupleReplyGuide.isEnabled {
+        let context = ConversationContextResolver.resolve(message)
+        if let family = ConversationContextResolver.offlineFamilyReplies(for: message, context: context) {
+            return family
+        }
+        if CoupleReplyGuide.isEnabled && context.romanticInstructionsAllowed {
             return CoupleReplyGuide.offlineSuggestions(for: message)
         }
         let lower = message.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "vi_VN"))
