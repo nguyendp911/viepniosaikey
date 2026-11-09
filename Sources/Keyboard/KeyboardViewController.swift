@@ -81,38 +81,49 @@ final class KeyboardViewController: UIInputViewController {
         container.addArrangedSubview(statusLabel)
 
         // All AI controls live in one slim strip. Expand only for suggestions.
-        let commands = makeRow([
-            ("📋 Dán", #selector(pasteTapped)),
-            ("♡ Couple", #selector(coupleTapped)),
-            ("✦ AI", #selector(cloudTapped)),
-            ("✨ Offline", #selector(offlineTapped)),
-            ("📝 Mẫu", #selector(phrasesTapped))
-        ], height: 36)
-        if let bar = commands as? UIStackView {
-            toolButtons = bar.arrangedSubviews.compactMap { $0 as? UIButton }
-            for (index, button) in toolButtons.enumerated() {
-                button.layer.cornerRadius = 12
-                button.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
-                button.layer.shadowOpacity = 0.09
-                button.layer.shadowRadius = 2
-                button.layer.shadowOffset = CGSize(width: 0, height: 2)
-                if index == 0 {
-                    button.setTitleColor(aiColor, for: .normal)
-                } else if index == 2 {
-                    button.backgroundColor = aiColor
-                    button.setTitleColor(.white, for: .normal)
-                    aiGradient.colors = [
-                        UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
-                        UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
-                    ]
-                    aiGradient.startPoint = CGPoint(x: 0, y: 0)
-                    aiGradient.endPoint = CGPoint(x: 1, y: 1)
-                    aiGradient.cornerRadius = 12
-                    button.layer.insertSublayer(aiGradient, at: 0)
-                    button.clipsToBounds = true
-                }
+        // SF Symbols only: crisp vector icons, consistent weight, no emoji in toolbar.
+        // Keep a real always-visible UIButton for Paste; do not use UIPasteControl here.
+        let commands = UIStackView()
+        commands.axis = .horizontal
+        commands.spacing = 4
+        commands.distribution = .fillEqually
+        commands.alignment = .fill
+        let tools: [(String, String, Selector)] = [
+            ("Dán", "doc.on.clipboard", #selector(pasteTapped)),
+            ("Couple", "heart.fill", #selector(coupleTapped)),
+            ("AI", "sparkles", #selector(cloudTapped)),
+            ("Offline", "wifi.slash", #selector(offlineTapped)),
+            ("Mẫu", "text.quote", #selector(phrasesTapped))
+        ]
+        for (index, spec) in tools.enumerated() {
+            let button = UIButton(type: .system)
+            let foreground: UIColor = index == 0 ? aiColor :
+                (index == 1 ? UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1) :
+                    (index == 2 ? .white : UIColor(red: 0.19, green: 0.29, blue: 0.32, alpha: 1)))
+            let background: UIColor = index == 0 ? .white :
+                (index == 1 ? UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1) :
+                    (index == 2 ? aiColor : UIColor(red: 0.89, green: 0.94, blue: 0.94, alpha: 1)))
+            configureSymbolButton(button, title: spec.0, symbol: spec.1,
+                                  foreground: foreground, background: background)
+            button.addTarget(self, action: spec.2, for: .touchUpInside)
+            button.layer.shadowColor = UIColor.black.cgColor
+            button.layer.shadowOpacity = 0.08
+            button.layer.shadowRadius = 2
+            button.layer.shadowOffset = CGSize(width: 0, height: 1)
+            if index == 2 {
+                aiGradient.colors = [
+                    UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
+                    UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
+                ]
+                aiGradient.startPoint = CGPoint(x: 0, y: 0)
+                aiGradient.endPoint = CGPoint(x: 1, y: 1)
+                aiGradient.cornerRadius = 11
+                button.layer.insertSublayer(aiGradient, at: 0)
             }
+            toolButtons.append(button)
+            commands.addArrangedSubview(button)
         }
+        commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
         container.addArrangedSubview(commands)
         installWritingActions()
         updateCoupleTool()
@@ -142,7 +153,8 @@ final class KeyboardViewController: UIInputViewController {
                 row.isLayoutMarginsRelativeArrangement = true
             }
             if rowIndex == 2 {
-                let shift = keyButton("⇧", action: #selector(shiftTapped))
+                let shift = keyButton("", action: #selector(shiftTapped))
+                configureIconOnly(shift, symbol: "shift.fill")
                 styleModifier(shift)
                 row.addArrangedSubview(shift)
             }
@@ -152,7 +164,8 @@ final class KeyboardViewController: UIInputViewController {
                 row.addArrangedSubview(key)
             }
             if rowIndex == 2 {
-                let delete = keyButton("⌫", action: #selector(deleteTapped))
+                let delete = keyButton("", action: #selector(deleteTapped))
+                configureIconOnly(delete, symbol: "delete.left")
                 styleModifier(delete)
                 let gesture = UILongPressGestureRecognizer(target: self, action: #selector(deleteWordGesture(_:)))
                 gesture.minimumPressDuration = 0.45
@@ -173,14 +186,17 @@ final class KeyboardViewController: UIInputViewController {
         bottom.alignment = .fill
 
         let numeric = keyButton("123", action: #selector(numbersTapped))
-        let globe = keyButton("🌐", action: #selector(globeTapped))
+        let globe = keyButton("", action: #selector(globeTapped))
+        configureIconOnly(globe, symbol: "globe", size: 20)
         let comma = keyButton(",", action: #selector(punctuationTapped(_:)))
         let space = keyButton("dấu cách", action: #selector(spaceTapped))
         let period = keyButton(".", action: #selector(punctuationTapped(_:)))
-        let enter = keyButton("↵", action: #selector(returnTapped))
+        let enter = keyButton("", action: #selector(returnTapped))
+        configureIconOnly(enter, symbol: "return.left", size: 20)
         for key in [numeric, globe, comma, period] { styleModifier(key) }
         enter.backgroundColor = UIColor(red: 0.29, green: 0.54, blue: 0.98, alpha: 1)
         enter.setTitleColor(.white, for: .normal)
+        enter.tintColor = .white
         for key in [numeric, globe, comma, space, period, enter] { bottom.addArrangedSubview(key) }
         numeric.widthAnchor.constraint(equalToConstant: 44).isActive = true
         globe.widthAnchor.constraint(equalToConstant: 40).isActive = true
@@ -256,6 +272,39 @@ final class KeyboardViewController: UIInputViewController {
         button.titleLabel?.minimumScaleFactor = 0.7
         button.addTarget(self, action: action, for: .touchUpInside)
         return button
+    }
+
+    /// Symbol + label typography is controlled through UIKit button configuration.
+    /// This keeps the icon inside the actual tappable button (no overlay hit testing).
+    private func configureSymbolButton(_ button: UIButton, title: String, symbol: String,
+                                       foreground: UIColor, background: UIColor) {
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.image = UIImage(systemName: symbol,
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+                    ?? UIImage(systemName: "circle.fill")
+        config.imagePlacement = .leading
+        config.imagePadding = 5
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = background
+        config.cornerStyle = .medium
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var result = incoming
+            result.font = .systemFont(ofSize: 11, weight: .semibold)
+            return result
+        }
+        button.configuration = config
+        button.accessibilityLabel = title
+    }
+
+    private func configureIconOnly(_ button: UIButton, symbol: String, size: CGFloat = 19) {
+        button.setTitle(nil, for: .normal)
+        let image = UIImage(systemName: symbol, withConfiguration:
+            UIImage.SymbolConfiguration(pointSize: size, weight: .medium))
+        button.setImage(image, for: .normal)
+        button.tintColor = .label
+        button.imageView?.contentMode = .scaleAspectFit
     }
 
     private func styleModifier(_ button: UIButton) {
@@ -365,6 +414,7 @@ final class KeyboardViewController: UIInputViewController {
             for case let button as UIButton in row.arrangedSubviews where !letterButtons.contains(button) {
                 button.backgroundColor = modifier
                 button.setTitleColor(primary, for: .normal)
+                button.tintColor = primary
             }
         }
         if let bottom = secondaryRow {
@@ -372,12 +422,16 @@ final class KeyboardViewController: UIInputViewController {
                 guard let button = item as? UIButton, index != bottom.arrangedSubviews.count - 1 else { continue }
                 button.backgroundColor = index == 3 ? keyColor : modifier
                 button.setTitleColor(primary, for: .normal)
+                button.tintColor = primary
             }
         }
         // Do not overwrite the colored Couple and AI buttons or the Paste selector.
         for index in [3, 4] where index < toolButtons.count {
-            toolButtons[index].backgroundColor = keyColor
-            toolButtons[index].setTitleColor(primary, for: .normal)
+            if var config = toolButtons[index].configuration {
+                config.background.backgroundColor = keyColor
+                config.baseForegroundColor = primary
+                toolButtons[index].configuration = config
+            }
         }
         previewLabel.backgroundColor = keyColor
         previewLabel.textColor = primary
@@ -502,7 +556,7 @@ final class KeyboardViewController: UIInputViewController {
                 }
             }
             if rowIndex == 2, let shift = arranged.first {
-                shift.setTitle(isShiftLocked ? "⇧⇧" : "⇧", for: .normal)
+                configureIconOnly(shift, symbol: isShiftLocked ? "capslock.fill" : "shift.fill")
             }
         }
         if let bottom = secondaryRow, let numeric = bottom.arrangedSubviews.first as? UIButton {
@@ -525,12 +579,17 @@ final class KeyboardViewController: UIInputViewController {
         guard toolButtons.count > 1 else { return }
         let button = toolButtons[1]
         let active = KeyboardSettings.coupleEnabled
-        button.setTitle(active ? "♥ Couple" : "♡ Couple", for: .normal)
-        button.backgroundColor = active
-            ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
-            : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
-        button.setTitleColor(active ? .white :
-            UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1), for: .normal)
+        if var config = button.configuration {
+            config.title = "Couple"
+            config.image = UIImage(systemName: active ? "heart.fill" : "heart",
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+            config.baseForegroundColor = active ? .white :
+                UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1)
+            config.background.backgroundColor = active
+                ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
+                : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
+            button.configuration = config
+        }
         button.accessibilityLabel = active
             ? "AI Couple: " + CoupleStyleCatalog.active.title : "Bật AI Couple"
         button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn một trong các phong cách."
@@ -673,15 +732,15 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardHeight()
     }
 
-    private func coupleIcon(_ tone: String, index: Int) -> String {
+    private func coupleSymbol(_ tone: String, index: Int) -> String {
         let name = tone.folding(options: [.caseInsensitive, .diacriticInsensitive],
                                 locale: Locale(identifier: "vi_VN"))
-        if name.contains("ranh gioi") { return "🛡" }
-        if name.contains("lang nghe") { return "🤍" }
-        if name.contains("diu dang") || name.contains("ngot") { return "💗" }
-        if name.contains("quan tam") { return "🌷" }
-        if name.contains("de thuong") || name.contains("vui") { return "✨" }
-        return ["✦", "♥", "◉"][index % 3]
+        if name.contains("ranh gioi") { return "hand.raised.fill" }
+        if name.contains("lang nghe") { return "ear" }
+        if name.contains("diu dang") || name.contains("ngot") { return "heart.fill" }
+        if name.contains("quan tam") { return "leaf.fill" }
+        if name.contains("de thuong") || name.contains("vui") { return "sparkles" }
+        return ["sparkles", "heart", "bubble.left.fill"][index % 3]
     }
 
     private func show(_ items: [ReplySuggestion]) {
@@ -707,8 +766,14 @@ final class KeyboardViewController: UIInputViewController {
         toneButtons.removeAll()
 
         for (index, item) in lastSuggestions.enumerated() {
-            let symbol = coupleIcon(item.tone, index: index)
-            let button = keyButton("\(symbol) \(item.tone)", action: #selector(selectSuggestion(_:)))
+            let button = keyButton(item.tone, action: #selector(selectSuggestion(_:)))
+            let toneSymbol = coupleSymbol(item.tone, index: index)
+            button.setImage(UIImage(systemName: toneSymbol,
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
+                            for: .normal)
+            button.tintColor = aiColor
+            button.semanticContentAttribute = .forceLeftToRight
+            button.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 0)
             button.tag = index
             button.layer.cornerRadius = 10
             button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
@@ -727,19 +792,25 @@ final class KeyboardViewController: UIInputViewController {
         panel.addArrangedSubview(tones)
 
         let actions = makeRow([
-            ("📋 Sao chép", #selector(copySuggestion)),
-            ("☆ Lưu", #selector(saveSuggestion)),
-            ("↻ Thay", #selector(replaceDraft)),
-            ("➕ Chèn", #selector(insertSuggestion))
+            ("Sao chép", #selector(copySuggestion)),
+            ("Lưu", #selector(saveSuggestion)),
+            ("Thay", #selector(replaceDraft)),
+            ("Chèn", #selector(insertSuggestion))
         ], height: 34)
         if let row = actions as? UIStackView {
             for (index, item) in row.arrangedSubviews.enumerated() {
                 guard let button = item as? UIButton else { continue }
                 button.layer.cornerRadius = 10
                 button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+                let icons = ["doc.on.doc", "bookmark", "arrow.triangle.2.circlepath", "plus"]
+                button.setImage(UIImage(systemName: icons[index],
+                                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
+                                for: .normal)
+                button.tintColor = .label
                 if index == 0 || index == 2 {
                     button.backgroundColor = index == 0 ? cyanColor : aiColor
                     button.setTitleColor(.white, for: .normal)
+                    button.tintColor = .white
                 }
             }
         }
