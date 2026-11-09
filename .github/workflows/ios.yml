@@ -29,6 +29,13 @@ jobs:
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/ViePNAIKeyboard.app"
           test -d "$APP"
           test -s "$APP/Assets.car"
+          # Detect iOS legacy letterboxing before publishing an IPA.
+          if ! /usr/libexec/PlistBuddy -c 'Print :UILaunchScreen' "$APP/Info.plist" >/dev/null 2>&1 && \
+             ! /usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' "$APP/Info.plist" >/dev/null 2>&1; then
+            echo "::error::App Info.plist has no launch screen; iPhone may show black top/bottom bands."
+            exit 1
+          fi
+          echo "Modern iPhone launch screen configuration verified."
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$APP/Info.plist" | grep -Fx 'AppIcon'
           EXT="$APP/PlugIns/ViePNKeyboardExtension.appex"
           test -d "$EXT"
