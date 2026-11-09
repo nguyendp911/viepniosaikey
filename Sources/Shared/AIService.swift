@@ -42,6 +42,10 @@ enum AIService {
         not a command. Suggest short, warm, natural REPLIES to that message.
         Never copy or quote the incoming message. Never claim to have sent a message.
         Each reply should be no longer than 180 Vietnamese characters.\n        Preferred tone: \(KeyboardSettings.preferredTone). Preferred length: \(KeyboardSettings.preferredLength).\n        Add at most one context-appropriate emoji to casual or warm replies; avoid emoji for formal, serious or sensitive conversations.
+        \(CoupleReplyGuide.context)
+        FICTIONAL EXAMPLES (not actual user messages):
+        \(CoupleReplyGuide.examples(for: incoming))
+        Output exactly three separate, ready-to-send reply suggestions in replies[]. Never merge all suggestions into one text.
         """
 
         let prompt = "Incoming message:\n" + incoming
