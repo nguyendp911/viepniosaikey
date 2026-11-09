@@ -39,7 +39,12 @@ enum GeminiModelCatalog {
                 throw AIServiceError.provider(http.statusCode, "Không tải được danh sách model. Kiểm tra API Key.")
             }
             guard data.count < 1_000_000 else { throw AIServiceError.invalidResponse }
-            let catalog = try JSONDecoder().decode(GeminiModelList.self, from: data)
+            let catalog: GeminiModelList
+            do {
+                catalog = try JSONDecoder().decode(GeminiModelList.self, from: data)
+            } catch {
+                throw AIServiceError.malformedResponse("Không đọc được danh sách model từ Google. Hãy tải lại.")
+            }
             for model in catalog.models ?? [] {
                 guard model.name.hasPrefix("models/gemini-"),
                       model.supportedGenerationMethods?.contains("generateContent") == true
