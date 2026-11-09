@@ -65,6 +65,10 @@ enum KeyboardSettings {
         get { defaults.string(forKey: prefix + "theme") ?? "system" }
         set { defaults.set(["system", "midnight", "ocean", "rose"].contains(newValue) ? newValue : "system", forKey: prefix + "theme") }
     }
+    static var autoCapitalize: Bool {
+        get { defaults.object(forKey: prefix + "autoCapitalize") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "autoCapitalize") }
+    }
     static var hapticEnabled: Bool {
         get { defaults.object(forKey: prefix + "hapticEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "hapticEnabled") }
