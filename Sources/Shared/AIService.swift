@@ -53,6 +53,9 @@ enum AIServiceError: LocalizedError {
 enum AIService {
     static func reply(to message: String) async throws -> [ReplySuggestion] {
         guard KeyboardSettings.allowCloudAI else { throw AIServiceError.missingConsent }
+        if KeyboardSettings.provider == "openai" {
+            return try await OpenAIService.reply(to: message)
+        }
         let key = KeyboardSettings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw AIServiceError.missingKey }
         let model = KeyboardSettings.geminiModel
