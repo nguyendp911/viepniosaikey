@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
         run: sh scripts/prepare-app-icon.sh
       - name: Generate Xcode project
@@ -56,7 +56,7 @@ jobs:
     environment: ios-signing
     steps:
       - uses: actions/checkout@v4
-      - run: brew install xcodegen
+      - run: brew install xcodegen librsvg
       - run: sh scripts/prepare-app-icon.sh
       - run: xcodegen generate
       - name: Validate signing secrets
