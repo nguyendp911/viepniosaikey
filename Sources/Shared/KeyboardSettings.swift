@@ -53,6 +53,13 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "coupleEnabled") as? Bool ?? false }
         set { defaults.set(newValue, forKey: prefix + "coupleEnabled") }
     }
+    static var coupleStyle: String {
+        get { defaults.string(forKey: prefix + "coupleStyle") ?? "auto" }
+        set {
+            let permitted = CoupleStyleCatalog.styles.contains { $0.id == newValue }
+            defaults.set(permitted ? newValue : "auto", forKey: prefix + "coupleStyle")
+        }
+    }
     static var coupleStage: String {
         get { defaults.string(forKey: prefix + "coupleStage") ?? "Đang yêu" }
         set {
