@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import AudioToolbox
 
 /// Compact native settings screen for the ViePN AI Keyboard host application.
 /// This view intentionally has no NavigationStack or large navigation title:
@@ -27,6 +28,7 @@ struct ContentView: View {
     @State private var showAllThemes = false
     @State private var showAllShortcuts = false
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
+    @State private var hapticStyle = KeyboardSettings.hapticStyle
     @State private var autoCapitalize = KeyboardSettings.autoCapitalize
     @State private var preferredTone = KeyboardSettings.preferredTone
     @State private var preferredLength = KeyboardSettings.preferredLength
@@ -776,6 +778,32 @@ struct ContentView: View {
                 keyboardToggleRow("Rung khi gõ", symbol: "hand.tap",
                                   isOn: $hapticEnabled)
                     .onChange(of: hapticEnabled) { KeyboardSettings.hapticEnabled = $0 }
+                if hapticEnabled {
+                    keyboardMenuRow("Kiểu rung", symbol: "waveform",
+                                    value: $hapticStyle,
+                                    options: [("vibrate", "Rõ · rung hệ thống"),
+                                              ("light", "Nhẹ · Taptic")])
+                        .onChange(of: hapticStyle) { KeyboardSettings.hapticStyle = $0 }
+                    HStack {
+                        Text("iOS có thể giới hạn rung trên bàn phím bên thứ ba.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 3)
+                        Button {
+                            if hapticStyle == "vibrate" {
+                                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+                            } else {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            }
+                        } label: {
+                            Label("Thử rung", systemImage: "hand.tap")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(cyan)
+                    }
+                }
                 keyboardDivider()
                 keyboardToggleRow("Viết hoa đầu câu", symbol: "textformat.abc.dottedunderline",
                                   isOn: $autoCapitalize)
