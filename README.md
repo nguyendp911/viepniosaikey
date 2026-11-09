@@ -55,3 +55,16 @@ Push to main → unsigned simulator build. Manual Actions → iOS Build → Run 
 ## Gemini
 
 Create a Gemini key in Google AI Studio (https://aistudio.google.com/apikey). Store it only on your server as `GEMINI_API_KEY` and configure the keyboard HTTPS URL as `https://your-host/reply`. The default model is `gemini-2.5-flash` (override using `GEMINI_MODEL`). The `/health` endpoint is available for deployment checks. Public servers require authentication and rate limits; the reference backend currently has neither.
+
+
+## Direct Gemini API key (Bring Your Own Key)
+
+The companion iOS app now has **Gemini API - Nhập khóa trực tiếp**:
+1. Generate a key at https://aistudio.google.com/apikey .
+2. Paste it into the Gemini API Key field, select an accessible `gemini-2.5-flash` model (or another supported model), enable consent.
+3. Tap **Kiểm tra Gemini API**; the keyboard's ☁️ AI button uses the same configuration after enabling Full Access.
+4. No VPS or custom HTTPS URL is needed in direct mode.
+
+Important: The direct key is stored in **App Group UserDefaults** for sharing with the extension (not Keychain), which is less secure than a server-side key. Never commit a key, share app container backups, or embed it in a redistributable IPA. Restrict the key and set usage caps in the Google Cloud console. For apps distributed to other people, a properly authenticated backend is safer.
+
+The `backend/` directory remains available as an optional proxy for production deployments.
