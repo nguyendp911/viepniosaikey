@@ -37,6 +37,7 @@ enum AIServiceError: LocalizedError {
     case missingKey
     case invalidModel
     case invalidResponse
+    case malformedResponse(String)
     case provider(Int, String)
 
     var errorDescription: String? {
@@ -44,7 +45,8 @@ enum AIServiceError: LocalizedError {
         case .missingConsent: return "Hãy bật cho phép gửi nội dung đến Gemini."
         case .missingKey: return "Chưa nhập Gemini API Key trong ứng dụng ViePN."
         case .invalidModel: return "Tên Gemini model không hợp lệ."
-        case .invalidResponse: return "Gemini trả về dữ liệu không hợp lệ."
+        case .invalidResponse: return "Gemini không gửi nội dung trả lời hợp lệ. Hãy thử lại hoặc chọn model khác."
+        case let .malformedResponse(reason): return "Không đọc được phản hồi Gemini: " + reason
         case let .provider(code, message): return "Gemini HTTP \(code): \(message)"
         }
     }
@@ -99,16 +101,54 @@ enum AIService {
             throw AIServiceError.provider(http.statusCode, detail)
         }
         guard data.count <= 200_000 else { throw AIServiceError.invalidResponse }
-        let envelope = try JSONDecoder().decode(GeminiResponse.self, from: data)
-        let raw = envelope.candidates?.first?.content.parts.compactMap(\.text).joined() ?? ""
-        guard let jsonData = raw.data(using: .utf8) else { throw AIServiceError.invalidResponse }
-        let payload = try JSONDecoder().decode(GeminiReply.self, from: jsonData)
-        let replies = payload.replies.prefix(5).compactMap { item -> ReplySuggestion? in
-            let body = ReplyTextCleaner.answerOnly(item.text, source: message)
-            guard !body.isEmpty else { return nil }
-            return ReplySuggestion(tone: item.tone, text: String(body.prefix(1500)))
+        // Gemini responses can include a finish reason without a text part
+        // (e.g. SAFETY, MAX_TOKENS), or a missing candidates array.
+        // Avoid leaking generic Swift DecodingError to the user.
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw AIServiceError.malformedResponse("API trả về dữ liệu không phải JSON.")
         }
-        guard !replies.isEmpty else { throw AIServiceError.invalidResponse }
+        let candidates = root["candidates"] as? [[String: Any]] ?? []
+        guard let first = candidates.first else {
+            let blockReason = ((root["promptFeedback"] as? [String: Any])?["blockReason"] as? String)
+            throw AIServiceError.malformedResponse(
+                blockReason.map { "Yêu cầu bị chặn (\\($0))." } ??
+                "Không có câu trả lời từ model \\(model)."
+            )
+        }
+        let finishReason = first["finishReason"] as? String ?? "UNKNOWN"
+        let content = first["content"] as? [String: Any]
+        let parts = content?["parts"] as? [[String: Any]] ?? []
+        var raw = parts.compactMap { $0["text"] as? String }.joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            throw AIServiceError.malformedResponse(
+                "Model \\(model) trả về nội dung trống (finishReason: \\(finishReason))."
+            )
+        }
+        // Some responses include a Markdown fence despite JSON mode.
+        if raw.hasPrefix("```") {
+            let lines = raw.components(separatedBy: .newlines)
+            if lines.count >= 3, lines.last?.trimmingCharacters(in: .whitespacesAndNewlines) == "```" {
+                raw = lines.dropFirst().dropLast().joined(separator: "\\n")
+            }
+        }
+        guard let jsonData = raw.data(using: .utf8),
+              let parsed = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            throw AIServiceError.malformedResponse(
+                "Model \\(model) chưa trả đúng JSON. Hãy thử lại; nếu vẫn lỗi, chọn model khác."
+            )
+        }
+        let replyObjects = parsed["replies"] as? [[String: Any]] ?? []
+        let replies = replyObjects.prefix(5).compactMap { entry -> ReplySuggestion? in
+            guard let text = entry["text"] as? String else { return nil }
+            let answer = ReplyTextCleaner.answerOnly(text, source: message)
+            guard !answer.isEmpty else { return nil }
+            let tone = entry["tone"] as? String ?? "Gợi ý"
+            return ReplySuggestion(tone: String(tone.prefix(40)), text: String(answer.prefix(1500)))
+        }
+        guard !replies.isEmpty else {
+            throw AIServiceError.malformedResponse("Phản hồi không có mảng replies chứa tone và text.")
+        }
         return replies
     }
 }
