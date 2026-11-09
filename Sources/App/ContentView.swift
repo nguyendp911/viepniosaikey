@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var coupleAddress = KeyboardSettings.coupleAddress
     @State private var typingMode = KeyboardSettings.typingMode
     @State private var keyboardTheme = KeyboardSettings.theme
+    @State private var showAllThemes = false
+    @State private var showAllShortcuts = false
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
     @State private var autoCapitalize = KeyboardSettings.autoCapitalize
     @State private var preferredTone = KeyboardSettings.preferredTone
@@ -672,143 +674,352 @@ struct ContentView: View {
         id.prefix(1).uppercased() + id.dropFirst()
     }
 
+    // Four focused cards keep settings aligned, labeled, and easy to tap.
+    // No system Picker is placed directly in a large VStack: every selection
+    // belongs to its own full-width Menu row.
     private var personalization: some View {
-        card(title: "Cá nhân hóa", subtitle: "Bàn phím tiếng Việt và câu trả lời tự nhiên",
-             icon: "slider.horizontal.3") {
-            VStack(spacing: 13) {
-                Toggle(isOn: $telexEnabled) {
-                    Label("Gõ tiếng Việt Telex", systemImage: "character.cursor.ibeam")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .tint(violet)
-                .onChange(of: telexEnabled) { KeyboardSettings.telexEnabled = $0 }
+        VStack(spacing: 12) {
+            keyboardInputCard
+            keyboardPreferencesCard
+            keyboardThemesCard
+            keyboardShortcutsCard
+        }
+    }
 
-                Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+    private func keyboardPanel<Content: View>(
+        _ title: String, icon: String, @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(cyan)
+                    .frame(width: 30, height: 30)
+                    .background(cyan.opacity(0.11),
+                                in: RoundedRectangle(cornerRadius: 9))
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 0)
+            }
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardColor, in: RoundedRectangle(cornerRadius: 17))
+        .overlay(
+            RoundedRectangle(cornerRadius: 17)
+                .stroke(Color.white.opacity(0.065), lineWidth: 1)
+        )
+    }
 
-                Toggle(isOn: $emojiEnabled) {
-                    Label("Emoji thông minh theo ngữ cảnh", systemImage: "face.smiling")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .tint(violet)
-                .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
+    private func keyboardDivider() -> some View {
+        Rectangle()
+            .fill(.white.opacity(0.075))
+            .frame(height: 1)
+    }
 
-                Picker("Kiểu gõ", selection: $typingMode) {
-                    Text("Telex").tag("telex")
-                    Text("VNI").tag("vni")
-                    Text("Không dấu").tag("off")
-                }
-                .onChange(of: typingMode) {
-                    KeyboardSettings.typingMode = $0
-                    telexEnabled = $0 == "telex"
-                    KeyboardSettings.telexEnabled = telexEnabled
-                }
-                Picker("Chủ đề bàn phím", selection: $keyboardTheme) {
-                    Text("Theo hệ thống").tag("system")
-                    Text("Midnight").tag("midnight")
-                    Text("Ocean").tag("ocean")
-                    Text("Rose").tag("rose")
-                    Text("Lavender").tag("lavender")
-                    Text("Mint").tag("mint")
-                    Text("Sunset").tag("sunset")
-                    Text("Graphite").tag("graphite")
-                    Text("Sakura").tag("sakura")
-                    Text("Forest").tag("forest")
-                    Text("Sand").tag("sand")
-                    Text("Aurora").tag("aurora")
-                }
-                .onChange(of: keyboardTheme) { KeyboardSettings.theme = $0 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(["midnight", "ocean", "rose", "lavender", "mint", "sunset",
-                                 "graphite", "sakura", "forest", "sand", "aurora"], id: \.self) { id in
-                            Button {
-                                keyboardTheme = id
-                                KeyboardSettings.theme = id
-                            } label: {
-                                VStack(spacing: 5) {
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(themeSampleColor(id))
-                                        .frame(width: 62, height: 40)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(keyboardTheme == id ? cyan : Color.white.opacity(0.25),
-                                                        lineWidth: keyboardTheme == id ? 3 : 1)
-                                        )
-                                    Text(themeDisplayName(id))
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(keyboardTheme == id ? cyan : muted)
-                                        .lineLimit(1)
-                                }
-                            }
-                            .buttonStyle(.plain)
+    private func keyboardToggleRow(
+        _ title: String, symbol: String, isOn: Binding<Bool>
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            Label {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: symbol)
+                    .font(.system(size: 15))
+                    .foregroundStyle(muted)
+                    .frame(width: 21)
+            }
+        }
+        .tint(violet)
+        .controlSize(.regular)
+        .frame(minHeight: 37)
+    }
+
+    private var keyboardInputCard: some View {
+        keyboardPanel("Nhập liệu nhanh", icon: "keyboard") {
+            VStack(spacing: 7) {
+                keyboardToggleRow(
+                    "Gõ tiếng Việt", symbol: "character.cursor.ibeam",
+                    isOn: Binding(
+                        get: { typingMode != "off" },
+                        set: { enabled in
+                            let mode = enabled ? "telex" : "off"
+                            typingMode = mode
+                            telexEnabled = enabled
+                            KeyboardSettings.typingMode = mode
+                            KeyboardSettings.telexEnabled = enabled
                         }
-                    }
-                }
-                Toggle("Rung nhẹ khi gõ", isOn: $hapticEnabled)
-                    .tint(violet)
+                    )
+                )
+                keyboardDivider()
+                keyboardToggleRow("Emoji thông minh", symbol: "face.smiling",
+                                  isOn: $emojiEnabled)
+                    .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Rung khi gõ", symbol: "hand.tap",
+                                  isOn: $hapticEnabled)
                     .onChange(of: hapticEnabled) { KeyboardSettings.hapticEnabled = $0 }
-                Toggle("Viết hoa đầu câu", isOn: $autoCapitalize)
-                    .tint(violet)
+                keyboardDivider()
+                keyboardToggleRow("Viết hoa đầu câu", symbol: "textformat.abc.dottedunderline",
+                                  isOn: $autoCapitalize)
                     .onChange(of: autoCapitalize) { KeyboardSettings.autoCapitalize = $0 }
-                Picker("Giọng điệu AI", selection: $preferredTone) {
-                    ForEach(["Tự nhiên", "Lịch sự", "Ngọt ngào", "Hài hước", "Chuyên nghiệp"], id: \.self) {
-                        Text($0)
+            }
+        }
+    }
+
+    private func keyboardMenuRow(
+        _ title: String, symbol: String, value: Binding<String>,
+        options: [(String, String)]
+    ) -> some View {
+        Menu {
+            ForEach(options.indices, id: \.self) { index in
+                let option = options[index]
+                Button {
+                    value.wrappedValue = option.0
+                } label: {
+                    Text(option.1)
+                    if value.wrappedValue == option.0 {
+                        Image(systemName: "checkmark")
                     }
                 }
-                .onChange(of: preferredTone) { KeyboardSettings.preferredTone = $0 }
-                Picker("Độ dài câu trả lời", selection: $preferredLength) {
-                    ForEach(["Ngắn", "Vừa", "Chi tiết"], id: \.self) { Text($0) }
-                }
-                .onChange(of: preferredLength) { KeyboardSettings.preferredLength = $0 }
-                Picker("Ngôn ngữ dịch", selection: $translationLanguage) {
-                    ForEach(["English", "Chinese (Simplified)", "Japanese", "Korean", "French"], id: \.self) {
-                        Text($0)
+            }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15))
+                    .foregroundStyle(muted)
+                    .frame(width: 21)
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 6)
+                Text(options.first(where: { $0.0 == value.wrappedValue })?.1
+                    ?? value.wrappedValue)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(cyan)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(muted)
+            }
+            .frame(minHeight: 39)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private var keyboardPreferencesCard: some View {
+        keyboardPanel("Cấu hình & AI", icon: "slider.horizontal.3") {
+            VStack(spacing: 5) {
+                keyboardMenuRow("Kiểu gõ", symbol: "character.book.closed",
+                                value: $typingMode,
+                                options: [("telex", "Telex"), ("vni", "VNI"),
+                                          ("off", "Không dấu")])
+                    .onChange(of: typingMode) { newValue in
+                        KeyboardSettings.typingMode = newValue
+                        telexEnabled = newValue == "telex"
+                        KeyboardSettings.telexEnabled = telexEnabled
+                    }
+                keyboardDivider()
+                keyboardMenuRow("Giọng điệu AI", symbol: "bubble.left",
+                                value: $preferredTone,
+                                options: ["Tự nhiên", "Lịch sự", "Ngọt ngào",
+                                          "Hài hước", "Chuyên nghiệp"].map { ($0, $0) })
+                    .onChange(of: preferredTone) { KeyboardSettings.preferredTone = $0 }
+                keyboardDivider()
+                keyboardMenuRow("Độ dài trả lời", symbol: "text.alignleft",
+                                value: $preferredLength,
+                                options: ["Ngắn", "Vừa", "Chi tiết"].map { ($0, $0) })
+                    .onChange(of: preferredLength) { KeyboardSettings.preferredLength = $0 }
+                keyboardDivider()
+                keyboardMenuRow("Dịch sang", symbol: "translate",
+                                value: $translationLanguage,
+                                options: [("English", "Tiếng Anh"),
+                                          ("Chinese (Simplified)", "Tiếng Trung"),
+                                          ("Japanese", "Tiếng Nhật"),
+                                          ("Korean", "Tiếng Hàn"),
+                                          ("French", "Tiếng Pháp")])
+                    .onChange(of: translationLanguage) {
+                        KeyboardSettings.translationLanguage = $0
+                    }
+            }
+        }
+    }
+
+    private var keyboardThemesCard: some View {
+        keyboardPanel("Giao diện bàn phím", icon: "paintpalette") {
+            VStack(alignment: .leading, spacing: 10) {
+                keyboardMenuRow("Chủ đề", symbol: "circle.lefthalf.filled",
+                                value: $keyboardTheme,
+                                options: [("system", "Theo hệ thống"),
+                                          ("midnight", "Midnight"), ("ocean", "Ocean"),
+                                          ("rose", "Rose"), ("lavender", "Lavender"),
+                                          ("mint", "Mint"), ("sunset", "Sunset"),
+                                          ("graphite", "Graphite"), ("sakura", "Sakura"),
+                                          ("forest", "Forest"), ("sand", "Sand"),
+                                          ("aurora", "Aurora")])
+                    .onChange(of: keyboardTheme) { KeyboardSettings.theme = $0 }
+
+                let themes = ["system", "midnight", "ocean", "rose", "lavender",
+                              "mint", "sunset", "graphite", "sakura", "forest",
+                              "sand", "aurora"]
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                    spacing: 10
+                ) {
+                    ForEach(Array((showAllThemes ? themes : Array(themes.prefix(8)))),
+                            id: \.self) { id in
+                        Button {
+                            keyboardTheme = id
+                            KeyboardSettings.theme = id
+                        } label: {
+                            VStack(spacing: 5) {
+                                RoundedRectangle(cornerRadius: 9)
+                                    .fill(themeSampleColor(id))
+                                    .frame(height: 39)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 9)
+                                            .stroke(keyboardTheme == id ? cyan :
+                                                        Color.white.opacity(0.18),
+                                                    lineWidth: keyboardTheme == id ? 2.5 : 1)
+                                    }
+                                    .overlay(alignment: .topTrailing) {
+                                        if keyboardTheme == id {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 13))
+                                                .foregroundStyle(cyan)
+                                                .padding(3)
+                                        }
+                                    }
+                                Text(id == "system" ? "Tự động" : themeDisplayName(id))
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(keyboardTheme == id ? cyan : muted)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Chủ đề " + (id == "system" ? "Tự động" : id))
                     }
                 }
-                .onChange(of: translationLanguage) { KeyboardSettings.translationLanguage = $0 }
-                Text("Từ viết tắt cá nhân")
-                    .font(.system(size: 13, weight: .semibold))
-                HStack(spacing: 6) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAllThemes.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(showAllThemes ? "Thu gọn" : "Xem đủ 12 chủ đề")
+                        Image(systemName: showAllThemes ? "chevron.up" : "chevron.down")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(cyan)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var keyboardShortcutsCard: some View {
+        keyboardPanel("Từ viết tắt cá nhân", icon: "textformat.abc") {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 7) {
                     TextField("Viết tắt", text: $shortcut)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("Thay bằng", text: $expansion)
+                        .frame(maxWidth: 105)
+                    Rectangle().fill(muted.opacity(0.35))
+                        .frame(width: 1, height: 22)
+                    TextField("Thay bằng…", text: $expansion)
+                        .frame(maxWidth: .infinity)
                     Button {
-                        let key = shortcut.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                        let key = shortcut.lowercased()
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
                         let value = expansion.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !key.isEmpty, key.count <= 20, !value.isEmpty, value.count <= 80 else { return }
+                        guard !key.isEmpty, key.count <= 20,
+                              !value.isEmpty, value.count <= 80 else { return }
                         abbreviations[key] = value
                         KeyboardSettings.replacementDictionary = abbreviations
                         shortcut = ""
                         expansion = ""
                     } label: {
-                        Image(systemName: "plus.circle.fill").foregroundStyle(cyan)
+                        Image(systemName: "plus")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(violet, in: RoundedRectangle(cornerRadius: 9))
                     }
+                    .disabled(shortcut.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || expansion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityLabel("Thêm từ viết tắt")
                 }
                 .font(.system(size: 12))
                 .padding(8)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
-                ForEach(abbreviations.keys.sorted(), id: \.self) { key in
-                    HStack {
-                        Text(key + " → " + (abbreviations[key] ?? ""))
+                .background(Color.white.opacity(0.06),
+                            in: RoundedRectangle(cornerRadius: 12))
+
+                let keys = abbreviations.keys.sorted()
+                ForEach(Array((showAllShortcuts ? keys : Array(keys.prefix(3)))),
+                        id: \.self) { key in
+                    HStack(spacing: 10) {
+                        Text(key)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(cyan)
+                            .frame(minWidth: 37, alignment: .leading)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10))
+                            .foregroundStyle(muted)
+                        Text(abbreviations[key] ?? "")
                             .font(.system(size: 12))
-                        Spacer()
-                        Button(role: .destructive) {
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                        Spacer(minLength: 0)
+                        Button {
                             abbreviations.removeValue(forKey: key)
                             KeyboardSettings.replacementDictionary = abbreviations
                         } label: {
-                            Image(systemName: "minus.circle").foregroundStyle(.red)
+                            Image(systemName: "trash")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.red.opacity(0.78))
+                                .frame(width: 30, height: 30)
+                                .background(Color.red.opacity(0.085),
+                                            in: RoundedRectangle(cornerRadius: 9))
                         }
-                        .accessibilityLabel("Xóa từ viết tắt")
+                        .accessibilityLabel("Xóa từ viết tắt " + key)
+                    }
+                    .frame(minHeight: 33)
+                    if key != (showAllShortcuts ? keys : Array(keys.prefix(3))).last {
+                        keyboardDivider()
                     }
                 }
-                Text("Telex/VNI, 4 chủ đề, rung phím, gợi ý AI và từ viết tắt cá nhân.")
-
-
+                if keys.count > 3 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAllShortcuts.toggle()
+                        }
+                    } label: {
+                        Text(showAllShortcuts
+                             ? "Thu gọn"
+                             : "Xem tất cả " + String(keys.count) + " từ viết tắt")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(cyan)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text("Tự thay từ khi bạn nhấn dấu cách.")
                     .font(.system(size: 11))
                     .foregroundStyle(muted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
