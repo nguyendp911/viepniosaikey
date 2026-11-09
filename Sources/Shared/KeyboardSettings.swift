@@ -13,6 +13,18 @@ enum KeyboardSettings {
     // BYOK key shared with our own keyboard extension through App Group.
     // This is stored in app-container preferences, not Keychain. For stronger
     // protection, a future version should use a shared Keychain access group.
+    static var provider: String {
+        get { defaults.string(forKey: prefix + "provider") ?? "gemini" }
+        set { defaults.set(newValue == "openai" ? "openai" : "gemini", forKey: prefix + "provider") }
+    }
+    static var openAIAPIKey: String {
+        get { defaults.string(forKey: prefix + "openAIAPIKey") ?? "" }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "openAIAPIKey") }
+    }
+    static var openAIModel: String {
+        get { defaults.string(forKey: prefix + "openAIModel") ?? "gpt-4o-mini" }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "openAIModel") }
+    }
     static var geminiAPIKey: String {
         get { defaults.string(forKey: prefix + "geminiAPIKey") ?? "" }
         set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "geminiAPIKey") }
