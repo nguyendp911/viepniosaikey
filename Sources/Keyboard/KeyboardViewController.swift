@@ -10,7 +10,7 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     private var systemPasteButton: UIPasteControl?
 
     private var selectedText = ""
-    private var isUppercase = false
+    private var isUppercase = KeyboardSettings.autoCapitalize
     private var isNumbers = false
     private var isShiftLocked = false
     private var lastSuggestions: [ReplySuggestion] = []
@@ -397,8 +397,21 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
             }
         }
         textDocumentProxy.insertText(" ")
+        if KeyboardSettings.autoCapitalize && !isShiftLocked {
+            let before = textDocumentProxy.documentContextBeforeInput ?? ""
+            let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
+            isUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
+            updateKeys()
+        }
     }
-    @objc private func returnTapped() { textDocumentProxy.insertText("\n") }
+    @objc private func returnTapped() {
+        beginTyping()
+        textDocumentProxy.insertText("\n")
+        if KeyboardSettings.autoCapitalize {
+            isUppercase = true
+            updateKeys()
+        }
+    }
     @objc private func deleteTapped() { beginTyping(); tactileFeedback(); textDocumentProxy.deleteBackward() }
 
     @objc private func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
