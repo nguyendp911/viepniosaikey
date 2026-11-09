@@ -15,6 +15,17 @@ struct ContentView: View {
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
     @State private var telexEnabled = KeyboardSettings.telexEnabled
     @State private var emojiEnabled = KeyboardSettings.emojiEnabled
+    @State private var typingMode = KeyboardSettings.typingMode
+    @State private var keyboardTheme = KeyboardSettings.theme
+    @State private var hapticEnabled = KeyboardSettings.hapticEnabled
+    @State private var preferredTone = KeyboardSettings.preferredTone
+    @State private var preferredLength = KeyboardSettings.preferredLength
+    @State private var fallbackModel = KeyboardSettings.fallbackModel
+    @State private var translationLanguage = KeyboardSettings.translationLanguage
+    @State private var abbreviations = KeyboardSettings.replacementDictionary
+    @State private var shortcut = ""
+    @State private var expansion = ""
+    @State private var favorites = KeyboardSettings.favoriteReplies
     @State private var availableModels: [GeminiModelOption] = []
     @State private var loadingModels = false
     @State private var testingAPI = false
@@ -263,6 +274,8 @@ struct ContentView: View {
                         .onChange(of: geminiAPIKey) { KeyboardSettings.geminiAPIKey = $0 }
                     modelField("Model Gemini", text: $geminiModel)
                         .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                    modelField("Model dự phòng (429/503)", text: $fallbackModel)
+                        .onChange(of: fallbackModel) { KeyboardSettings.fallbackModel = $0 }
 
                     if !availableModels.isEmpty {
                         Picker("Model được Google cung cấp", selection: $geminiModel) {
