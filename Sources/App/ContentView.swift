@@ -2,7 +2,9 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
-    @State private var apiURL = KeyboardSettings.apiURL
+    @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
+    @State private var geminiModel = KeyboardSettings.geminiModel
+    @State private var showAPIKey = false
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
     @State private var phrases = KeyboardSettings.savedPhrases
     @State private var phraseDraft = ""
@@ -29,15 +31,61 @@ struct ContentView: View {
                         UIPasteboard.general.string = keyboardDiagnosis
                     }
                 }
-                Section("Chế độ AI kết hợp") {
-                    Toggle("Cho phép gửi nội dung tôi chọn đến AI", isOn: $cloudEnabled)
+                Section("Gemini API - Nhập khóa trực tiếp") {
+                    Toggle("Cho phép gửi nội dung tôi chọn đến Gemini", isOn: $cloudEnabled)
                         .onChange(of: cloudEnabled) { KeyboardSettings.allowCloudAI = $0 }
-                    TextField("https://your-server.example/reply", text: $apiURL)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .onChange(of: apiURL) { KeyboardSettings.apiURL = $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    Text("Offline luôn sẵn sàng. Chỉ khi bấm nút AI Online, nội dung đã chọn mới được gửi tới URL trên. Không đưa khóa API nhà cung cấp vào ứng dụng.")
+                    HStack {
+                        Group {
+                            if showAPIKey {
+                                TextField("Nhập Gemini API Key", text: $geminiAPIKey)
+                            } else {
+                                SecureField("Nhập Gemini API Key", text: $geminiAPIKey)
+                            }
+                        }
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onChange(of: geminiAPIKey) {
+                            KeyboardSettings.geminiAPIKey = $0
+                        }
+                        Button {
+                            showAPIKey.toggle()
+                        } label: {
+                            Image(systemName: showAPIKey ? "eye.slash" : "eye")
+                        }
+                        .accessibilityLabel(showAPIKey ? "Ẩn API Key" : "Hiện API Key")
+                    }
+                    HStack {
+                        Text("Model")
+                        Spacer()
+                        TextField("gemini-2.5-flash", text: $geminiModel)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                    }
+                    Button(loading ? "Đang kiểm tra…" : "Kiểm tra Gemini API") {
+                        loading = true
+                        Task {
+                            do {
+                                let test = try await AIService.reply(to: "Xin chào, bạn có khỏe không?")
+                                feedback = "✅ Gemini hoạt động: nhận được \\(test.count) gợi ý."
+                            } catch {
+                                feedback = "❌ " + error.localizedDescription
+                            }
+                            loading = false
+                        }
+                    }
+                    .disabled(loading || !cloudEnabled || geminiAPIKey.isEmpty)
+                    Button("Xóa API Key", role: .destructive) {
+                        geminiAPIKey = ""
+                        KeyboardSettings.geminiAPIKey = ""
+                        feedback = "Đã xóa khóa API khỏi cấu hình ứng dụng."
+                    }
+                    Text("Khóa được lưu trong vùng dữ liệu chia sẻ App Group để bàn phím có thể sử dụng; chưa được bảo vệ bằng Keychain. Chỉ nhập khóa cá nhân có giới hạn quota, không chia sẻ IPA chứa dữ liệu đã cấu hình. Khi bấm AI, nội dung sẽ gửi trực tiếp tới Google Gemini.")
                         .font(.footnote).foregroundStyle(.secondary)
+                    if !feedback.isEmpty {
+                        Text(feedback).font(.footnote).textSelection(.enabled)
+                    }
                 }
                 Section("Thử câu trả lời") {
                     TextEditor(text: $demoMessage).frame(minHeight: 65)
