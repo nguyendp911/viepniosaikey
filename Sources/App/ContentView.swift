@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var emojiEnabled = KeyboardSettings.emojiEnabled
     @State private var coupleEnabled = KeyboardSettings.coupleEnabled
     @State private var coupleStage = KeyboardSettings.coupleStage
+    @State private var coupleStyle = KeyboardSettings.coupleStyle
     @State private var coupleAddress = KeyboardSettings.coupleAddress
     @State private var typingMode = KeyboardSettings.typingMode
     @State private var keyboardTheme = KeyboardSettings.theme
@@ -92,6 +93,7 @@ struct ContentView: View {
             phrases = KeyboardSettings.savedPhrases
             coupleEnabled = KeyboardSettings.coupleEnabled
             coupleStage = KeyboardSettings.coupleStage
+            coupleStyle = KeyboardSettings.coupleStyle
             coupleAddress = KeyboardSettings.coupleAddress
         }
     }
@@ -282,7 +284,7 @@ struct ContentView: View {
                 HStack(spacing: 7) {
                     Label("Gợi ý theo ngữ cảnh", systemImage: "sparkles")
                     Spacer(minLength: 4)
-                    Text("3 phong cách")
+                    Text("\(CoupleStyleCatalog.styles.count) style · 3 gợi ý")
                 }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.87))
