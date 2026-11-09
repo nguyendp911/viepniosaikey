@@ -1,6 +1,6 @@
 name: ViePNAIKeyboard
 options:
-  bundleIdPrefix: app.turquoise204
+  bundleIdPrefix: com.viepn
   deploymentTarget:
     iOS: "16.0"
 settings:
@@ -18,7 +18,7 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.turquoise204.lynx5076
+        PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: ViePN AI Keyboard
         GENERATE_INFOPLIST_FILE: YES
@@ -38,7 +38,7 @@ targets:
       - path: Sources/Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.turquoise204.lynx5076.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey.keyboard
         INFOPLIST_FILE: Config/KeyboardInfo.plist
         CODE_SIGN_ENTITLEMENTS: Config/Keyboard.entitlements
         PROVISIONING_PROFILE_SPECIFIER: $(KEYBOARD_PROFILE_NAME)
