@@ -26,14 +26,27 @@ final class KeyboardViewController: UIInputViewController {
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var lastVibrationAt: CFTimeInterval = 0
+    // Read App Group preferences when the keyboard opens rather than on each key.
+    private var typingMode = KeyboardSettings.typingMode
+    private var telexEnabled = KeyboardSettings.telexEnabled
+    private var hapticsEnabled = KeyboardSettings.hapticEnabled
+    private var hapticsStyle = KeyboardSettings.hapticStyle
+
+    private func refreshTypingPreferences() {
+        typingMode = KeyboardSettings.typingMode
+        telexEnabled = KeyboardSettings.telexEnabled
+        hapticsEnabled = KeyboardSettings.hapticEnabled
+        hapticsStyle = KeyboardSettings.hapticStyle
+    }
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        refreshTypingPreferences()
         buildKeyboard()
         applyTheme()
-        haptic.prepare()
+        if hapticsEnabled && hapticsStyle == "light" { haptic.prepare() }
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -44,6 +57,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        refreshTypingPreferences()
         applyTheme()
         updateCoupleTool()
     }
@@ -162,6 +176,10 @@ final class KeyboardViewController: UIInputViewController {
             }
             for letter in letters {
                 let key = keyButton(String(letter), action: #selector(letterTapped(_:)))
+                // Register on first touch, not touch-up, for immediate visual
+                // text feedback when typing quickly.
+                key.removeTarget(self, action: #selector(letterTapped(_:)), for: .touchUpInside)
+                key.addTarget(self, action: #selector(letterTapped(_:)), for: .touchDown)
                 letterButtons.append(key)
                 row.addArrangedSubview(key)
             }
@@ -461,18 +479,18 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func tactileFeedback() {
-        guard KeyboardSettings.hapticEnabled else { return }
-        if KeyboardSettings.hapticStyle == "vibrate" {
-            // iOS can refuse UIFeedbackGenerator effects inside third-party
-            // keyboard extensions. Use Apple's public vibration system sound
-            // as an alternative, throttled to avoid flooding with each touch.
+        guard hapticsEnabled else { return }
+        if hapticsStyle == "vibrate" {
+            // System vibration is much heavier than Taptic feedback.
+            // Never make the main typing thread wait for AudioServices.
             let now = CACurrentMediaTime()
-            guard now - lastVibrationAt >= 0.14 else { return }
+            guard now - lastVibrationAt >= 0.25 else { return }
             lastVibrationAt = now
-            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            DispatchQueue.global(qos: .utility).async {
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            }
         } else {
-            haptic.impactOccurred(intensity: 0.85)
-            haptic.prepare()
+            haptic.impactOccurred(intensity: 0.45)
         }
     }
 
@@ -484,34 +502,38 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func letterTapped(_ sender: UIButton) {
-        beginTyping()
         guard let title = sender.title(for: .normal) else { return }
+        beginTyping()
         let key = isUppercase && !isNumbers ? title.uppercased() : title
-        tactileFeedback()
-        if !isNumbers && KeyboardSettings.typingMode == "telex" && KeyboardSettings.telexEnabled,
+
+        if !isNumbers && typingMode == "telex" && telexEnabled,
+           FastTyping.isTelexModifier(key),
            let before = textDocumentProxy.documentContextBeforeInput {
-            // A Telex suffix modifies only the last word before the caret.
+            // Avoid reading host context for normal letters. On a Telex key,
+            // rewrite only the changed suffix rather than the entire word.
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
             if !word.isEmpty,
                let converted = VietnameseTelex.transformed(word: word, key: key),
-               converted != word {
-                for _ in word { textDocumentProxy.deleteBackward() }
-                textDocumentProxy.insertText(converted)
+               let edit = FastTyping.edit(from: word, to: converted) {
+                for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+                if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
                 if isUppercase && !isShiftLocked {
                     isUppercase = false
                     updateKeys()
                 }
+                tactileFeedback()
                 return
             }
         }
-        if isNumbers && KeyboardSettings.typingMode == "vni",
+        if isNumbers && typingMode == "vni",
            let before = textDocumentProxy.documentContextBeforeInput {
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
             if !word.isEmpty,
-               let result = VietnameseVNI.transformed(word: word, key: key),
-               result != word {
-                for _ in word { textDocumentProxy.deleteBackward() }
-                textDocumentProxy.insertText(result)
+               let converted = VietnameseVNI.transformed(word: word, key: key),
+               let edit = FastTyping.edit(from: word, to: converted) {
+                for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+                if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+                tactileFeedback()
                 return
             }
         }
@@ -520,6 +542,7 @@ final class KeyboardViewController: UIInputViewController {
             isUppercase = false
             updateKeys()
         }
+        tactileFeedback()
     }
 
     @objc private func spaceTapped() {
@@ -537,8 +560,11 @@ final class KeyboardViewController: UIInputViewController {
         if KeyboardSettings.autoCapitalize && !isShiftLocked {
             let before = textDocumentProxy.documentContextBeforeInput ?? ""
             let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
-            isUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
-            updateKeys()
+            let nextUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
+            if nextUppercase != isUppercase {
+                isUppercase = nextUppercase
+                updateKeys()
+            }
         }
     }
     @objc private func returnTapped() {
