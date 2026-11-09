@@ -464,6 +464,8 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     }
 
     private func beginTyping() {
+        // Once the user starts composing, do not analyze stale clipboard text.
+        selectedText = ""
         if suggestionContainer != nil { clearSuggestions() }
         if !statusLabel.isHidden {
             statusLabel.isHidden = true
