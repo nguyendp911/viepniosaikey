@@ -602,7 +602,8 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
 
         let actions = makeRow([
             ("📋 Sao chép", #selector(copySuggestion)),
-            ("↻ Thay nháp", #selector(replaceDraft)),
+            ("☆ Lưu", #selector(saveSuggestion)),
+            ("↻ Thay", #selector(replaceDraft)),
             ("➕ Chèn", #selector(insertSuggestion))
         ], height: 34)
         if let row = actions as? UIStackView {
@@ -663,6 +664,16 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         }
         UIPasteboard.general.string = answer
         showStatus("Đã sao chép CHỈ câu trả lời, không kèm tin gốc")
+    }
+
+    @objc private func saveSuggestion() {
+        guard let answer = selectedReply() else { return }
+        var items = KeyboardSettings.favoriteReplies
+        if !items.contains(answer) {
+            items.insert(answer, at: 0)
+            KeyboardSettings.favoriteReplies = items
+        }
+        showStatus("✓ Đã lưu vào thư viện câu trả lời")
     }
 
     @objc private func replaceDraft() {
