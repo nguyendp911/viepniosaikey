@@ -144,8 +144,12 @@ struct ResolvedReplyContext {
 
 enum ConversationContextResolver {
     static func normalize(_ value: String) -> String {
-        value.folding(options: [.diacriticInsensitive, .caseInsensitive],
-                      locale: Locale(identifier: "vi_VN")).lowercased()
+        // Vietnamese đ/Đ are distinct letters, not combining accents; Foundation
+        // diacriticInsensitive does not turn "đi" into "di" by itself.
+        let latinized = value.replacingOccurrences(of: "đ", with: "d")
+            .replacingOccurrences(of: "Đ", with: "D")
+        return latinized.folding(options: [.diacriticInsensitive, .caseInsensitive],
+                                locale: Locale(identifier: "vi_VN")).lowercased()
     }
 
     static func resolve(_ incoming: String) -> ResolvedReplyContext {
