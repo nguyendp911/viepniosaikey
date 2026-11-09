@@ -14,9 +14,12 @@ targets:
     sources:
       - path: Sources/App
       - path: Sources/Shared
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: ViePN AI Keyboard
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_ENTITLEMENTS: Config/App.entitlements
