@@ -27,15 +27,18 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     private let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
+    private var currentTheme: String = ""
 
     override func viewDidLoad() {
         super.viewDidLoad()
         buildKeyboard()
+        applyTheme()
         haptic.prepare()
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        if currentTheme != KeyboardSettings.theme { applyTheme() }
         // Avoid erasing the reply when the host app changes text focus.
     }
 
@@ -246,6 +249,48 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         return row
     }
 
+    private func applyTheme() {
+        currentTheme = KeyboardSettings.theme
+        let primary: UIColor
+        let keyColor: UIColor
+        let canvas: UIColor
+        switch currentTheme {
+        case "midnight":
+            canvas = UIColor(red: 0.09, green: 0.11, blue: 0.19, alpha: 1)
+            keyColor = UIColor(red: 0.18, green: 0.22, blue: 0.33, alpha: 1)
+            primary = .white
+        case "ocean":
+            canvas = UIColor(red: 0.73, green: 0.87, blue: 0.94, alpha: 1)
+            keyColor = .white
+            primary = UIColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)
+        case "rose":
+            canvas = UIColor(red: 0.95, green: 0.84, blue: 0.89, alpha: 1)
+            keyColor = .white
+            primary = UIColor(red: 0.23, green: 0.13, blue: 0.24, alpha: 1)
+        default:
+            view.backgroundColor = UIColor { trait in
+                trait.userInterfaceStyle == .dark ? UIColor(red: 0.12, green: 0.14, blue: 0.20, alpha: 1)
+                    : UIColor(red: 0.89, green: 0.91, blue: 0.96, alpha: 1)
+            }
+            return
+        }
+        view.backgroundColor = canvas
+        for button in letterButtons {
+            button.backgroundColor = keyColor
+            button.setTitleColor(primary, for: .normal)
+        }
+        for row in letterRows {
+            for case let button as UIButton in row.arrangedSubviews where !letterButtons.contains(button) {
+                button.backgroundColor = canvas.withAlphaComponent(0.8)
+                button.setTitleColor(primary, for: .normal)
+            }
+        }
+    }
+
+    private func tactileFeedback() {
+        if KeyboardSettings.hapticEnabled { haptic.impactOccurred(intensity: 0.4) }
+    }
+
     @objc private func punctuationTapped(_ sender: UIButton) {
         beginTyping()
         guard let character = sender.title(for: .normal) else { return }
@@ -256,7 +301,8 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         beginTyping()
         guard let title = sender.title(for: .normal) else { return }
         let key = isUppercase && !isNumbers ? title.uppercased() : title
-        if !isNumbers && KeyboardSettings.telexEnabled,
+        tactileFeedback()
+        if !isNumbers && KeyboardSettings.typingMode == "telex" && KeyboardSettings.telexEnabled,
            let before = textDocumentProxy.documentContextBeforeInput {
             // A Telex suffix modifies only the last word before the caret.
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
@@ -272,6 +318,17 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
                 return
             }
         }
+        if isNumbers && KeyboardSettings.typingMode == "vni",
+           let before = textDocumentProxy.documentContextBeforeInput {
+            let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
+            if !word.isEmpty,
+               let result = VietnameseVNI.transformed(word: word, key: key),
+               result != word {
+                for _ in word { textDocumentProxy.deleteBackward() }
+                textDocumentProxy.insertText(result)
+                return
+            }
+        }
         textDocumentProxy.insertText(key)
         if isUppercase && !isShiftLocked {
             isUppercase = false
@@ -279,9 +336,21 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         }
     }
 
-    @objc private func spaceTapped() { beginTyping(); textDocumentProxy.insertText(" ") }
+    @objc private func spaceTapped() {
+        beginTyping()
+        tactileFeedback()
+        if let context = textDocumentProxy.documentContextBeforeInput {
+            let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
+            if let replacement = KeyboardSettings.replacementDictionary[word.lowercased()],
+               !word.isEmpty, word.count <= 30 {
+                for _ in word { textDocumentProxy.deleteBackward() }
+                textDocumentProxy.insertText(replacement)
+            }
+        }
+        textDocumentProxy.insertText(" ")
+    }
     @objc private func returnTapped() { textDocumentProxy.insertText("\n") }
-    @objc private func deleteTapped() { beginTyping(); textDocumentProxy.deleteBackward() }
+    @objc private func deleteTapped() { beginTyping(); tactileFeedback(); textDocumentProxy.deleteBackward() }
 
     @objc private func shiftTapped() {
         if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
