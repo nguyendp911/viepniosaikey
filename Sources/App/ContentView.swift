@@ -302,6 +302,53 @@ struct ContentView: View {
                 .tint(.white)
                 .onChange(of: coupleAddress) { KeyboardSettings.coupleAddress = $0 }
 
+                HStack {
+                    Text("Phong cách trả lời AI")
+                        .font(.system(size: 13, weight: .bold))
+                    Spacer()
+                    Text("\(CoupleStyleCatalog.styles.count) lựa chọn")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.76))
+                }
+                Picker("Phong cách Couple", selection: $coupleStyle) {
+                    ForEach(CoupleStyleCatalog.styles) { style in
+                        Text(style.icon + " " + style.title).tag(style.id)
+                    }
+                }
+                .tint(.white)
+                .onChange(of: coupleStyle) { KeyboardSettings.coupleStyle = $0 }
+
+                Text(CoupleStyleCatalog.selected(coupleStyle).icon + "  " +
+                     CoupleStyleCatalog.selected(coupleStyle).summary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.84))
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach(["sweet", "flirty", "funny", "mature", "reconcile", "boundaries"],
+                                id: \.self) { id in
+                            let style = CoupleStyleCatalog.selected(id)
+                            Button {
+                                coupleStyle = id
+                                KeyboardSettings.coupleStyle = id
+                            } label: {
+                                Text(style.icon + " " + style.title)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        coupleStyle == id ? Color.white.opacity(0.28) :
+                                            Color.white.opacity(0.12), in: Capsule()
+                                    )
+                                    .overlay(Capsule().stroke(.white.opacity(coupleStyle == id ? 0.65 : 0.2), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+
                 Text("Hiểu lời hỏi thăm, nhớ nhung, giận dỗi, xin lỗi, ghen và làm hòa. Khi có sự ép buộc hay mất an toàn, AI ưu tiên tôn trọng và ranh giới.")
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.88))
