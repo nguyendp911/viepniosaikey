@@ -40,6 +40,12 @@ final class KeyboardViewController: UIInputViewController {
         // Avoid erasing the reply when the host app changes text focus.
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyTheme()
+        updateCoupleTool()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
@@ -277,28 +283,78 @@ final class KeyboardViewController: UIInputViewController {
 
     private func applyTheme() {
         currentTheme = KeyboardSettings.theme
-        let primary: UIColor
-        let keyColor: UIColor
         let canvas: UIColor
+        let keyColor: UIColor
+        let primary: UIColor
+        let modifier: UIColor
         switch currentTheme {
         case "midnight":
             canvas = UIColor(red: 0.09, green: 0.11, blue: 0.19, alpha: 1)
             keyColor = UIColor(red: 0.18, green: 0.22, blue: 0.33, alpha: 1)
             primary = .white
+            modifier = UIColor(red: 0.26, green: 0.30, blue: 0.43, alpha: 1)
         case "ocean":
             canvas = UIColor(red: 0.73, green: 0.87, blue: 0.94, alpha: 1)
-            keyColor = .white
-            primary = UIColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)
+            keyColor = UIColor(red: 0.96, green: 0.99, blue: 1, alpha: 1)
+            primary = UIColor(red: 0.10, green: 0.18, blue: 0.28, alpha: 1)
+            modifier = UIColor(red: 0.56, green: 0.74, blue: 0.85, alpha: 1)
         case "rose":
             canvas = UIColor(red: 0.95, green: 0.84, blue: 0.89, alpha: 1)
-            keyColor = .white
-            primary = UIColor(red: 0.23, green: 0.13, blue: 0.24, alpha: 1)
+            keyColor = UIColor(red: 1, green: 0.97, blue: 0.98, alpha: 1)
+            primary = UIColor(red: 0.25, green: 0.14, blue: 0.24, alpha: 1)
+            modifier = UIColor(red: 0.86, green: 0.66, blue: 0.77, alpha: 1)
+        case "lavender":
+            canvas = UIColor(red: 0.83, green: 0.80, blue: 0.96, alpha: 1)
+            keyColor = UIColor(red: 0.98, green: 0.97, blue: 1, alpha: 1)
+            primary = UIColor(red: 0.20, green: 0.17, blue: 0.35, alpha: 1)
+            modifier = UIColor(red: 0.68, green: 0.62, blue: 0.86, alpha: 1)
+        case "mint":
+            canvas = UIColor(red: 0.77, green: 0.92, blue: 0.86, alpha: 1)
+            keyColor = UIColor(red: 0.97, green: 1, blue: 0.99, alpha: 1)
+            primary = UIColor(red: 0.11, green: 0.28, blue: 0.25, alpha: 1)
+            modifier = UIColor(red: 0.54, green: 0.78, blue: 0.70, alpha: 1)
+        case "sunset":
+            canvas = UIColor(red: 0.94, green: 0.78, blue: 0.72, alpha: 1)
+            keyColor = UIColor(red: 1, green: 0.97, blue: 0.94, alpha: 1)
+            primary = UIColor(red: 0.35, green: 0.19, blue: 0.20, alpha: 1)
+            modifier = UIColor(red: 0.86, green: 0.62, blue: 0.57, alpha: 1)
+        case "graphite":
+            canvas = UIColor(red: 0.14, green: 0.15, blue: 0.17, alpha: 1)
+            keyColor = UIColor(red: 0.28, green: 0.29, blue: 0.32, alpha: 1)
+            primary = .white
+            modifier = UIColor(red: 0.37, green: 0.39, blue: 0.43, alpha: 1)
+        case "sakura":
+            canvas = UIColor(red: 0.98, green: 0.88, blue: 0.92, alpha: 1)
+            keyColor = UIColor(red: 1, green: 0.98, blue: 0.99, alpha: 1)
+            primary = UIColor(red: 0.37, green: 0.20, blue: 0.31, alpha: 1)
+            modifier = UIColor(red: 0.91, green: 0.73, blue: 0.80, alpha: 1)
+        case "forest":
+            canvas = UIColor(red: 0.15, green: 0.25, blue: 0.22, alpha: 1)
+            keyColor = UIColor(red: 0.23, green: 0.38, blue: 0.31, alpha: 1)
+            primary = .white
+            modifier = UIColor(red: 0.32, green: 0.47, blue: 0.40, alpha: 1)
+        case "sand":
+            canvas = UIColor(red: 0.92, green: 0.88, blue: 0.79, alpha: 1)
+            keyColor = UIColor(red: 1, green: 0.99, blue: 0.95, alpha: 1)
+            primary = UIColor(red: 0.29, green: 0.24, blue: 0.20, alpha: 1)
+            modifier = UIColor(red: 0.78, green: 0.72, blue: 0.62, alpha: 1)
+        case "aurora":
+            canvas = UIColor(red: 0.08, green: 0.20, blue: 0.26, alpha: 1)
+            keyColor = UIColor(red: 0.14, green: 0.32, blue: 0.38, alpha: 1)
+            primary = .white
+            modifier = UIColor(red: 0.22, green: 0.45, blue: 0.47, alpha: 1)
         default:
-            view.backgroundColor = UIColor { trait in
-                trait.userInterfaceStyle == .dark ? UIColor(red: 0.12, green: 0.14, blue: 0.20, alpha: 1)
+            canvas = UIColor { trait in
+                trait.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.12, green: 0.14, blue: 0.20, alpha: 1)
                     : UIColor(red: 0.89, green: 0.91, blue: 0.96, alpha: 1)
             }
-            return
+            keyColor = .systemBackground
+            primary = .label
+            modifier = UIColor { trait in
+                trait.userInterfaceStyle == .dark ? UIColor(white: 0.24, alpha: 1)
+                    : UIColor(red: 0.72, green: 0.76, blue: 0.82, alpha: 1)
+            }
         }
         view.backgroundColor = canvas
         for button in letterButtons {
@@ -307,10 +363,25 @@ final class KeyboardViewController: UIInputViewController {
         }
         for row in letterRows {
             for case let button as UIButton in row.arrangedSubviews where !letterButtons.contains(button) {
-                button.backgroundColor = canvas.withAlphaComponent(0.8)
+                button.backgroundColor = modifier
                 button.setTitleColor(primary, for: .normal)
             }
         }
+        if let bottom = secondaryRow {
+            for (index, item) in bottom.arrangedSubviews.enumerated() {
+                guard let button = item as? UIButton, index != bottom.arrangedSubviews.count - 1 else { continue }
+                button.backgroundColor = index == 3 ? keyColor : modifier
+                button.setTitleColor(primary, for: .normal)
+            }
+        }
+        // Do not overwrite the colored Couple and AI buttons or the Paste selector.
+        for index in [3, 4] where index < toolButtons.count {
+            toolButtons[index].backgroundColor = keyColor
+            toolButtons[index].setTitleColor(primary, for: .normal)
+        }
+        previewLabel.backgroundColor = keyColor
+        previewLabel.textColor = primary
+        statusLabel.textColor = primary
     }
 
     private func tactileFeedback() {
