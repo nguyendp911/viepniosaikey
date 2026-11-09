@@ -79,13 +79,13 @@ struct ContentView: View {
                     VStack(spacing: 12) {
                         if selectedPage == "couple" {
                             coupleStudio
+                            testArea
+                            savedReplies
                         } else if selectedPage == "ai" {
                             aiConfiguration
                         } else if selectedPage == "keyboard" {
                             personalization
                         } else {
-                            testArea
-                            savedReplies
                             activationGuide
                             keyboardDiagnostics
                             privacyInfo
@@ -297,128 +297,256 @@ struct ContentView: View {
     }
 
     private var coupleStudio: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.17), in: RoundedRectangle(cornerRadius: 13))
-                VStack(alignment: .leading, spacing: 4) {
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Color(red: 1, green: 0.60, blue: 0.75))
+                    .frame(width: 39, height: 39)
+                    .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Couple Studio")
-                        .font(.system(size: 18, weight: .bold))
-                    Text("Trợ lý nhắn tin tình cảm tinh tế hơn")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.79))
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("Gợi ý tình cảm, đúng ngữ cảnh")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
                 }
                 Spacer(minLength: 0)
-                Toggle("Bật Couple", isOn: $coupleEnabled)
+                Toggle("Couple", isOn: $coupleEnabled)
                     .labelsHidden()
-                    .tint(Color(red: 1, green: 0.54, blue: 0.71))
+                    .tint(Color(red: 0.91, green: 0.35, blue: 0.63))
                     .onChange(of: coupleEnabled) {
                         KeyboardSettings.coupleEnabled = $0
                     }
             }
+
             if coupleEnabled {
-                HStack(spacing: 7) {
-                    Label("Gợi ý theo ngữ cảnh", systemImage: "sparkles")
-                    Spacer(minLength: 4)
-                    Text("\(CoupleStyleCatalog.styles.count) style · 3 gợi ý")
-                }
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.87))
-                Picker("Giai đoạn mối quan hệ", selection: $coupleStage) {
-                    ForEach(["Mới quen", "Đang tìm hiểu", "Đang yêu", "Yêu xa", "Đã kết hôn"],
-                            id: \.self) { Text($0) }
-                }
-                .tint(.white)
-                .onChange(of: coupleStage) { KeyboardSettings.coupleStage = $0 }
-
-                Picker("Cách xưng hô", selection: $coupleAddress) {
-                    ForEach(["anh/em", "em/anh", "mình/cậu", "tớ/cậu", "bạn/mình"],
-                            id: \.self) { Text($0) }
-                }
-                .tint(.white)
-                .onChange(of: coupleAddress) { KeyboardSettings.coupleAddress = $0 }
-
-                HStack {
-                    Text("Phong cách trả lời AI")
-                        .font(.system(size: 13, weight: .bold))
-                    Spacer()
-                    Text("\(CoupleStyleCatalog.styles.count) lựa chọn")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.76))
-                }
-                Picker("Phong cách Couple", selection: $coupleStyle) {
-                    ForEach(CoupleStyleCatalog.styles) { style in
-                        Text(style.icon + " " + style.title).tag(style.id)
+                HStack(spacing: 8) {
+                    coupleChoice(
+                        title: "Mối quan hệ", value: coupleStage,
+                        options: ["Mới quen", "Đang tìm hiểu", "Đang yêu", "Yêu xa", "Đã kết hôn"]
+                    ) { option in
+                        coupleStage = option
+                        KeyboardSettings.coupleStage = option
+                    }
+                    coupleChoice(
+                        title: "Xưng hô", value: coupleAddress,
+                        options: ["anh/em", "em/anh", "mình/cậu", "tớ/cậu", "bạn/mình"]
+                    ) { option in
+                        coupleAddress = option
+                        KeyboardSettings.coupleAddress = option
                     }
                 }
-                .tint(.white)
-                .onChange(of: coupleStyle) { KeyboardSettings.coupleStyle = $0 }
 
-                Text(CoupleStyleCatalog.selected(coupleStyle).icon + "  " +
-                     CoupleStyleCatalog.selected(coupleStyle).summary)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.84))
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 7) {
-                        ForEach(["sweet", "flirty", "funny", "mature", "reconcile", "boundaries"],
-                                id: \.self) { id in
-                            let style = CoupleStyleCatalog.selected(id)
-                            Button {
-                                coupleStyle = id
-                                KeyboardSettings.coupleStyle = id
-                            } label: {
-                                Text(style.icon + " " + style.title)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        coupleStyle == id ? Color.white.opacity(0.28) :
-                                            Color.white.opacity(0.12), in: Capsule()
-                                    )
-                                    .overlay(Capsule().stroke(.white.opacity(coupleStyle == id ? 0.65 : 0.2), lineWidth: 1))
+                Menu {
+                    ForEach(CoupleStyleCatalog.styles) { style in
+                        Button {
+                            coupleStyle = style.id
+                            KeyboardSettings.coupleStyle = style.id
+                        } label: {
+                            Text(style.icon + " " + style.title)
+                            if style.id == coupleStyle {
+                                Image(systemName: "checkmark")
                             }
-                            .buttonStyle(.plain)
                         }
                     }
+                } label: {
+                    HStack(spacing: 9) {
+                        Text(CoupleStyleCatalog.selected(coupleStyle).icon)
+                            .font(.system(size: 19))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Phong cách hiện tại")
+                                .font(.system(size: 10))
+                                .foregroundStyle(muted)
+                            Text(CoupleStyleCatalog.selected(coupleStyle).title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        Spacer(minLength: 0)
+                        Text("18 style")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(muted)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(muted)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(.white.opacity(0.055),
+                                in: RoundedRectangle(cornerRadius: 12))
                 }
 
+                HStack {
+                    Text("CHỌN NHANH")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.0)
+                        .foregroundStyle(muted)
+                    Spacer()
+                    Text("3 câu trả lời / lượt")
+                        .font(.system(size: 10))
+                        .foregroundStyle(muted)
+                }
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 7),
+                                    GridItem(.flexible(), spacing: 7)], spacing: 7) {
+                    ForEach(["sweet", "flirty", "funny", "gentle", "mature", "reconcile"],
+                            id: \.self) { id in
+                        let style = CoupleStyleCatalog.selected(id)
+                        Button {
+                            coupleStyle = id
+                            KeyboardSettings.coupleStyle = id
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(style.icon).font(.system(size: 14))
+                                Text(style.title)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                Spacer(minLength: 0)
+                                if id == coupleStyle {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(id == coupleStyle ? Color.white : muted)
+                            .padding(.horizontal, 10)
+                            .frame(height: 34)
+                            .background(
+                                id == coupleStyle
+                                    ? Color(red: 0.65, green: 0.28, blue: 0.58)
+                                    : Color.white.opacity(0.06),
+                                in: RoundedRectangle(cornerRadius: 10)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(id == coupleStyle
+                                            ? Color.pink.opacity(0.38)
+                                            : Color.white.opacity(0.06), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
 
-                Text("Hiểu lời hỏi thăm, nhớ nhung, giận dỗi, xin lỗi, ghen và làm hòa. Khi có sự ép buộc hay mất an toàn, AI ưu tiên tôn trọng và ranh giới.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.88))
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "text.bubble.fill")
+                        .foregroundStyle(Color(red: 1, green: 0.63, blue: 0.78))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("VÍ DỤ MINH HỌA")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(muted)
+                        Text(coupleSample(for: coupleStyle))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(11)
+                .background(.white.opacity(0.045),
+                            in: RoundedRectangle(cornerRadius: 12))
 
-                Text("Sử dụng ví dụ hội thoại giả lập để hướng dẫn model. Không tự đọc, lưu hoặc dùng cuộc trò chuyện riêng tư để huấn luyện.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.67))
-                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showCouplePrivacy.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.shield")
+                        Text("Riêng tư · Không tự thu thập cuộc trò chuyện")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        Spacer(minLength: 0)
+                        Image(systemName: showCouplePrivacy ? "chevron.up" : "chevron.down")
+                    }
+                    .font(.system(size: 10))
+                    .foregroundStyle(muted)
+                }
+                .buttonStyle(.plain)
+                if showCouplePrivacy {
+                    Text("Ứng dụng sử dụng ví dụ hội thoại giả lập để hướng dẫn AI, không tự dùng cuộc trò chuyện cá nhân để huấn luyện. Nội dung chỉ gửi đến AI khi bạn chủ động yêu cầu.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
-                Text("Bật khi muốn tạo câu trả lời Couple ngọt ngào, tự nhiên và đúng hoàn cảnh. Bạn cũng có thể bật/tắt ngay trên bàn phím.")
+                Text("Bật để tạo các câu trả lời tình cảm theo tình huống và phong cách bạn chọn.")
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.84))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(17)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .foregroundStyle(.white)
         .background(
             LinearGradient(
-                colors: [Color(red: 0.38, green: 0.22, blue: 0.68),
-                         Color(red: 0.67, green: 0.25, blue: 0.52),
-                         Color(red: 0.83, green: 0.36, blue: 0.55)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
+                colors: [Color(red: 0.17, green: 0.13, blue: 0.28),
+                         Color(red: 0.26, green: 0.14, blue: 0.30)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(.white.opacity(0.19), lineWidth: 1)
-        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.pink.opacity(0.15), lineWidth: 1)
+        }
+    }
+
+    private func coupleChoice(
+        title: String, value: String, options: [String],
+        action: @escaping (String) -> Void
+    ) -> some View {
+        Menu {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    action(option)
+                } label: {
+                    Text(option)
+                    if value == option { Image(systemName: "checkmark") }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 10))
+                        .foregroundStyle(muted)
+                    Text(value)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(muted)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 49)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.065),
+                        in: RoundedRectangle(cornerRadius: 11))
+        }
+    }
+
+    private func coupleSample(for style: String) -> String {
+        switch style {
+        case "sweet": return "Ngủ ngon nha, mai kể nhau nghe chuyện hôm nay nhé 💗"
+        case "romantic": return "Tối nay ngắm trời, tự nhiên lại nhớ đến em 🌙"
+        case "flirty": return "Hình như hôm nay anh thiếu một tin nhắn từ em đó ✨"
+        case "funny": return "Mình nói chuyện chút đi, anh đang thiếu vitamin em 😄"
+        case "playful": return "Đang bận nghĩ xem ai dễ thương hơn ai nè 😜"
+        case "gentle": return "Em cứ nghỉ ngơi nhé, khi nào muốn kể anh nghe."
+        case "caring": return "Hôm nay của em ổn không? Muốn kể anh nghe không? 🌷"
+        case "mature": return "Mình cứ bình tĩnh nói rõ điều cả hai cần nhé."
+        case "reconcile": return "Anh muốn hiểu em hơn, mình nói chuyện khi sẵn sàng nhé."
+        case "boundaries": return "Điều đó làm em không thoải mái. Mong anh tôn trọng nhé."
+        case "longdistance": return "Xa nhau chút thôi, tối mình gọi nhau nhé 🤍"
+        case "minimal": return "Ừ, anh nghe em nè."
+        default: return "Hôm nay em thế nào? Kể anh nghe một chút nhé."
+        }
     }
 
     private var aiConfiguration: some View {
