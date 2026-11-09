@@ -106,7 +106,7 @@ enum KeyboardSettings {
     // Some iOS keyboard extensions cannot use UIFeedbackGenerator reliably.
     // "vibrate" uses Apple's public AudioToolbox vibration as an alternative.
     static var hapticStyle: String {
-        get { defaults.string(forKey: prefix + "hapticStyle") ?? "vibrate" }
+        get { defaults.string(forKey: prefix + "hapticStyle") ?? "light" }
         set { defaults.set(["light", "vibrate"].contains(newValue) ? newValue : "vibrate",
                            forKey: prefix + "hapticStyle") }
     }
