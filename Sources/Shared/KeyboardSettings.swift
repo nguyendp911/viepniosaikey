@@ -49,6 +49,10 @@ enum KeyboardSettings {
         get { defaults.bool(forKey: prefix + "allowCloudAI") }
         set { defaults.set(newValue, forKey: prefix + "allowCloudAI") }
     }
+    static var telexEnabled: Bool {
+        get { defaults.object(forKey: prefix + "telexEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "telexEnabled") }
+    }
     static var savedPhrases: [String] {
         get { defaults.stringArray(forKey: prefix + "phrases") ?? ["Xin chào, mình có thể hỗ trợ gì cho bạn?", "Cảm ơn bạn đã liên hệ!", "Mình sẽ phản hồi bạn sớm nhé."] }
         set { defaults.set(Array(newValue.prefix(30)), forKey: prefix + "phrases") }
