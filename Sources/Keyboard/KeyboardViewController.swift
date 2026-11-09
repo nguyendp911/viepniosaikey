@@ -176,11 +176,19 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     private func installSystemPasteControl(into commands: UIView) {
         guard let toolbar = commands as? UIStackView,
               let old = toolbar.arrangedSubviews.first as? UIButton else { return }
-        // iOS-approved user-initiated paste. Never read the clipboard directly.
+        // A system paste control does not trigger the repeated iOS clipboard
+        // approval prompt when explicitly tapped. Never access UIPasteboard
+        // from this control; the authorized text flows to pasteReceiver.
         pasteReceiver.delegate = self
+        pasteReceiver.isEditable = true
+        pasteReceiver.isSelectable = true
+        pasteReceiver.pasteConfiguration = UIPasteConfiguration(
+            acceptableTypeIdentifiers: ["public.utf8-plain-text", "public.plain-text", "public.text"]
+        )
         pasteReceiver.translatesAutoresizingMaskIntoConstraints = false
-        pasteReceiver.alpha = 0.01
         pasteReceiver.isScrollEnabled = false
+        pasteReceiver.alpha = 1
+        pasteReceiver.backgroundColor = .clear
         view.addSubview(pasteReceiver)
         NSLayoutConstraint.activate([
             pasteReceiver.widthAnchor.constraint(equalToConstant: 1),
@@ -188,17 +196,52 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
             pasteReceiver.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             pasteReceiver.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+
         let config = UIPasteControl.Configuration()
-        config.displayMode = .iconAndLabel
-        config.cornerStyle = .capsule
+        config.displayMode = .labelOnly
+        config.cornerStyle = .medium
         config.baseBackgroundColor = UIColor.systemBackground
         config.baseForegroundColor = UIColor.label
         let control = UIPasteControl(configuration: config)
         control.target = pasteReceiver
-        control.accessibilityLabel = "Dán nội dung để phân tích"
+        control.accessibilityLabel = "Dán để AI phân tích"
+        control.translatesAutoresizingMaskIntoConstraints = false
+
+        // In compact third-party keyboard layouts, iOS can suppress the
+        // system control's glyph/text when the pasteboard is empty. Keep a
+        // non-interactive, readable label on its face, without replacing its
+        // native hit target (or bypassing the system paste permission).
+        let tile = UIView()
+        tile.translatesAutoresizingMaskIntoConstraints = false
+        tile.layer.cornerRadius = 11
+        tile.clipsToBounds = true
+        tile.addSubview(control)
+        NSLayoutConstraint.activate([
+            control.leadingAnchor.constraint(equalTo: tile.leadingAnchor),
+            control.trailingAnchor.constraint(equalTo: tile.trailingAnchor),
+            control.topAnchor.constraint(equalTo: tile.topAnchor),
+            control.bottomAnchor.constraint(equalTo: tile.bottomAnchor)
+        ])
+        let title = UILabel()
+        title.text = "📋 Dán"
+        title.textAlignment = .center
+        title.font = .systemFont(ofSize: 13, weight: .semibold)
+        title.textColor = .label
+        title.adjustsFontSizeToFitWidth = true
+        title.minimumScaleFactor = 0.75
+        title.isUserInteractionEnabled = false
+        title.translatesAutoresizingMaskIntoConstraints = false
+        tile.addSubview(title)
+        NSLayoutConstraint.activate([
+            title.leadingAnchor.constraint(equalTo: tile.leadingAnchor, constant: 3),
+            title.trailingAnchor.constraint(equalTo: tile.trailingAnchor, constant: -3),
+            title.topAnchor.constraint(equalTo: tile.topAnchor),
+            title.bottomAnchor.constraint(equalTo: tile.bottomAnchor)
+        ])
+
         toolbar.removeArrangedSubview(old)
         old.removeFromSuperview()
-        toolbar.insertArrangedSubview(control, at: 0)
+        toolbar.insertArrangedSubview(tile, at: 0)
         systemPasteButton = control
     }
 
