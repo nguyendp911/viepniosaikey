@@ -119,7 +119,24 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
-        textDocumentProxy.insertText(isUppercase ? title.uppercased() : title)
+        let key = isUppercase && !isNumbers ? title.uppercased() : title
+        if !isNumbers && KeyboardSettings.telexEnabled,
+           let before = textDocumentProxy.documentContextBeforeInput {
+            // A Telex suffix modifies only the last word before the caret.
+            let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
+            if !word.isEmpty,
+               let converted = VietnameseTelex.transformed(word: word, key: key),
+               converted != word {
+                for _ in word { textDocumentProxy.deleteBackward() }
+                textDocumentProxy.insertText(converted)
+                if isUppercase && !isShiftLocked {
+                    isUppercase = false
+                    updateKeys()
+                }
+                return
+            }
+        }
+        textDocumentProxy.insertText(key)
         if isUppercase && !isShiftLocked {
             isUppercase = false
             updateKeys()
@@ -316,8 +333,7 @@ final class KeyboardViewController: UIInputViewController {
         // incomplete context exposed by secure/restricted third-party fields.
         guard textDocumentProxy.selectedText == nil,
               let before = textDocumentProxy.documentContextBeforeInput,
-              let after = textDocumentProxy.documentContextAfterInput,
-              after.isEmpty,
+              (textDocumentProxy.documentContextAfterInput ?? "").isEmpty,
               before.count <= 2000 else {
             statusLabel.text = "Không thể thay an toàn · Chọn Sao chép rồi tự dán"
             return
