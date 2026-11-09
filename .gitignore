@@ -1,0 +1,10 @@
+.DS_Store
+*.xcuserstate
+**/xcuserdata/
+.build/
+DerivedData/
+ViePNAIKeyboard.xcodeproj/
+.env
+*.p12
+*.mobileprovision
+artifacts/
