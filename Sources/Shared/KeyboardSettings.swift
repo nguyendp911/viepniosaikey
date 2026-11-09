@@ -57,6 +57,42 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "telexEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "telexEnabled") }
     }
+    static var typingMode: String {
+        get { defaults.string(forKey: prefix + "typingMode") ?? "telex" }
+        set { defaults.set(["telex", "vni", "off"].contains(newValue) ? newValue : "telex", forKey: prefix + "typingMode") }
+    }
+    static var theme: String {
+        get { defaults.string(forKey: prefix + "theme") ?? "system" }
+        set { defaults.set(["system", "midnight", "ocean", "rose"].contains(newValue) ? newValue : "system", forKey: prefix + "theme") }
+    }
+    static var hapticEnabled: Bool {
+        get { defaults.object(forKey: prefix + "hapticEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "hapticEnabled") }
+    }
+    static var preferredTone: String {
+        get { defaults.string(forKey: prefix + "preferredTone") ?? "Tự nhiên" }
+        set { defaults.set(newValue, forKey: prefix + "preferredTone") }
+    }
+    static var preferredLength: String {
+        get { defaults.string(forKey: prefix + "preferredLength") ?? "Ngắn" }
+        set { defaults.set(newValue, forKey: prefix + "preferredLength") }
+    }
+    static var fallbackModel: String {
+        get { defaults.string(forKey: prefix + "fallbackModel") ?? "" }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "fallbackModel") }
+    }
+    static var replacementDictionary: [String: String] {
+        get { defaults.dictionary(forKey: prefix + "replacementDictionary") as? [String: String] ?? ["ko": "không", "dc": "được", "mk": "mình"] }
+        set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(100)).map { ($0.key, $0.value) }), forKey: prefix + "replacementDictionary") }
+    }
+    static var favoriteReplies: [String] {
+        get { defaults.stringArray(forKey: prefix + "favoriteReplies") ?? [] }
+        set { defaults.set(Array(newValue.prefix(50)), forKey: prefix + "favoriteReplies") }
+    }
+    static var translationLanguage: String {
+        get { defaults.string(forKey: prefix + "translationLanguage") ?? "English" }
+        set { defaults.set(newValue, forKey: prefix + "translationLanguage") }
+    }
     static var savedPhrases: [String] {
         get { defaults.stringArray(forKey: prefix + "phrases") ?? ["Xin chào, mình có thể hỗ trợ gì cho bạn?", "Cảm ơn bạn đã liên hệ!", "Mình sẽ phản hồi bạn sớm nhé."] }
         set { defaults.set(Array(newValue.prefix(30)), forKey: prefix + "phrases") }
