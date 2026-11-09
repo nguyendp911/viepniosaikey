@@ -102,10 +102,13 @@ enum AIWritingService {
             let message = choices.first?["message"] as? [String: Any]
             raw = message?["content"] as? String ?? ""
         }
-        guard let json = raw.data(using: .utf8),
-              let payload = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
-              let edited = payload["text"] as? String else {
-            throw AIServiceError.malformedResponse("Model trả về định dạng không phù hợp.")
+        var edited = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let json = edited.data(using: .utf8),
+           let payload = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+           let value = payload["text"] as? String {
+            edited = value
+        } else if edited.hasPrefix("{") || edited.hasPrefix("[") {
+            throw AIServiceError.malformedResponse("Model trả JSON lỗi khi viết lại. Hãy thử lại.")
         }
         let result = edited.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !result.isEmpty else { throw AIServiceError.invalidResponse }
