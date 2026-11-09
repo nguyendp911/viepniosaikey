@@ -11,6 +11,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Prepare ViePN AI Keyboard logo
+        run: sh scripts/prepare-app-icon.sh
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Validate and build device app without signing
@@ -26,6 +28,8 @@ jobs:
           set -euo pipefail
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/ViePNAIKeyboard.app"
           test -d "$APP"
+          test -s "$APP/Assets.car"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$APP/Info.plist" | grep -Fx 'AppIcon'
           EXT="$APP/PlugIns/ViePNKeyboardExtension.appex"
           test -d "$EXT"
           echo "Checking embedded keyboard extension..."
@@ -53,6 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
+      - run: sh scripts/prepare-app-icon.sh
       - run: xcodegen generate
       - name: Validate signing secrets
         env:
