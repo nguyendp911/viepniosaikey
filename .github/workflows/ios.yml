@@ -42,7 +42,7 @@ jobs:
           echo "Checking embedded keyboard extension..."
           /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist" | grep -Fx 'com.apple.keyboard-service'
           /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPrincipalClass' "$EXT/Info.plist" | grep -F 'KeyboardViewController'
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist" | grep -Fx 'com.viepn.aikey.keyboard'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist" | grep -Fx 'app.turquoise204.lynx5076.keyboard'
           test -f "$EXT/ViePNKeyboardExtension"
           echo "Keyboard extension bundle verified."
           mkdir -p "$RUNNER_TEMP/Unsigned/Payload" artifacts
@@ -127,8 +127,8 @@ jobs:
           <key>signingStyle</key><string>manual</string>
           <key>teamID</key><string>$DEVELOPMENT_TEAM</string>
           <key>provisioningProfiles</key><dict>
-          <key>com.viepn.aikey</key><string>$APP_PROFILE_NAME</string>
-          <key>com.viepn.aikey.keyboard</key><string>$KEYBOARD_PROFILE_NAME</string>
+          <key>app.turquoise204.lynx5076</key><string>$APP_PROFILE_NAME</string>
+          <key>app.turquoise204.lynx5076.keyboard</key><string>$KEYBOARD_PROFILE_NAME</string>
           </dict></dict></plist>
           EOF
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/ViePN.xcarchive" \
