@@ -94,6 +94,7 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         }
         container.addArrangedSubview(commands)
         installSystemPasteControl(into: commands)
+        installWritingActions()
         updateEmojiTool()
 
         previewLabel.numberOfLines = 2
@@ -205,6 +206,50 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
         showStatus("✓ Đã chọn nội dung, chạm AI để phân tích")
+    }
+
+
+    private func installWritingActions() {
+        guard toolButtons.count > 2 else { return }
+        let actions = AIWritingAction.allCases.map { action in
+            UIAction(title: action.rawValue, image: UIImage(systemName: "wand.and.stars")) { [weak self] _ in
+                self?.performWritingAction(action)
+            }
+        }
+        toolButtons[2].menu = UIMenu(title: "AI viết lại & dịch", children: actions)
+        toolButtons[2].showsMenuAsPrimaryAction = false
+        toolButtons[2].accessibilityHint = "Chạm để trả lời; nhấn giữ để sửa câu, dịch hoặc viết lại."
+    }
+
+    private func performWritingAction(_ action: AIWritingAction) {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else { showStatus("Cần Full Access để dùng AI"); return }
+        let source = selectedText.isEmpty
+            ? (textDocumentProxy.documentContextBeforeInput ?? "") : selectedText
+        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            showStatus("Dán hoặc soạn nội dung trước khi dùng AI")
+            return
+        }
+        isRequestRunning = true
+        showStatus("AI đang xử lý: " + action.rawValue)
+        let activeID = UUID()
+        requestID = activeID
+        Task { [weak self] in
+            do {
+                let transformed = try await AIWritingService.transform(source, action: action)
+                await MainActor.run {
+                    guard let self, self.requestID == activeID else { return }
+                    self.isRequestRunning = false
+                    self.show([ReplySuggestion(tone: action.rawValue, text: transformed)])
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.requestID == activeID else { return }
+                    self.isRequestRunning = false
+                    self.showStatus("AI lỗi: " + error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func keyButton(_ title: String, action: Selector) -> UIButton {
