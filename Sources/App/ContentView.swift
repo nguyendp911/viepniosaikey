@@ -5,6 +5,9 @@ struct ContentView: View {
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel
     @State private var showAPIKey = false
+    @State private var availableModels: [GeminiModelOption] = []
+    @State private var loadingModels = false
+    @State private var modelError = ""
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
     @State private var phrases = KeyboardSettings.savedPhrases
     @State private var phraseDraft = ""
@@ -54,14 +57,48 @@ struct ContentView: View {
                         }
                         .accessibilityLabel(showAPIKey ? "Ẩn API Key" : "Hiện API Key")
                     }
-                    HStack {
-                        Text("Model")
-                        Spacer()
-                        TextField("gemini-2.5-flash", text: $geminiModel)
-                            .multilineTextAlignment(.trailing)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                    if availableModels.isEmpty {
+                        HStack {
+                            Text("Model")
+                            Spacer()
+                            TextField("gemini-3.8-flash", text: $geminiModel)
+                                .multilineTextAlignment(.trailing)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                        }
+                    } else {
+                        Picker("Chọn Gemini model", selection: $geminiModel) {
+                            ForEach(availableModels) { model in
+                                Text("\(model.name) (\(model.id))").tag(model.id)
+                            }
+                            if !availableModels.contains(where: { $0.id == geminiModel }) {
+                                Text("Đang chọn: \(geminiModel)").tag(geminiModel)
+                            }
+                        }
+                        .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                    }
+                    Button(loadingModels ? "Đang tải model…" : "Lấy danh sách model mới nhất") {
+                        loadingModels = true
+                        modelError = ""
+                        Task {
+                            do {
+                                availableModels = try await GeminiModelCatalog.fetch(apiKey: geminiAPIKey)
+                                if availableModels.isEmpty {
+                                    modelError = "API Key này không có model hỗ trợ generateContent."
+                                } else if !availableModels.contains(where: { $0.id == geminiModel }) {
+                                    geminiModel = availableModels[0].id
+                                    KeyboardSettings.geminiModel = geminiModel
+                                }
+                            } catch {
+                                modelError = error.localizedDescription
+                            }
+                            loadingModels = false
+                        }
+                    }
+                    .disabled(loadingModels || geminiAPIKey.isEmpty)
+                    if !modelError.isEmpty {
+                        Text(modelError).font(.footnote).foregroundStyle(.red)
                     }
                     Button(loading ? "Đang kiểm tra…" : "Kiểm tra Gemini API") {
                         loading = true
