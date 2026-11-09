@@ -15,6 +15,9 @@ struct ContentView: View {
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
     @State private var telexEnabled = KeyboardSettings.telexEnabled
     @State private var emojiEnabled = KeyboardSettings.emojiEnabled
+    @State private var coupleEnabled = KeyboardSettings.coupleEnabled
+    @State private var coupleStage = KeyboardSettings.coupleStage
+    @State private var coupleAddress = KeyboardSettings.coupleAddress
     @State private var typingMode = KeyboardSettings.typingMode
     @State private var keyboardTheme = KeyboardSettings.theme
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
@@ -62,6 +65,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     compactHeader
                     quickStatus
+                    coupleStudio
                     aiConfiguration
                     personalization
                     testArea
@@ -86,6 +90,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             favorites = KeyboardSettings.favoriteReplies
             phrases = KeyboardSettings.savedPhrases
+            coupleEnabled = KeyboardSettings.coupleEnabled
+            coupleStage = KeyboardSettings.coupleStage
+            coupleAddress = KeyboardSettings.coupleAddress
         }
     }
 
@@ -123,7 +130,7 @@ struct ContentView: View {
         HStack(spacing: 7) {
             statusChip(provider == "gemini" ? "✦ Gemini" : "✦ OpenAI", tint: cyan)
             statusChip(telexEnabled ? "Telex bật" : "Telex tắt", tint: .mint)
-            statusChip(emojiEnabled ? "Emoji bật" : "Emoji tắt", tint: .pink)
+            statusChip(coupleEnabled ? "♥ Couple" : "AI thường", tint: .pink)
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .contain)
@@ -246,6 +253,84 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .opacity(disabled ? 0.46 : 1.0)
+    }
+
+    private var coupleStudio: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.white.opacity(0.17), in: RoundedRectangle(cornerRadius: 13))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Couple Studio")
+                        .font(.system(size: 18, weight: .bold))
+                    Text("Trợ lý nhắn tin tình cảm tinh tế hơn")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.79))
+                }
+                Spacer(minLength: 0)
+                Toggle("Bật Couple", isOn: $coupleEnabled)
+                    .labelsHidden()
+                    .tint(Color(red: 1, green: 0.54, blue: 0.71))
+                    .onChange(of: coupleEnabled) {
+                        KeyboardSettings.coupleEnabled = $0
+                    }
+            }
+            if coupleEnabled {
+                HStack(spacing: 7) {
+                    Label("Gợi ý theo ngữ cảnh", systemImage: "sparkles")
+                    Spacer(minLength: 4)
+                    Text("3 phong cách")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.87))
+                Picker("Giai đoạn mối quan hệ", selection: $coupleStage) {
+                    ForEach(["Mới quen", "Đang tìm hiểu", "Đang yêu", "Yêu xa", "Đã kết hôn"],
+                            id: \.self) { Text($0) }
+                }
+                .tint(.white)
+                .onChange(of: coupleStage) { KeyboardSettings.coupleStage = $0 }
+
+                Picker("Cách xưng hô", selection: $coupleAddress) {
+                    ForEach(["anh/em", "em/anh", "mình/cậu", "tớ/cậu", "bạn/mình"],
+                            id: \.self) { Text($0) }
+                }
+                .tint(.white)
+                .onChange(of: coupleAddress) { KeyboardSettings.coupleAddress = $0 }
+
+                Text("Hiểu lời hỏi thăm, nhớ nhung, giận dỗi, xin lỗi, ghen và làm hòa. Khi có sự ép buộc hay mất an toàn, AI ưu tiên tôn trọng và ranh giới.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Sử dụng ví dụ hội thoại giả lập để hướng dẫn model. Không tự đọc, lưu hoặc dùng cuộc trò chuyện riêng tư để huấn luyện.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.67))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Bật khi muốn tạo câu trả lời Couple ngọt ngào, tự nhiên và đúng hoàn cảnh. Bạn cũng có thể bật/tắt ngay trên bàn phím.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.84))
+            }
+        }
+        .padding(17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(.white)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.38, green: 0.22, blue: 0.68),
+                         Color(red: 0.67, green: 0.25, blue: 0.52),
+                         Color(red: 0.83, green: 0.36, blue: 0.55)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(.white.opacity(0.19), lineWidth: 1)
+        )
     }
 
     private var aiConfiguration: some View {
