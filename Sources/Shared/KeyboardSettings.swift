@@ -88,7 +88,7 @@ enum KeyboardSettings {
     }
     static var theme: String {
         get { defaults.string(forKey: prefix + "theme") ?? "system" }
-        set { defaults.set(["system", "midnight", "ocean", "rose"].contains(newValue) ? newValue : "system", forKey: prefix + "theme") }
+        set { defaults.set(["system", "midnight", "ocean", "rose", "lavender", "mint", "sunset", "graphite", "sakura", "forest", "sand", "aurora"].contains(newValue) ? newValue : "system", forKey: prefix + "theme") }
     }
     static var autoCapitalize: Bool {
         get { defaults.object(forKey: prefix + "autoCapitalize") as? Bool ?? true }
