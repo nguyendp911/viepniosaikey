@@ -21,6 +21,7 @@ final class KeyboardViewController: UIInputViewController {
     private var heightConstraint: NSLayoutConstraint?
     private var toneButtons: [UIButton] = []
     private var toolButtons: [UIButton] = []
+    private var toneButtons: [UIButton] = []
     private let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -42,18 +43,18 @@ final class KeyboardViewController: UIInputViewController {
                 ? UIColor(red: 0.11, green: 0.13, blue: 0.20, alpha: 1)
                 : UIColor(red: 0.89, green: 0.92, blue: 0.97, alpha: 1)
         }
-        heightConstraint = view.heightAnchor.constraint(equalToConstant: 315)
+        heightConstraint = view.heightAnchor.constraint(equalToConstant: 255)
         heightConstraint?.priority = .defaultHigh
         heightConstraint?.isActive = true
         container.axis = .vertical
-        container.spacing = 6
+        container.spacing = 5
         container.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(container)
         NSLayoutConstraint.activate([
             container.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4),
             container.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
             container.topAnchor.constraint(equalTo: view.topAnchor, constant: 5),
-            container.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -4)
+            container.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4)
         ])
 
         statusLabel.font = .systemFont(ofSize: 11, weight: .semibold)
@@ -61,7 +62,7 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 2
         statusLabel.text = "✦ ViePN AI · Viết hay hơn, gửi nhanh hơn"
-        statusLabel.heightAnchor.constraint(equalToConstant: 21).isActive = true
+        statusLabel.isHidden = true
         container.addArrangedSubview(statusLabel)
 
         // A compact command strip leaves the usual iPhone letter keyboard intact.
@@ -71,11 +72,11 @@ final class KeyboardViewController: UIInputViewController {
             ("✦ AI", #selector(cloudTapped)),
             ("📝 Mẫu", #selector(phrasesTapped)),
             ("😊", #selector(emojiTapped))
-        ], height: 39)
+        ], height: 36)
         if let bar = commands as? UIStackView {
             toolButtons = bar.arrangedSubviews.compactMap { $0 as? UIButton }
             for (index, button) in toolButtons.enumerated() {
-                button.layer.cornerRadius = 12
+                button.layer.cornerRadius = 11
                 button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
                 if index == 2 {
                     button.backgroundColor = aiColor
@@ -88,7 +89,7 @@ final class KeyboardViewController: UIInputViewController {
         container.addArrangedSubview(commands)
         updateEmojiTool()
 
-        previewLabel.numberOfLines = 3
+        previewLabel.numberOfLines = 2
         previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
@@ -98,7 +99,7 @@ final class KeyboardViewController: UIInputViewController {
         previewLabel.layer.borderColor = cyanColor.withAlphaComponent(0.35).cgColor
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
-        previewLabel.heightAnchor.constraint(lessThanOrEqualToConstant: 56).isActive = true
+        previewLabel.heightAnchor.constraint(equalToConstant: 45).isActive = true
         container.addArrangedSubview(previewLabel)
 
         let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
@@ -127,7 +128,7 @@ final class KeyboardViewController: UIInputViewController {
                 styleModifier(delete)
                 row.addArrangedSubview(delete)
             }
-            row.heightAnchor.constraint(equalToConstant: 46).isActive = true
+            row.heightAnchor.constraint(equalToConstant: 43).isActive = true
             letterRows.append(row)
             container.addArrangedSubview(row)
         }
@@ -154,7 +155,7 @@ final class KeyboardViewController: UIInputViewController {
         comma.widthAnchor.constraint(equalToConstant: 34).isActive = true
         period.widthAnchor.constraint(equalToConstant: 34).isActive = true
         enter.widthAnchor.constraint(equalToConstant: 48).isActive = true
-        bottom.heightAnchor.constraint(equalToConstant: 45).isActive = true
+        bottom.heightAnchor.constraint(equalToConstant: 43).isActive = true
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
         updateKeys()
@@ -170,9 +171,9 @@ final class KeyboardViewController: UIInputViewController {
         }
         button.layer.cornerRadius = 9
         button.layer.shadowColor = UIColor.black.cgColor
-        button.layer.shadowOpacity = 0.13
+        button.layer.shadowOpacity = 0.08
         button.layer.shadowOffset = CGSize(width: 0, height: 1)
-        button.layer.shadowRadius = 0.5
+        button.layer.shadowRadius = 1
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.7
         button.addTarget(self, action: action, for: .touchUpInside)
@@ -275,6 +276,39 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func globeTapped() { advanceToNextInputMode() }
+
+    @objc private func emojiTapped() {
+        KeyboardSettings.emojiEnabled.toggle()
+        updateEmojiTool()
+        showStatus(KeyboardSettings.emojiEnabled ? "Emoji thông minh đã bật 😊" : "Đã tắt emoji tự động")
+    }
+
+    private func updateEmojiTool() {
+        guard toolButtons.count > 4 else { return }
+        toolButtons[4].setTitle(KeyboardSettings.emojiEnabled ? "😊" : "😶", for: .normal)
+        toolButtons[4].accessibilityLabel = "Bật hoặc tắt emoji tự động"
+    }
+
+    private func showStatus(_ message: String) {
+        statusLabel.text = message
+        statusLabel.isHidden = false
+        updateKeyboardHeight()
+    }
+
+    private func updateKeyboardHeight() {
+        // Compact top strip by default. The suggestion panel is transient.
+        let base: CGFloat = 255
+        heightConstraint?.constant = base +
+            (statusLabel.isHidden ? 0 : 19) +
+            (suggestionContainer == nil ? 0 : 119)
+        view.setNeedsLayout()
+    }
+
+    @objc private func dismissSuggestions() {
+        clearSuggestions()
+        statusLabel.isHidden = true
+        updateKeyboardHeight()
+    }
 
     @objc private func pasteTapped() {
         guard hasFullAccess else {
