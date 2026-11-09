@@ -1,267 +1,615 @@
 import SwiftUI
 import UIKit
 
+/// Compact native settings screen for the ViePN AI Keyboard host application.
+/// This view intentionally has no NavigationStack or large navigation title:
+/// the first card starts directly below the iPhone safe area.
 struct ContentView: View {
     @State private var provider = KeyboardSettings.provider
-    @State private var openAIAPIKey = KeyboardSettings.openAIAPIKey
-    @State private var openAIModel = KeyboardSettings.openAIModel
-    @State private var showOpenAIKey = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel
-    @State private var showAPIKey = false
-    @State private var availableModels: [GeminiModelOption] = []
-    @State private var loadingModels = false
-    @State private var modelError = ""
+    @State private var openAIAPIKey = KeyboardSettings.openAIAPIKey
+    @State private var openAIModel = KeyboardSettings.openAIModel
+    @State private var showGeminiKey = false
+    @State private var showOpenAIKey = false
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
-    @State private var phrases = KeyboardSettings.savedPhrases
-    @State private var phraseDraft = ""
     @State private var telexEnabled = KeyboardSettings.telexEnabled
     @State private var emojiEnabled = KeyboardSettings.emojiEnabled
-    @State private var demoMessage = "Bạn gửi báo giá cho mình được không?"
+    @State private var availableModels: [GeminiModelOption] = []
+    @State private var loadingModels = false
+    @State private var testingAPI = false
+    @State private var testingMessage = false
+    @State private var apiFeedback = ""
+    @State private var demoFeedback = ""
+    @State private var demoMessage = "Hôm nay của bạn thế nào?"
     @State private var suggestions: [ReplySuggestion] = []
-    @State private var feedback = ""
-    @State private var loading = false
-    @State private var keyboardDiagnosis = "Chạm Kiểm tra để xem tình trạng Keyboard Extension."
+    @State private var phrases = KeyboardSettings.savedPhrases
+    @State private var newPhrase = ""
+    @State private var showGuide = false
+    @State private var showDiagnosis = false
+    @State private var showQuickReplies = false
+    @State private var showTest = false
+    @State private var keyboardDiagnosis = "Chưa kiểm tra cấu trúc Keyboard Extension."
+
+    private let background = Color(red: 0.045, green: 0.060, blue: 0.105)
+    private let cardColor = Color(red: 0.105, green: 0.128, blue: 0.195)
+    private let violet = Color(red: 0.46, green: 0.43, blue: 1.0)
+    private let cyan = Color(red: 0.28, green: 0.82, blue: 0.97)
+    private let muted = Color(red: 0.66, green: 0.71, blue: 0.82)
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Kích hoạt bàn phím") {
-                    Text("Cài đặt → Cài đặt chung → Bàn phím → Bàn phím → Thêm bàn phím mới → ViePN AI Keyboard.")
-                    Text("Để sử dụng AI qua mạng, bật Cho phép truy cập đầy đủ cho ViePN AI Keyboard. Chỉ bật nếu bạn tin tưởng ứng dụng.")
-                        .font(.footnote).foregroundStyle(.secondary)
+        ZStack {
+            LinearGradient(
+                colors: [background, Color(red: 0.075, green: 0.09, blue: 0.17), background],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    compactHeader
+                    quickStatus
+                    aiConfiguration
+                    personalization
+                    testArea
+                    savedReplies
+                    activationGuide
+                    keyboardDiagnostics
+                    privacyInfo
+                    Text("ViePN AI Keyboard · Thiết lập được lưu trên thiết bị")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted.opacity(0.85))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 6)
                 }
-                Section("Chẩn đoán Keyboard Extension") {
-                    Text(keyboardDiagnosis).font(.footnote).textSelection(.enabled)
-                    Button("Kiểm tra bàn phím đã được nhúng") {
-                        keyboardDiagnosis = diagnoseKeyboard()
-                    }
-                    Button("Sao chép kết quả chẩn đoán") {
-                        UIPasteboard.general.string = keyboardDiagnosis
-                    }
-                }
-                Section("Nhà cung cấp AI") {
-                    Picker("Dịch vụ AI", selection: $provider) {
-                        Text("Google Gemini").tag("gemini")
-                        Text("OpenAI").tag("openai")
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: provider) {
-                        KeyboardSettings.provider = $0
-                        feedback = ""
-                    }
-                    Toggle("Cho phép gửi nội dung tôi chọn đến AI", isOn: $cloudEnabled)
-                        .onChange(of: cloudEnabled) { KeyboardSettings.allowCloudAI = $0 }
-                }
-                if provider == "gemini" {
-                    Section("Gemini API - Nhập khóa trực tiếp") {
-                    HStack {
-                        Group {
-                            if showAPIKey {
-                                TextField("Nhập Gemini API Key", text: $geminiAPIKey)
-                            } else {
-                                SecureField("Nhập Gemini API Key", text: $geminiAPIKey)
-                            }
-                        }
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .onChange(of: geminiAPIKey) {
-                            KeyboardSettings.geminiAPIKey = $0
-                        }
-                        Button {
-                            showAPIKey.toggle()
-                        } label: {
-                            Image(systemName: showAPIKey ? "eye.slash" : "eye")
-                        }
-                        .accessibilityLabel(showAPIKey ? "Ẩn API Key" : "Hiện API Key")
-                    }
-                    if availableModels.isEmpty {
-                        HStack {
-                            Text("Model")
-                            Spacer()
-                            TextField("gemini-3.8-flash", text: $geminiModel)
-                                .multilineTextAlignment(.trailing)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
-                        }
-                    } else {
-                        Picker("Chọn Gemini model", selection: $geminiModel) {
-                            ForEach(availableModels) { model in
-                                Text("\(model.name) (\(model.id))").tag(model.id)
-                            }
-                            if !availableModels.contains(where: { $0.id == geminiModel }) {
-                                Text("Đang chọn: \(geminiModel)").tag(geminiModel)
-                            }
-                        }
-                        .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
-                    }
-                    Button(loadingModels ? "Đang tải model…" : "Lấy danh sách model mới nhất") {
-                        loadingModels = true
-                        modelError = ""
-                        Task {
-                            do {
-                                availableModels = try await GeminiModelCatalog.fetch(apiKey: geminiAPIKey)
-                                if availableModels.isEmpty {
-                                    modelError = "API Key này không có model hỗ trợ generateContent."
-                                } else if !availableModels.contains(where: { $0.id == geminiModel }) {
-                                    geminiModel = availableModels[0].id
-                                    KeyboardSettings.geminiModel = geminiModel
-                                }
-                            } catch {
-                                modelError = error.localizedDescription
-                            }
-                            loadingModels = false
-                        }
-                    }
-                    .disabled(loadingModels || geminiAPIKey.isEmpty)
-                    if !modelError.isEmpty {
-                        Text(modelError).font(.footnote).foregroundStyle(.red)
-                    }
-                    Button(loading ? "Đang kiểm tra…" : "Kiểm tra Gemini API") {
-                        loading = true
-                        Task {
-                            do {
-                                let test = try await AIService.reply(to: "Xin chào, bạn có khỏe không?")
-                                feedback = "✅ Gemini hoạt động: nhận được \\(test.count) gợi ý."
-                            } catch {
-                                feedback = "❌ " + error.localizedDescription
-                            }
-                            loading = false
-                        }
-                    }
-                    .disabled(loading || !cloudEnabled || geminiAPIKey.isEmpty)
-                    Button("Xóa API Key", role: .destructive) {
-                        geminiAPIKey = ""
-                        KeyboardSettings.geminiAPIKey = ""
-                        feedback = "Đã xóa khóa API khỏi cấu hình ứng dụng."
-                    }
-                    Text("Khóa được lưu trong vùng dữ liệu chia sẻ App Group để bàn phím có thể sử dụng; chưa được bảo vệ bằng Keychain. Chỉ nhập khóa cá nhân có giới hạn quota, không chia sẻ IPA chứa dữ liệu đã cấu hình. Khi bấm AI, nội dung sẽ gửi trực tiếp tới Google Gemini.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    if !feedback.isEmpty {
-                        Text(feedback).font(.footnote).textSelection(.enabled)
-                    }
-                }
-                }
-                if provider == "openai" {
-                    Section("OpenAI API - Nhập khóa trực tiếp") {
-                        HStack {
-                            Group {
-                                if showOpenAIKey {
-                                    TextField("Nhập OpenAI API Key", text: $openAIAPIKey)
-                                } else {
-                                    SecureField("Nhập OpenAI API Key", text: $openAIAPIKey)
-                                }
-                            }
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .onChange(of: openAIAPIKey) { KeyboardSettings.openAIAPIKey = $0 }
-                            Button {
-                                showOpenAIKey.toggle()
-                            } label: {
-                                Image(systemName: showOpenAIKey ? "eye.slash" : "eye")
-                            }
-                            .accessibilityLabel(showOpenAIKey ? "Ẩn API Key" : "Hiện API Key")
-                        }
-                        HStack {
-                            Text("Model OpenAI")
-                            Spacer()
-                            TextField("gpt-4o-mini", text: $openAIModel)
-                                .multilineTextAlignment(.trailing)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .onChange(of: openAIModel) { KeyboardSettings.openAIModel = $0 }
-                        }
-                        Button(loading ? "Đang kiểm tra…" : "Kiểm tra OpenAI API") {
-                            loading = true
-                            Task {
-                                do {
-                                    let result = try await AIService.reply(to: "Xin chào!")
-                                    feedback = "OpenAI hoạt động: nhận được \\(result.count) gợi ý."
-                                } catch {
-                                    feedback = error.localizedDescription
-                                }
-                                loading = false
-                            }
-                        }
-                        .disabled(loading || !cloudEnabled || openAIAPIKey.isEmpty)
-                        Button("Xóa OpenAI API Key", role: .destructive) {
-                            openAIAPIKey = ""
-                            KeyboardSettings.openAIAPIKey = ""
-                            feedback = "Đã xóa OpenAI API Key."
-                        }
-                        Text("Chỉ các model hỗ trợ Chat Completions và JSON mode mới dùng được. API Key được lưu vào dữ liệu App Group để bàn phím truy cập, chưa được bảo vệ bằng Keychain. Chỉ sử dụng khóa cá nhân có giới hạn chi tiêu.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        if !feedback.isEmpty {
-                            Text(feedback).font(.footnote).textSelection(.enabled)
-                        }
-                    }
-                }
-                Section("Thử câu trả lời") {
-                    TextEditor(text: $demoMessage).frame(minHeight: 65)
-                    HStack {
-                        Button("Offline") { suggestions = OfflineReplyEngine.suggest(for: demoMessage); feedback = "" }
-                        Spacer()
-                        Button(loading ? "Đang tải…" : "AI Online") {
-                            loading = true
-                            Task {
-                                do { suggestions = try await AIService.reply(to: demoMessage); feedback = "" }
-                                catch { feedback = error.localizedDescription }
-                                loading = false
-                            }
-                        }.disabled(loading || !cloudEnabled)
-                    }
-                    ForEach(suggestions) { item in
-                        Button {
-                            UIPasteboard.general.string = item.text
-                            feedback = "Đã sao chép câu trả lời."
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.tone).font(.caption).bold()
-                                Text(item.text)
-                            }
-                        }.buttonStyle(.plain)
-                    }
-                    if !feedback.isEmpty { Text(feedback).font(.footnote) }
-                }
-                Section("Cá nhân hóa AI") {
-                    Toggle("Emoji thông minh theo ngữ cảnh", isOn: $emojiEnabled)
-                        .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
-                    Text("Chỉ thêm emoji khi phù hợp với cảm xúc của câu trả lời. Không tự thêm trong tình huống nghiêm túc hoặc trang trọng.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                Section("Gõ tiếng Việt") {
-                    Toggle("Tự động gõ Telex", isOn: $telexEnabled)
-                        .onChange(of: telexEnabled) { KeyboardSettings.telexEnabled = $0 }
-                    Text("Hỗ trợ aa → â, aw → ă, ee → ê, oo → ô, ow → ơ, uw → ư, dd → đ và dấu s/f/r/x/j. Khi tắt, bàn phím nhập ký tự bình thường.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                Section("Mẫu câu nhanh") {
-                    ForEach(phrases, id: \.self) { phrase in
-                        Text(phrase).textSelection(.enabled)
-                    }.onDelete { indexes in
-                        phrases.remove(atOffsets: indexes)
-                        KeyboardSettings.savedPhrases = phrases
-                    }
-                    HStack {
-                        TextField("Thêm mẫu câu", text: $phraseDraft)
-                        Button("Thêm") {
-                            let value = phraseDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !value.isEmpty {
-                                phrases.append(String(value.prefix(500)))
-                                KeyboardSettings.savedPhrases = phrases
-                                phraseDraft = ""
-                            }
-                        }.disabled(phraseDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-                Section("Quyền riêng tư") {
-                    Text("Không tự thu thập nội dung các cuộc trò chuyện. Clipboard chỉ được đọc khi bạn chủ động chạm nút Dán/Phân tích. iOS có thể hiển thị lời nhắc cấp quyền dán.")
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 36)
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("ViePN AI Keyboard")
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(LinearGradient(colors: [cyan, violet],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 50, height: 50)
+                Image(systemName: "keyboard.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("ViePN AI Keyboard")
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Text("Trợ lý trả lời AI · Cài đặt")
+                    .font(.system(size: 12))
+                    .foregroundStyle(muted)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "checkmark.shield.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(cyan)
+                .accessibilityLabel("Quyền riêng tư")
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var quickStatus: some View {
+        HStack(spacing: 7) {
+            statusChip(provider == "gemini" ? "✦ Gemini" : "✦ OpenAI", tint: cyan)
+            statusChip(telexEnabled ? "Telex bật" : "Telex tắt", tint: .mint)
+            statusChip(emojiEnabled ? "Emoji bật" : "Emoji tắt", tint: .pink)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func statusChip(_ label: String, tint: Color) -> some View {
+        Text(label)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().stroke(tint.opacity(0.23), lineWidth: 1))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+
+    private func card<Content: View>(
+        title: String, subtitle: String, icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 11) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(cyan)
+                    .frame(width: 38, height: 38)
+                    .background(cyan.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
+    }
+
+    private func smallLabel(_ label: String) -> some View {
+        Text(label)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(muted)
+    }
+
+    private func keyField(_ title: String, text: Binding<String>, revealed: Binding<Bool>) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            smallLabel(title)
+            HStack(spacing: 8) {
+                Group {
+                    if revealed.wrappedValue {
+                        TextField("Nhập API Key", text: text)
+                    } else {
+                        SecureField("Nhập API Key", text: text)
+                    }
+                }
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 14))
+                .foregroundStyle(.white)
+                Button {
+                    revealed.wrappedValue.toggle()
+                } label: {
+                    Image(systemName: revealed.wrappedValue ? "eye.slash" : "eye")
+                        .foregroundStyle(muted)
+                        .frame(width: 30, height: 32)
+                }
+                .accessibilityLabel(revealed.wrappedValue ? "Ẩn API Key" : "Hiện API Key")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 12))
         }
     }
+
+    private func modelField(_ title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            smallLabel(title)
+            TextField("Nhập tên model", text: text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 14))
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func actionButton(
+        _ label: String, symbol: String, prominent: Bool = false, disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Image(systemName: symbol)
+                Text(label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .foregroundStyle(prominent ? Color.white : cyan)
+            .background(
+                prominent ? violet : cyan.opacity(0.11),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.46 : 1.0)
+    }
+
+    private var aiConfiguration: some View {
+        card(title: "AI & API", subtitle: "Chọn nhà cung cấp và kết nối model", icon: "sparkles") {
+            VStack(alignment: .leading, spacing: 13) {
+                Picker("Nhà cung cấp AI", selection: $provider) {
+                    Text("Google Gemini").tag("gemini")
+                    Text("OpenAI").tag("openai")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: provider) { newValue in
+                    KeyboardSettings.provider = newValue
+                    apiFeedback = ""
+                    suggestions = []
+                }
+
+                Toggle(isOn: $cloudEnabled) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Cho phép AI online")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Chỉ gửi nội dung khi bạn chủ động yêu cầu")
+                            .font(.system(size: 11))
+                            .foregroundStyle(muted)
+                    }
+                }
+                .tint(violet)
+                .onChange(of: cloudEnabled) { KeyboardSettings.allowCloudAI = $0 }
+
+                if provider == "gemini" {
+                    keyField("Gemini API Key", text: $geminiAPIKey, revealed: $showGeminiKey)
+                        .onChange(of: geminiAPIKey) { KeyboardSettings.geminiAPIKey = $0 }
+                    modelField("Model Gemini", text: $geminiModel)
+                        .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+
+                    if !availableModels.isEmpty {
+                        Picker("Model được Google cung cấp", selection: $geminiModel) {
+                            if !availableModels.contains(where: { $0.id == geminiModel }) {
+                                Text("Model đang nhập: \(geminiModel)").tag(geminiModel)
+                            }
+                            ForEach(availableModels) { item in
+                                Text(item.id).tag(item.id)
+                            }
+                        }
+                        .tint(cyan)
+                        .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
+                    }
+
+                    HStack(spacing: 9) {
+                        actionButton(loadingModels ? "Đang tải…" : "Lấy model", symbol: "arrow.clockwise",
+                                     disabled: loadingModels || geminiAPIKey.isEmpty) {
+                            fetchModels()
+                        }
+                        actionButton(testingAPI ? "Đang thử…" : "Kiểm tra API", symbol: "checkmark.circle",
+                                     prominent: true,
+                                     disabled: testingAPI || !cloudEnabled || geminiAPIKey.isEmpty) {
+                            testConnection()
+                        }
+                    }
+                } else {
+                    keyField("OpenAI API Key", text: $openAIAPIKey, revealed: $showOpenAIKey)
+                        .onChange(of: openAIAPIKey) { KeyboardSettings.openAIAPIKey = $0 }
+                    modelField("Model OpenAI", text: $openAIModel)
+                        .onChange(of: openAIModel) { KeyboardSettings.openAIModel = $0 }
+
+                    actionButton(testingAPI ? "Đang thử kết nối…" : "Kiểm tra OpenAI API",
+                                 symbol: "checkmark.circle", prominent: true,
+                                 disabled: testingAPI || !cloudEnabled || openAIAPIKey.isEmpty) {
+                        testConnection()
+                    }
+                }
+
+                if !apiFeedback.isEmpty {
+                    Text(apiFeedback)
+                        .font(.system(size: 12))
+                        .foregroundStyle(apiFeedback.hasPrefix("✓") ? Color.mint : Color.orange)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack {
+                    Label("Khóa lưu trong App Group, chưa mã hóa bằng Keychain",
+                          systemImage: "lock.shield")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button("Xóa khóa", role: .destructive) {
+                        if provider == "gemini" {
+                            geminiAPIKey = ""
+                            KeyboardSettings.geminiAPIKey = ""
+                        } else {
+                            openAIAPIKey = ""
+                            KeyboardSettings.openAIAPIKey = ""
+                        }
+                        apiFeedback = "Đã xóa API Key của nhà cung cấp hiện tại."
+                    }
+                    .font(.system(size: 12))
+                }
+            }
+        }
+    }
+
+    private var personalization: some View {
+        card(title: "Cá nhân hóa", subtitle: "Bàn phím tiếng Việt và câu trả lời tự nhiên",
+             icon: "slider.horizontal.3") {
+            VStack(spacing: 13) {
+                Toggle(isOn: $telexEnabled) {
+                    Label("Gõ tiếng Việt Telex", systemImage: "character.cursor.ibeam")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .tint(violet)
+                .onChange(of: telexEnabled) { KeyboardSettings.telexEnabled = $0 }
+
+                Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+
+                Toggle(isOn: $emojiEnabled) {
+                    Label("Emoji thông minh theo ngữ cảnh", systemImage: "face.smiling")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .tint(violet)
+                .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
+
+                Text("Telex: aa → â, aw → ă, dd → đ; s/f/r/x/j để thêm dấu. Emoji không tự thêm vào câu trang trọng hoặc nhạy cảm.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var testArea: some View {
+        card(title: "Thử gợi ý", subtitle: "Kiểm tra câu trả lời trước khi mở bàn phím",
+             icon: "bubble.left.and.text.bubble.right") {
+            VStack(alignment: .leading, spacing: 10) {
+                DisclosureGroup("Mở khu vực thử câu trả lời", isExpanded: $showTest) {
+                    VStack(alignment: .leading, spacing: 11) {
+                        TextEditor(text: $demoMessage)
+                            .scrollContentBackground(.hidden)
+                            .font(.system(size: 14))
+                            .padding(8)
+                            .frame(height: 95)
+                            .background(Color.white.opacity(0.065),
+                                        in: RoundedRectangle(cornerRadius: 12))
+                        HStack(spacing: 9) {
+                            actionButton("Offline", symbol: "bolt") {
+                                suggestions = OfflineReplyEngine.suggest(for: demoMessage)
+                                demoFeedback = ""
+                            }
+                            actionButton(testingMessage ? "Đang tạo…" : "AI Online",
+                                         symbol: "sparkles", prominent: true,
+                                         disabled: testingMessage || !cloudEnabled) {
+                                testMessage()
+                            }
+                        }
+                        ForEach(suggestions) { item in
+                            Button {
+                                UIPasteboard.general.string = item.text
+                                demoFeedback = "✓ Đã sao chép câu trả lời, không kèm tin gốc."
+                            } label: {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(item.tone)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(cyan)
+                                    Text(item.text)
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.white)
+                                        .multilineTextAlignment(.leading)
+                                    Label("Chạm để sao chép", systemImage: "doc.on.doc")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(muted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Color.white.opacity(0.055),
+                                            in: RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if !demoFeedback.isEmpty {
+                            Text(demoFeedback)
+                                .font(.system(size: 12))
+                                .foregroundStyle(muted)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.top, 9)
+                }
+                .tint(cyan)
+            }
+        }
+    }
+
+    private var savedReplies: some View {
+        card(title: "Mẫu câu nhanh", subtitle: "Lưu, chèn và quản lý các câu thường dùng",
+             icon: "text.bubble") {
+            DisclosureGroup("Quản lý \(phrases.count) mẫu câu", isExpanded: $showQuickReplies) {
+                VStack(spacing: 8) {
+                    ForEach(Array(phrases.enumerated()), id: \.offset) { index, phrase in
+                        HStack(spacing: 10) {
+                            Text(phrase)
+                                .font(.system(size: 13))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button {
+                                phrases.remove(at: index)
+                                KeyboardSettings.savedPhrases = phrases
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(.red.opacity(0.9))
+                                    .padding(8)
+                            }
+                            .accessibilityLabel("Xóa mẫu câu")
+                        }
+                        .padding(10)
+                        .background(Color.white.opacity(0.055),
+                                    in: RoundedRectangle(cornerRadius: 11))
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Thêm mẫu câu", text: $newPhrase)
+                            .font(.system(size: 13))
+                            .padding(11)
+                            .background(Color.white.opacity(0.065),
+                                        in: RoundedRectangle(cornerRadius: 10))
+                        Button {
+                            let phrase = newPhrase.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !phrase.isEmpty, phrases.count < 30 else { return }
+                            phrases.append(String(phrase.prefix(500)))
+                            KeyboardSettings.savedPhrases = phrases
+                            newPhrase = ""
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 38, height: 38)
+                                .background(violet, in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .disabled(newPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  || phrases.count >= 30)
+                        .accessibilityLabel("Thêm mẫu câu")
+                    }
+                }
+                .padding(.top, 9)
+            }
+            .tint(cyan)
+        }
+    }
+
+    private var activationGuide: some View {
+        card(title: "Kích hoạt bàn phím", subtitle: "Hướng dẫn thiết lập trên iPhone",
+             icon: "keyboard") {
+            DisclosureGroup("Xem hướng dẫn kích hoạt", isExpanded: $showGuide) {
+                VStack(alignment: .leading, spacing: 11) {
+                    guideStep(1, "Cài đặt → Cài đặt chung → Bàn phím.")
+                    guideStep(2, "Chọn Bàn phím → Thêm bàn phím mới.")
+                    guideStep(3, "Chọn ViePN AI Keyboard.")
+                    guideStep(4, "Để gọi AI, bật Cho phép truy cập đầy đủ nếu bạn tin tưởng ứng dụng.")
+                    actionButton("Mở Cài đặt của ứng dụng", symbol: "gearshape",
+                                 prominent: true) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    Text("iOS có thể yêu cầu bạn điều hướng thủ công tới mục Bàn phím.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
+                }
+                .padding(.top, 10)
+            }
+            .tint(cyan)
+        }
+    }
+
+    private func guideStep(_ number: Int, _ description: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Text("\(number)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 25, height: 25)
+                .background(violet.opacity(0.8), in: Circle())
+            Text(description)
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.91))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var keyboardDiagnostics: some View {
+        card(title: "Chẩn đoán bàn phím", subtitle: "Kiểm tra Keyboard Extension trong ứng dụng",
+             icon: "checkmark.shield") {
+            DisclosureGroup("Kiểm tra cấu trúc IPA đã cài", isExpanded: $showDiagnosis) {
+                VStack(alignment: .leading, spacing: 11) {
+                    Text(keyboardDiagnosis)
+                        .font(.system(size: 12))
+                        .foregroundStyle(muted)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 9) {
+                        actionButton("Kiểm tra", symbol: "checkmark.shield", prominent: true) {
+                            keyboardDiagnosis = diagnoseKeyboard()
+                        }
+                        actionButton("Sao chép", symbol: "doc.on.doc") {
+                            UIPasteboard.general.string = keyboardDiagnosis
+                        }
+                    }
+                    Text("Chỉ kiểm tra cấu trúc extension; không xác nhận chữ ký hoặc việc iOS đã bật bàn phím.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
+                }
+                .padding(.top, 10)
+            }
+            .tint(cyan)
+        }
+    }
+
+    private var privacyInfo: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: "hand.raised.fill")
+                .foregroundStyle(cyan)
+            Text("Không tự đọc cuộc hội thoại. Clipboard chỉ được truy cập khi bạn chủ động bấm Dán; nội dung được gửi tới dịch vụ AI khi bạn chọn AI Online. API Key được lưu trong App Group, chưa bảo vệ bằng Keychain.")
+                .font(.system(size: 11))
+                .foregroundStyle(muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    private func fetchModels() {
+        guard !loadingModels else { return }
+        loadingModels = true
+        apiFeedback = ""
+        Task {
+            do {
+                let models = try await GeminiModelCatalog.fetch(apiKey: geminiAPIKey)
+                availableModels = models
+                if models.isEmpty {
+                    apiFeedback = "Danh sách không có model hỗ trợ generateContent cho API Key này."
+                } else {
+                    if !models.contains(where: { $0.id == geminiModel }), let first = models.first {
+                        geminiModel = first.id
+                        KeyboardSettings.geminiModel = first.id
+                    }
+                    apiFeedback = "✓ Đã tải \(models.count) model từ Google."
+                }
+            } catch {
+                apiFeedback = error.localizedDescription
+            }
+            loadingModels = false
+        }
+    }
+
+    private func testConnection() {
+        guard !testingAPI else { return }
+        testingAPI = true
+        apiFeedback = ""
+        Task {
+            do {
+                let items = try await AIService.reply(to: "Xin chào, bạn có khỏe không?")
+                apiFeedback = "✓ API hoạt động, nhận \(items.count) gợi ý."
+            } catch {
+                apiFeedback = error.localizedDescription
+            }
+            testingAPI = false
+        }
+    }
+
+    private func testMessage() {
+        guard !testingMessage else { return }
+        testingMessage = true
+        demoFeedback = ""
+        Task {
+            do {
+                suggestions = try await AIService.reply(to: demoMessage)
+            } catch {
+                demoFeedback = error.localizedDescription
+            }
+            testingMessage = false
+        }
+    }
+
     private func diagnoseKeyboard() -> String {
         guard let plugins = Bundle.main.builtInPlugInsURL else {
             return "KHÔNG TÌM THẤY thư mục PlugIns trong ứng dụng. IPA thiếu extension."
@@ -278,14 +626,15 @@ struct ContentView: View {
         let principal = (bundle.object(forInfoDictionaryKey: "NSExtension") as? [String: Any])?["NSExtensionPrincipalClass"] as? String ?? "(thiếu)"
         let identifier = bundle.bundleIdentifier ?? "(thiếu)"
         let executable = bundle.executableURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
-        let valid = point == "com.apple.keyboard-service" && executable && principal.contains("KeyboardViewController")
+        let valid = point == "com.apple.keyboard-service" && executable &&
+                    principal.contains("KeyboardViewController")
         return """
         Trạng thái bundle: \(valid ? "HỢP LỆ VỀ CẤU TRÚC" : "CẤU TRÚC KHÔNG HỢP LỆ")
         Extension: \(identifier)
         Extension Point: \(point)
         Principal Class: \(principal)
         File thực thi: \(executable ? "Có" : "Thiếu")
-        Lưu ý: Kiểm tra này KHÔNG xác nhận chữ ký Sideloadly hoặc việc iOS đã đăng ký bàn phím.
+        Lưu ý: Kiểm tra này KHÔNG xác nhận chữ ký hoặc việc iOS đã đăng ký bàn phím.
         """
     }
 }
