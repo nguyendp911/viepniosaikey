@@ -10,14 +10,24 @@ struct ContentView: View {
     @State private var suggestions: [ReplySuggestion] = []
     @State private var feedback = ""
     @State private var loading = false
+    @State private var keyboardDiagnosis = "Chạm Kiểm tra để xem tình trạng Keyboard Extension."
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Kích hoạt bàn phím") {
-                    Text("Cài đặt → Cài đặt chung → Bàn phím → Bàn phím → Thêm bàn phím mới → ViePN Keyboard.")
-                    Text("Để sử dụng AI qua mạng, bật Cho phép truy cập đầy đủ cho ViePN Keyboard. Chỉ bật nếu bạn tin tưởng ứng dụng.")
+                    Text("Cài đặt → Cài đặt chung → Bàn phím → Bàn phím → Thêm bàn phím mới → ViePN AI Keyboard.")
+                    Text("Để sử dụng AI qua mạng, bật Cho phép truy cập đầy đủ cho ViePN AI Keyboard. Chỉ bật nếu bạn tin tưởng ứng dụng.")
                         .font(.footnote).foregroundStyle(.secondary)
+                }
+                Section("Chẩn đoán Keyboard Extension") {
+                    Text(keyboardDiagnosis).font(.footnote).textSelection(.enabled)
+                    Button("Kiểm tra bàn phím đã được nhúng") {
+                        keyboardDiagnosis = diagnoseKeyboard()
+                    }
+                    Button("Sao chép kết quả chẩn đoán") {
+                        UIPasteboard.general.string = keyboardDiagnosis
+                    }
                 }
                 Section("Chế độ AI kết hợp") {
                     Toggle("Cho phép gửi nội dung tôi chọn đến AI", isOn: $cloudEnabled)
@@ -81,5 +91,31 @@ struct ContentView: View {
             }
             .navigationTitle("ViePN AI Keyboard")
         }
+    }
+    private func diagnoseKeyboard() -> String {
+        guard let plugins = Bundle.main.builtInPlugInsURL else {
+            return "KHÔNG TÌM THẤY thư mục PlugIns trong ứng dụng. IPA thiếu extension."
+        }
+        let extensionURL = plugins.appendingPathComponent("ViePNKeyboardExtension.appex")
+        guard FileManager.default.fileExists(atPath: extensionURL.path) else {
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: plugins.path)) ?? []
+            return "THIẾU ViePNKeyboardExtension.appex. Các mục trong PlugIns: " + names.joined(separator: ", ")
+        }
+        guard let bundle = Bundle(url: extensionURL) else {
+            return "Có .appex nhưng không đọc được bundle. Kiểm tra đóng gói IPA."
+        }
+        let point = (bundle.object(forInfoDictionaryKey: "NSExtension") as? [String: Any])?["NSExtensionPointIdentifier"] as? String ?? "(thiếu)"
+        let principal = (bundle.object(forInfoDictionaryKey: "NSExtension") as? [String: Any])?["NSExtensionPrincipalClass"] as? String ?? "(thiếu)"
+        let identifier = bundle.bundleIdentifier ?? "(thiếu)"
+        let executable = bundle.executableURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        let valid = point == "com.apple.keyboard-service" && executable && principal.contains("KeyboardViewController")
+        return """
+        Trạng thái bundle: \(valid ? "HỢP LỆ VỀ CẤU TRÚC" : "CẤU TRÚC KHÔNG HỢP LỆ")
+        Extension: \(identifier)
+        Extension Point: \(point)
+        Principal Class: \(principal)
+        File thực thi: \(executable ? "Có" : "Thiếu")
+        Lưu ý: Kiểm tra này KHÔNG xác nhận chữ ký Sideloadly hoặc việc iOS đã đăng ký bàn phím.
+        """
     }
 }
