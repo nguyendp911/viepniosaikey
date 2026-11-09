@@ -83,7 +83,7 @@ enum OpenAIService {
         let result = decoded.replies.prefix(5).compactMap { item -> ReplySuggestion? in
             let text = ReplyTextCleaner.answerOnly(item.text, source: message)
             guard !text.isEmpty else { return nil }
-            return ReplySuggestion(tone: String(item.tone.prefix(40)), text: String(text.prefix(1500)))
+            return ReplySuggestion(tone: String(item.tone.prefix(40)), text: String(EmojiEnhancer.decorate(text, tone: item.tone).prefix(1500)))
         }
         guard !result.isEmpty else { throw AIServiceError.invalidResponse }
         return result
