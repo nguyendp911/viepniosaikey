@@ -65,7 +65,7 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.isHidden = true
         container.addArrangedSubview(statusLabel)
 
-        // A compact command strip leaves the usual iPhone letter keyboard intact.
+        // All AI controls live in one slim strip. Expand only for suggestions.
         let commands = makeRow([
             ("📋 Dán", #selector(pasteTapped)),
             ("✨ Offline", #selector(offlineTapped)),
@@ -296,7 +296,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateKeyboardHeight() {
-        // Compact top strip by default. The suggestion panel is transient.
+        // No permanently reserved blank AI area.
         let base: CGFloat = 255
         heightConstraint?.constant = base +
             (statusLabel.isHidden ? 0 : 19) +
@@ -312,18 +312,18 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func pasteTapped() {
         guard hasFullAccess else {
-            statusLabel.text = "Hãy bật Full Access để đọc clipboard theo yêu cầu"
+            showStatus("Hãy bật Full Access để đọc clipboard theo yêu cầu")
             return
         }
         guard let text = UIPasteboard.general.string,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            statusLabel.text = "Clipboard trống"
+            showStatus("Clipboard trống")
             return
         }
         // IMPORTANT: reading the source is not inserting it into the chat draft.
         selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
-        statusLabel.text = "Đã chọn tin nhắn để phân tích (KHÔNG chèn vào ô soạn)"
+        showStatus("Đã chọn tin nhắn để phân tích (KHÔNG chèn vào ô soạn)")
     }
 
     private func requestedInput() -> String {
@@ -334,7 +334,7 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func offlineTapped() {
         let text = requestedInput()
         guard !text.isEmpty else {
-            statusLabel.text = "Dán tin nhắn cần trả lời trước"
+            showStatus("Dán tin nhắn cần trả lời trước")
             return
         }
         show(OfflineReplyEngine.suggest(for: text))
@@ -343,18 +343,18 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func cloudTapped() {
         guard !isRequestRunning else { return }
         guard hasFullAccess else {
-            statusLabel.text = "Cần bật Full Access để gọi AI"
+            showStatus("Cần bật Full Access để gọi AI")
             return
         }
         let source = requestedInput().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty else {
-            statusLabel.text = "Chưa có tin nhắn để phân tích · Chạm Dán"
+            showStatus("Chưa có tin nhắn để phân tích · Chạm Dán")
             return
         }
         isRequestRunning = true
         requestID = UUID()
         let currentRequestID = requestID
-        statusLabel.text = "AI đang gợi ý câu trả lời..."
+        showStatus("AI đang gợi ý câu trả lời...")
         Task { [weak self] in
             do {
                 let suggestions = try await AIService.reply(to: source)
@@ -367,7 +367,7 @@ final class KeyboardViewController: UIInputViewController {
                 await MainActor.run {
                     guard let self, self.requestID == currentRequestID else { return }
                     self.isRequestRunning = false
-                    self.statusLabel.text = "AI lỗi: \(error.localizedDescription)"
+                    self.showStatus("AI lỗi: \(error.localizedDescription)")
                     // Do NOT silently replace an API error with offline suggestions.
                 }
             }
@@ -385,60 +385,101 @@ final class KeyboardViewController: UIInputViewController {
             suggestionContainer = nil
         }
         lastSuggestions = []
+        toneButtons = []
         previewLabel.text = nil
         previewLabel.isHidden = true
-        heightConstraint?.constant = 315
+        updateKeyboardHeight()
     }
 
     private func show(_ items: [ReplySuggestion]) {
         clearSuggestions()
         lastSuggestions = Array(items.prefix(3))
         guard !lastSuggestions.isEmpty else {
-            statusLabel.text = "Không tìm được câu trả lời"
+            showStatus("Không có gợi ý. Thử tin nhắn khác.")
             return
         }
         chosenIndex = 0
-        statusLabel.text = "Chỉ dùng câu trả lời bên dưới · KHÔNG kèm tin gốc"
-        let bar = UIStackView()
-        bar.axis = .vertical
-        bar.spacing = 3
-        bar.tag = 9321
+        statusLabel.isHidden = true
+
+        let panel = UIStackView()
+        panel.axis = .vertical
+        panel.spacing = 5
+        panel.distribution = .fill
+        panel.backgroundColor = .clear
+
         let tones = UIStackView()
         tones.axis = .horizontal
+        tones.spacing = 4
         tones.distribution = .fillEqually
-        tones.spacing = 3
+        toneButtons.removeAll()
+
         for (index, item) in lastSuggestions.enumerated() {
-            let button = keyButton("\(index+1) · \(item.tone)", action: #selector(selectSuggestion(_:)))
+            let emoji = ["💜", "😊", "🤍"][index % 3]
+            let button = keyButton("\(emoji) \(item.tone)", action: #selector(selectSuggestion(_:)))
             button.tag = index
-            button.titleLabel?.font = .systemFont(ofSize: 11)
+            button.layer.cornerRadius = 10
+            button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+            button.accessibilityLabel = "Chọn câu trả lời \(item.tone)"
+            toneButtons.append(button)
             tones.addArrangedSubview(button)
         }
-        tones.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        bar.addArrangedSubview(tones)
+        let close = keyButton("×", action: #selector(dismissSuggestions))
+        close.titleLabel?.font = .systemFont(ofSize: 20, weight: .medium)
+        close.backgroundColor = UIColor.systemGray4
+        close.widthAnchor.constraint(equalToConstant: 33).isActive = true
+        tones.distribution = .fill
+        for button in toneButtons { button.setContentHuggingPriority(.defaultLow, for: .horizontal) }
+        tones.addArrangedSubview(close)
+        tones.heightAnchor.constraint(equalToConstant: 33).isActive = true
+        panel.addArrangedSubview(tones)
+
         let actions = makeRow([
             ("📋 Sao chép", #selector(copySuggestion)),
-            ("↻ Thay bản nháp", #selector(replaceDraft)),
+            ("↻ Thay nháp", #selector(replaceDraft)),
             ("➕ Chèn", #selector(insertSuggestion))
-        ], height: 33)
-        bar.addArrangedSubview(actions)
-        suggestionContainer = bar
-        heightConstraint?.constant = 410
-        // Only a preview of the answer appears above the keys. No source text.
-        container.insertArrangedSubview(bar, at: 3)
+        ], height: 34)
+        if let row = actions as? UIStackView {
+            for (index, item) in row.arrangedSubviews.enumerated() {
+                guard let button = item as? UIButton else { continue }
+                button.layer.cornerRadius = 10
+                button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+                if index == 0 || index == 2 {
+                    button.backgroundColor = index == 0 ? cyanColor : aiColor
+                    button.setTitleColor(.white, for: .normal)
+                }
+            }
+        }
+        panel.addArrangedSubview(actions)
+
+        suggestionContainer = panel
+        container.insertArrangedSubview(panel, at: 3)
         updatePreview()
+        updateToneStyles()
+        updateKeyboardHeight()
     }
 
     private func updatePreview() {
         guard lastSuggestions.indices.contains(chosenIndex) else { return }
-        previewLabel.text = "  " + lastSuggestions[chosenIndex].text
+        previewLabel.text = "  ✦  " + lastSuggestions[chosenIndex].text
         previewLabel.isHidden = false
+    }
+
+    private func updateToneStyles() {
+        for (index, button) in toneButtons.enumerated() {
+            let chosen = index == chosenIndex
+            button.backgroundColor = chosen ? aiColor : UIColor { trait in
+                trait.userInterfaceStyle == .dark ? UIColor(white: 0.24, alpha: 1) : .white
+            }
+            button.setTitleColor(chosen ? .white : .label, for: .normal)
+        }
     }
 
     @objc private func selectSuggestion(_ sender: UIButton) {
         guard lastSuggestions.indices.contains(sender.tag) else { return }
         chosenIndex = sender.tag
+        haptic.impactOccurred(intensity: 0.55)
         updatePreview()
-        statusLabel.text = "Chọn Sao chép / Thay bản nháp / Chèn"
+        updateToneStyles()
     }
 
     private func selectedReply() -> String? {
@@ -450,11 +491,11 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func copySuggestion() {
         guard let answer = selectedReply() else { return }
         guard hasFullAccess else {
-            statusLabel.text = "Bật Full Access để sao chép"
+            showStatus("Bật Full Access để sao chép")
             return
         }
         UIPasteboard.general.string = answer
-        statusLabel.text = "Đã sao chép CHỈ câu trả lời, không kèm tin gốc"
+        showStatus("Đã sao chép CHỈ câu trả lời, không kèm tin gốc")
     }
 
     @objc private func replaceDraft() {
@@ -465,17 +506,17 @@ final class KeyboardViewController: UIInputViewController {
               let before = textDocumentProxy.documentContextBeforeInput,
               (textDocumentProxy.documentContextAfterInput ?? "").isEmpty,
               before.count <= 2000 else {
-            statusLabel.text = "Không thể thay an toàn · Chọn Sao chép rồi tự dán"
+            showStatus("Không thể thay an toàn · Chọn Sao chép rồi tự dán")
             return
         }
         for _ in before { textDocumentProxy.deleteBackward() }
         textDocumentProxy.insertText(answer)
-        statusLabel.text = "Đã thay bản nháp bằng CHỈ câu trả lời"
+        showStatus("Đã thay bản nháp bằng CHỈ câu trả lời")
     }
 
     @objc private func insertSuggestion() {
         guard let answer = selectedReply() else { return }
         textDocumentProxy.insertText(answer)
-        statusLabel.text = "Đã chèn câu trả lời tại con trỏ (không kèm tin gốc)"
+        showStatus("Đã chèn câu trả lời tại con trỏ (không kèm tin gốc)")
     }
 }
