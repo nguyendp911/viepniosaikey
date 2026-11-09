@@ -2,10 +2,13 @@ import UIKit
 
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
-final class KeyboardViewController: UIInputViewController {
+final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     private let container = UIStackView()
     private let statusLabel = UILabel()
     private let previewLabel = UILabel()
+    private let pasteReceiver = UITextView(frame: .zero)
+    private var systemPasteButton: UIPasteControl?
+
     private var selectedText = ""
     private var isUppercase = false
     private var isNumbers = false
@@ -87,6 +90,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         container.addArrangedSubview(commands)
+        installSystemPasteControl(into: commands)
         updateEmojiTool()
 
         previewLabel.numberOfLines = 2
@@ -159,6 +163,45 @@ final class KeyboardViewController: UIInputViewController {
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
         updateKeys()
+    }
+
+    private func installSystemPasteControl(into commands: UIView) {
+        guard let toolbar = commands as? UIStackView,
+              let old = toolbar.arrangedSubviews.first as? UIButton else { return }
+        // iOS-approved user-initiated paste. Never read the clipboard directly.
+        pasteReceiver.delegate = self
+        pasteReceiver.translatesAutoresizingMaskIntoConstraints = false
+        pasteReceiver.alpha = 0.01
+        pasteReceiver.isScrollEnabled = false
+        view.addSubview(pasteReceiver)
+        NSLayoutConstraint.activate([
+            pasteReceiver.widthAnchor.constraint(equalToConstant: 1),
+            pasteReceiver.heightAnchor.constraint(equalToConstant: 1),
+            pasteReceiver.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            pasteReceiver.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        let config = UIPasteControl.Configuration()
+        config.displayMode = .iconAndLabel
+        config.cornerStyle = .capsule
+        config.baseBackgroundColor = UIColor.systemBackground
+        config.baseForegroundColor = UIColor.label
+        let control = UIPasteControl(configuration: config)
+        control.target = pasteReceiver
+        control.accessibilityLabel = "Dán nội dung để phân tích"
+        toolbar.removeArrangedSubview(old)
+        old.removeFromSuperview()
+        toolbar.insertArrangedSubview(control, at: 0)
+        systemPasteButton = control
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        guard textView === pasteReceiver else { return }
+        let text = textView.text ?? ""
+        textView.text = ""
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
+        clearSuggestions()
+        showStatus("✓ Đã chọn nội dung, chạm AI để phân tích")
     }
 
     private func keyButton(_ title: String, action: Selector) -> UIButton {
