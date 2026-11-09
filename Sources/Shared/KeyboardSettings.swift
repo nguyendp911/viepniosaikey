@@ -1,7 +1,7 @@
 import Foundation
 
 enum KeyboardSettings {
-    static let groupID = "group.com.viepn.aikey"
+    static let groupID = "group.43f7b1421047676b.1"
     private static let prefix = "viepnaikey."
     static var defaults: UserDefaults {
         UserDefaults(suiteName: groupID) ?? .standard
