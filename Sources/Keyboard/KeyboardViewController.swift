@@ -43,7 +43,7 @@ final class KeyboardViewController: UIInputViewController {
                 ? UIColor(red: 0.11, green: 0.13, blue: 0.20, alpha: 1)
                 : UIColor(red: 0.89, green: 0.92, blue: 0.97, alpha: 1)
         }
-        heightConstraint = view.heightAnchor.constraint(equalToConstant: 255)
+        heightConstraint = view.heightAnchor.constraint(equalToConstant: 240)
         heightConstraint?.priority = .defaultHigh
         heightConstraint?.isActive = true
         container.axis = .vertical
@@ -60,7 +60,8 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.font = .systemFont(ofSize: 11, weight: .semibold)
         statusLabel.textColor = .secondaryLabel
         statusLabel.textAlignment = .center
-        statusLabel.numberOfLines = 2
+        statusLabel.numberOfLines = 1
+        statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.text = "✦ ViePN AI · Viết hay hơn, gửi nhanh hơn"
         statusLabel.isHidden = true
         container.addArrangedSubview(statusLabel)
@@ -204,11 +205,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func punctuationTapped(_ sender: UIButton) {
+        beginTyping()
         guard let character = sender.title(for: .normal) else { return }
         textDocumentProxy.insertText(character)
     }
 
     @objc private func letterTapped(_ sender: UIButton) {
+        beginTyping()
         guard let title = sender.title(for: .normal) else { return }
         let key = isUppercase && !isNumbers ? title.uppercased() : title
         if !isNumbers && KeyboardSettings.telexEnabled,
@@ -234,9 +237,9 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    @objc private func spaceTapped() { textDocumentProxy.insertText(" ") }
+    @objc private func spaceTapped() { beginTyping(); textDocumentProxy.insertText(" ") }
     @objc private func returnTapped() { textDocumentProxy.insertText("\n") }
-    @objc private func deleteTapped() { textDocumentProxy.deleteBackward() }
+    @objc private func deleteTapped() { beginTyping(); textDocumentProxy.deleteBackward() }
 
     @objc private func shiftTapped() {
         if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
@@ -297,11 +300,19 @@ final class KeyboardViewController: UIInputViewController {
 
     private func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
-        let base: CGFloat = 255
+        let base: CGFloat = 240
         heightConstraint?.constant = base +
-            (statusLabel.isHidden ? 0 : 19) +
-            (suggestionContainer == nil ? 0 : 119)
+            (statusLabel.isHidden ? 0 : 22) +
+            (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()
+    }
+
+    private func beginTyping() {
+        if suggestionContainer != nil { clearSuggestions() }
+        if !statusLabel.isHidden {
+            statusLabel.isHidden = true
+            updateKeyboardHeight()
+        }
     }
 
     @objc private func dismissSuggestions() {
@@ -511,12 +522,14 @@ final class KeyboardViewController: UIInputViewController {
         }
         for _ in before { textDocumentProxy.deleteBackward() }
         textDocumentProxy.insertText(answer)
+        dismissSuggestions()
         showStatus("Đã thay bản nháp bằng CHỈ câu trả lời")
     }
 
     @objc private func insertSuggestion() {
         guard let answer = selectedReply() else { return }
         textDocumentProxy.insertText(answer)
-        showStatus("Đã chèn câu trả lời tại con trỏ (không kèm tin gốc)")
+        dismissSuggestions()
+        showStatus("Đã chèn chỉ câu trả lời vào ô soạn")
     }
 }
