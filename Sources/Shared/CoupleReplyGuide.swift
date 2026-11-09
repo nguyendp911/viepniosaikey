@@ -99,14 +99,19 @@ enum CoupleReplyGuide {
         guard isEnabled else { return "" }
         let closeness = KeyboardSettings.coupleStage
         let pronouns = KeyboardSettings.coupleAddress
+        let style = CoupleStyleCatalog.active
+        let variants = style.variantNames.joined(separator: ", ")
         return """
         COUPLE MODE: Help the user compose Vietnamese relationship replies.
         Relationship context: \(closeness). Preferred forms of address: \(pronouns).
+        SELECTED STYLE: \(style.title). Style directions: \(style.guidance).
+        Name the three reply variants appropriately (suggested names: \(variants)).
+        Keep every suggested reply consistent with the style, but with different phrasing and intensity.
         These preferences describe style only. Never assume anyone's gender, consent, relationship
         exclusivity or feelings. Match the actual incoming message rather than using a stock
         love confession; don't over-flirt, repeat the incoming text, or make up shared memories.
-        Produce exactly THREE distinct natural, send-ready replies. For lighthearted chat,
-        vary them between: "Dịu dàng", "Tự nhiên", and "Dễ thương" with at most one emoji.
+        Produce exactly THREE distinct natural, send-ready replies with at most one emoji each when appropriate.
+        Distinct means separate alternatives, NOT three sequential messages. Don't concatenate replies.
         For sadness, conflict, jealousy, pressured intimacy or unsafe invitations,
         prioritize empathy, honest communication, boundaries and choice; labels may be
         "Lắng nghe", "Quan tâm", "Ranh giới". No guilt-tripping, possessiveness,
@@ -124,7 +129,7 @@ enum CoupleReplyGuide {
         return picks.map { example in
             let variants = zip(["Dịu dàng", "Tự nhiên", "Quan tâm"], example.replies)
                 .map { "\($0.0): \($0.1)" }.joined(separator: "\n")
-            return "Ví dụ tin nhắn: \(example.incoming)\nBa cách trả lời:\n\(variants)"
+            return "Ví dụ minh họa ngữ cảnh (không phải style bắt buộc): \(example.incoming)\nBa cách trả lời:\n\(variants)"
         }.joined(separator: "\n\n")
     }
 
