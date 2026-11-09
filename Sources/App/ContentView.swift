@@ -484,6 +484,27 @@ struct ContentView: View {
         }
     }
 
+    private func themeSampleColor(_ id: String) -> Color {
+        switch id {
+        case "midnight": return Color(red: 0.09, green: 0.11, blue: 0.19)
+        case "ocean": return Color(red: 0.73, green: 0.87, blue: 0.94)
+        case "rose": return Color(red: 0.95, green: 0.84, blue: 0.89)
+        case "lavender": return Color(red: 0.83, green: 0.80, blue: 0.96)
+        case "mint": return Color(red: 0.77, green: 0.92, blue: 0.86)
+        case "sunset": return Color(red: 0.94, green: 0.78, blue: 0.72)
+        case "graphite": return Color(red: 0.14, green: 0.15, blue: 0.17)
+        case "sakura": return Color(red: 0.98, green: 0.88, blue: 0.92)
+        case "forest": return Color(red: 0.15, green: 0.25, blue: 0.22)
+        case "sand": return Color(red: 0.92, green: 0.88, blue: 0.79)
+        case "aurora": return Color(red: 0.08, green: 0.20, blue: 0.26)
+        default: return cardColor
+        }
+    }
+
+    private func themeDisplayName(_ id: String) -> String {
+        id.prefix(1).uppercased() + id.dropFirst()
+    }
+
     private var personalization: some View {
         card(title: "Cá nhân hóa", subtitle: "Bàn phím tiếng Việt và câu trả lời tự nhiên",
              icon: "slider.horizontal.3") {
@@ -514,13 +535,48 @@ struct ContentView: View {
                     telexEnabled = $0 == "telex"
                     KeyboardSettings.telexEnabled = telexEnabled
                 }
-                Picker("Chủ đề", selection: $keyboardTheme) {
+                Picker("Chủ đề bàn phím", selection: $keyboardTheme) {
                     Text("Theo hệ thống").tag("system")
                     Text("Midnight").tag("midnight")
                     Text("Ocean").tag("ocean")
                     Text("Rose").tag("rose")
+                    Text("Lavender").tag("lavender")
+                    Text("Mint").tag("mint")
+                    Text("Sunset").tag("sunset")
+                    Text("Graphite").tag("graphite")
+                    Text("Sakura").tag("sakura")
+                    Text("Forest").tag("forest")
+                    Text("Sand").tag("sand")
+                    Text("Aurora").tag("aurora")
                 }
                 .onChange(of: keyboardTheme) { KeyboardSettings.theme = $0 }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(["midnight", "ocean", "rose", "lavender", "mint", "sunset",
+                                 "graphite", "sakura", "forest", "sand", "aurora"], id: \.self) { id in
+                            Button {
+                                keyboardTheme = id
+                                KeyboardSettings.theme = id
+                            } label: {
+                                VStack(spacing: 5) {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(themeSampleColor(id))
+                                        .frame(width: 62, height: 40)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(keyboardTheme == id ? cyan : Color.white.opacity(0.25),
+                                                        lineWidth: keyboardTheme == id ? 3 : 1)
+                                        )
+                                    Text(themeDisplayName(id))
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(keyboardTheme == id ? cyan : muted)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
                 Toggle("Rung nhẹ khi gõ", isOn: $hapticEnabled)
                     .tint(violet)
                     .onChange(of: hapticEnabled) { KeyboardSettings.hapticEnabled = $0 }
