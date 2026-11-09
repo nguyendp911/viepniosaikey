@@ -18,7 +18,19 @@ enum KeyboardSettings {
         set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "geminiAPIKey") }
     }
     static var geminiModel: String {
-        get { defaults.string(forKey: prefix + "geminiModel") ?? "gemini-3.8-flash" }
+        get {
+            let stored = defaults.string(forKey: prefix + "geminiModel") ?? ""
+            // Upgrade the old hard-coded default without overriding models chosen later.
+            let migrated = defaults.bool(forKey: prefix + "geminiModelMigrationV3")
+            if !migrated {
+                defaults.set(true, forKey: prefix + "geminiModelMigrationV3")
+                if stored.isEmpty || stored == "gemini-2.5-flash" {
+                    defaults.set("gemini-3.8-flash", forKey: prefix + "geminiModel")
+                    return "gemini-3.8-flash"
+                }
+            }
+            return stored.isEmpty ? "gemini-3.8-flash" : stored
+        }
         set { defaults.set(newValue, forKey: prefix + "geminiModel") }
     }
     static var allowCloudAI: Bool {
