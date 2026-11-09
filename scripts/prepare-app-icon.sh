@@ -1,31 +1,38 @@
 #!/bin/sh
-# ViePN AI Keyboard app icon
-# Never upscale a tiny JPEG: it produces visibly pixelated iPhone icons.
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 HIGHRES="$ROOT/Resources/brand-source.png"
-OLD="$ROOT/Resources/brand-source.jpg"
+VECTOR="$ROOT/Resources/brand-fallback.svg"
 TARGET="$ROOT/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
-
 mkdir -p "$(dirname "$TARGET")"
+
 if [ -s "$HIGHRES" ]; then
-  SOURCE="$HIGHRES"
-elif [ -s "$TARGET" ]; then
-  SOURCE="$TARGET"
+    dimensions="$(sips -g pixelWidth -g pixelHeight "$HIGHRES")"
+    width="$(printf '%s\n' "$dimensions" | awk '/pixelWidth:/ {print $2}')"
+    height="$(printf '%s\n' "$dimensions" | awk '/pixelHeight:/ {print $2}')"
+    if [ "$width" -lt 1024 ] || [ "$height" -lt 1024 ]; then
+        echo "::error::Original logo must be at least 1024x1024; refusing to upscale" >&2
+        exit 1
+    fi
+    sips -s format png -z 1024 1024 "$HIGHRES" --out "$TARGET" >/dev/null
+elif [ -s "$VECTOR" ]; then
+    echo "Original high-res PNG not committed; generating crisp vector fallback."
+    command -v rsvg-convert >/dev/null 2>&1 || {
+       echo "::error::rsvg-convert missing. Install librsvg in CI." >&2
+       exit 1
+    }
+    rsvg-convert --width 1024 --height 1024 "$VECTOR" --output "$TARGET"
 else
-  echo "::error::Sharp ViePN AI Keyboard icon is missing. Do not upscale $OLD (old 5.7 KB placeholder)." >&2
-  echo "Upload a source PNG at Resources/brand-source.png (at least 1024 x 1024), or place AppIcon.png in AppIcon.appiconset." >&2
-  exit 1
+    echo "::error::No high-res PNG or vector fallback. Old 5.7KB JPG intentionally rejected." >&2
+    exit 1
 fi
 
-dimensions="$(sips -g pixelWidth -g pixelHeight "$SOURCE")"
-width="$(printf '%s\n' "$dimensions" | awk '/pixelWidth:/ {print $2}')"
-height="$(printf '%s\n' "$dimensions" | awk '/pixelHeight:/ {print $2}')"
-if [ "$width" -lt 1024 ] || [ "$height" -lt 1024 ]; then
-  echo "::error::Refusing blurry icon: source is ${width}x${height}, minimum is 1024x1024" >&2
-  exit 1
-fi
-if [ "$SOURCE" != "$TARGET" ]; then
-  sips -s format png -z 1024 1024 "$SOURCE" --out "$TARGET" >/dev/null
-fi
-echo "High-resolution ViePN AI Keyboard icon ready at $TARGET"
+/usr/bin/python3 - "$TARGET" <<'PY'
+import struct
+import sys
+with open(sys.argv[1], "rb") as image:
+    head = image.read(24)
+assert head[:8] == bytes([137,80,78,71,13,10,26,10]), "Icon must be PNG"
+assert struct.unpack(">II", head[16:24]) == (1024, 1024), "Icon must be 1024x1024"
+PY
+echo "ViePN AI Keyboard high-res icon ready"
