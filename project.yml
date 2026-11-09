@@ -20,6 +20,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: ViePN AI Keyboard
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_ENTITLEMENTS: Config/App.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE_NAME)
     dependencies:
       - target: ViePNKeyboardExtension
   ViePNKeyboardExtension:
@@ -33,5 +34,6 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey.keyboard
         INFOPLIST_FILE: Config/KeyboardInfo.plist
         CODE_SIGN_ENTITLEMENTS: Config/Keyboard.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(KEYBOARD_PROFILE_NAME)
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
