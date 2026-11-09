@@ -18,7 +18,7 @@ enum KeyboardSettings {
         set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "geminiAPIKey") }
     }
     static var geminiModel: String {
-        get { defaults.string(forKey: prefix + "geminiModel") ?? "gemini-2.5-flash" }
+        get { defaults.string(forKey: prefix + "geminiModel") ?? "gemini-3.8-flash" }
         set { defaults.set(newValue, forKey: prefix + "geminiModel") }
     }
     static var allowCloudAI: Bool {
