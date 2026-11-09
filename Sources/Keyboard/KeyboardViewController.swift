@@ -70,7 +70,7 @@ final class KeyboardViewController: UIInputViewController {
 
         // All AI controls live in one slim strip. Expand only for suggestions.
         let commands = makeRow([
-            ("📋 Dán", #selector(pasteTapped)),
+            ("📋 Dán", #selector(pasteFallbackTapped)),
             ("✨ Offline", #selector(offlineTapped)),
             ("✦ AI", #selector(cloudTapped)),
             ("📝 Mẫu", #selector(phrasesTapped)),
@@ -90,6 +90,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         container.addArrangedSubview(commands)
+        installNativePasteButton(in: commands)
         installWritingActions()
         updateEmojiTool()
 
@@ -167,6 +168,59 @@ final class KeyboardViewController: UIInputViewController {
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
         updateKeys()
+    }
+
+    /// The paste target is the visible keyboard controller itself.
+    /// No hidden UITextView, overlay, or direct UIPasteboard read is involved.
+    /// The system control is enabled when compatible text exists on the pasteboard.
+    private func installNativePasteButton(in commands: UIView) {
+        guard let toolbar = commands as? UIStackView,
+              let oldPaste = toolbar.arrangedSubviews.first as? UIButton else { return }
+        pasteConfiguration = UIPasteConfiguration(
+            typeIdentifiersForAcceptingClass: NSString.self
+        )
+        let appearance = UIPasteControl.Configuration()
+        appearance.displayMode = .iconAndLabel
+        appearance.cornerStyle = .medium
+        appearance.baseBackgroundColor = UIColor.systemBackground
+        appearance.baseForegroundColor = UIColor.label
+        let button = UIPasteControl(configuration: appearance)
+        button.target = self
+        button.accessibilityLabel = "Dán văn bản để AI phân tích"
+        button.accessibilityHint = "Nút Dán của iOS, không yêu cầu xác nhận mỗi lần"
+        button.translatesAutoresizingMaskIntoConstraints = false
+
+        toolbar.removeArrangedSubview(oldPaste)
+        oldPaste.removeFromSuperview()
+        toolbar.insertArrangedSubview(button, at: 0)
+    }
+
+    /// UIKit calls this only after the user taps the real UIPasteControl.
+    /// NSItemProvider delivers the authorized content; we never read
+    /// UIPasteboard.general.string and never insert the source into the chat.
+    override func paste(itemProviders: [NSItemProvider]) {
+        guard let provider = itemProviders.first(where: {
+            $0.canLoadObject(ofClass: NSString.self)
+        }) else {
+            showStatus("Clipboard chưa có văn bản để phân tích")
+            return
+        }
+        provider.loadObject(ofClass: NSString.self) { [weak self] object, error in
+            let text = object as? String
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard error == nil,
+                      let text,
+                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    self.showStatus("Không đọc được văn bản; hãy sao chép lại tin nhắn")
+                    return
+                }
+                self.selectedText = String(text.prefix(3000))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                self.clearSuggestions()
+                self.showStatus("✓ Đã nhận tin nhắn; chạm ✦ AI để phân tích")
+            }
+        }
     }
 
     private func installWritingActions() {
@@ -463,21 +517,10 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardHeight()
     }
 
-    @objc private func pasteTapped() {
-        guard hasFullAccess else {
-            showStatus("Hãy bật Full Access để đọc clipboard theo yêu cầu")
-            return
-        }
-        let clipboard = UIPasteboard.general
-        guard let text = clipboard.string,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            showStatus("Không có văn bản để Dán · Hãy Sao chép tin nhắn rồi thử lại")
-            return
-        }
-        // IMPORTANT: reading the source is not inserting it into the chat draft.
-        selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
-        clearSuggestions()
-        showStatus("✓ Đã Dán tin nhắn vào AI · Nhấn ✦ AI để phân tích")
+    @objc private func pasteFallbackTapped() {
+        // The first UIKit button is replaced by UIPasteControl when the toolbar is built.
+        // Never invoke clipboard read from this fallback selector.
+        showStatus("Hãy dùng nút Dán của iOS ở thanh công cụ")
     }
 
     private func requestedInput() -> String {
