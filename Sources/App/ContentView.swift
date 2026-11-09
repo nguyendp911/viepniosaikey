@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var cloudEnabled = KeyboardSettings.allowCloudAI
     @State private var phrases = KeyboardSettings.savedPhrases
     @State private var phraseDraft = ""
+    @State private var telexEnabled = KeyboardSettings.telexEnabled
     @State private var demoMessage = "Bạn gửi báo giá cho mình được không?"
     @State private var suggestions: [ReplySuggestion] = []
     @State private var feedback = ""
@@ -221,6 +222,12 @@ struct ContentView: View {
                         }.buttonStyle(.plain)
                     }
                     if !feedback.isEmpty { Text(feedback).font(.footnote) }
+                }
+                Section("Gõ tiếng Việt") {
+                    Toggle("Tự động gõ Telex", isOn: $telexEnabled)
+                        .onChange(of: telexEnabled) { KeyboardSettings.telexEnabled = $0 }
+                    Text("Hỗ trợ aa → â, aw → ă, ee → ê, oo → ô, ow → ơ, uw → ư, dd → đ và dấu s/f/r/x/j. Khi tắt, bàn phím nhập ký tự bình thường.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section("Mẫu câu nhanh") {
                     ForEach(phrases, id: \.self) { phrase in
