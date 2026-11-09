@@ -16,7 +16,6 @@ jobs:
         run: |
           xcodebuild -project ViePNAIKeyboard.xcodeproj -scheme ViePNAIKeyboard -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
   ipa:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     environment: ios-signing
     steps:
