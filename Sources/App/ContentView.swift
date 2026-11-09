@@ -38,9 +38,21 @@ struct ContentView: View {
                         UIPasteboard.general.string = keyboardDiagnosis
                     }
                 }
-                Section("Gemini API - Nhập khóa trực tiếp") {
-                    Toggle("Cho phép gửi nội dung tôi chọn đến Gemini", isOn: $cloudEnabled)
+                Section("Nhà cung cấp AI") {
+                    Picker("Dịch vụ AI", selection: $provider) {
+                        Text("Google Gemini").tag("gemini")
+                        Text("OpenAI").tag("openai")
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: provider) {
+                        KeyboardSettings.provider = $0
+                        feedback = ""
+                    }
+                    Toggle("Cho phép gửi nội dung tôi chọn đến AI", isOn: $cloudEnabled)
                         .onChange(of: cloudEnabled) { KeyboardSettings.allowCloudAI = $0 }
+                }
+                if provider == "gemini" {
+                    Section("Gemini API - Nhập khóa trực tiếp") {
                     HStack {
                         Group {
                             if showAPIKey {
