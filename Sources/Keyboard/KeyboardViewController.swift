@@ -21,7 +21,6 @@ final class KeyboardViewController: UIInputViewController {
     private var heightConstraint: NSLayoutConstraint?
     private var toneButtons: [UIButton] = []
     private var toolButtons: [UIButton] = []
-    private var toneButtons: [UIButton] = []
     private let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
