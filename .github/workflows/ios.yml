@@ -26,7 +26,14 @@ jobs:
           set -euo pipefail
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/ViePNAIKeyboard.app"
           test -d "$APP"
-          test -d "$APP/PlugIns/ViePNKeyboardExtension.appex"
+          EXT="$APP/PlugIns/ViePNKeyboardExtension.appex"
+          test -d "$EXT"
+          echo "Checking embedded keyboard extension..."
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist" | grep -Fx 'com.apple.keyboard-service'
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPrincipalClass' "$EXT/Info.plist" | grep -F 'KeyboardViewController'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist" | grep -Fx 'com.viepn.aikey.keyboard'
+          test -f "$EXT/ViePNKeyboardExtension"
+          echo "Keyboard extension bundle verified."
           mkdir -p "$RUNNER_TEMP/Unsigned/Payload" artifacts
           cp -R "$APP" "$RUNNER_TEMP/Unsigned/Payload/"
           cd "$RUNNER_TEMP/Unsigned"
@@ -84,7 +91,8 @@ jobs:
           echo "$PROFILE_APP_BASE64" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
           echo "$PROFILE_KEYBOARD_BASE64" | base64 --decode > "$RUNNER_TEMP/keyboard.mobileprovision"
           for kind in app keyboard; do
-            uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$RUNNER_TEMP/$kind.mobileprovision")")
+            security cms -D -i "$RUNNER_TEMP/$kind.mobileprovision" > "$RUNNER_TEMP/$kind.plist"
+            uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/$kind.plist")
             cp "$RUNNER_TEMP/$kind.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
           done
       - name: Archive and export signed IPA
