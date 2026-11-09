@@ -49,6 +49,15 @@ enum KeyboardSettings {
         get { defaults.bool(forKey: prefix + "allowCloudAI") }
         set { defaults.set(newValue, forKey: prefix + "allowCloudAI") }
     }
+    // User-specified recipient overrides guesses from short chat messages.
+    // This is a global preference, never an inferred contact identity.
+    static var recipientMode: String {
+        get { defaults.string(forKey: prefix + "recipientMode") ?? "auto" }
+        set {
+            let valid = ReplyRecipient.allCases.contains { $0.rawValue == newValue }
+            defaults.set(valid ? newValue : "auto", forKey: prefix + "recipientMode")
+        }
+    }
     static var coupleEnabled: Bool {
         get { defaults.object(forKey: prefix + "coupleEnabled") as? Bool ?? false }
         set { defaults.set(newValue, forKey: prefix + "coupleEnabled") }
