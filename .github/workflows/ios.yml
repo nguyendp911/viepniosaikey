@@ -20,6 +20,12 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_conversation_context.swift
           "$RUNNER_TEMP/verify-context"
+      - name: Verify Vietnamese Telex input
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-telex" \
+            Sources/Shared/VietnameseTelex.swift Scripts/verify_telex.swift
+          "$RUNNER_TEMP/verify-telex"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
