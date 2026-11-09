@@ -134,6 +134,10 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
             if rowIndex == 2 {
                 let delete = keyButton("⌫", action: #selector(deleteTapped))
                 styleModifier(delete)
+                let gesture = UILongPressGestureRecognizer(target: self, action: #selector(deleteWordGesture(_:)))
+                gesture.minimumPressDuration = 0.45
+                delete.addGestureRecognizer(gesture)
+                delete.accessibilityHint = "Nhấn giữ để xóa từ"
                 row.addArrangedSubview(delete)
             }
             row.heightAnchor.constraint(equalToConstant: 43).isActive = true
@@ -396,6 +400,17 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
     }
     @objc private func returnTapped() { textDocumentProxy.insertText("\n") }
     @objc private func deleteTapped() { beginTyping(); tactileFeedback(); textDocumentProxy.deleteBackward() }
+
+    @objc private func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        beginTyping()
+        tactileFeedback()
+        let before = textDocumentProxy.documentContextBeforeInput ?? ""
+        let reversed = before.reversed()
+        let spaces = reversed.prefix(while: { $0.isWhitespace }).count
+        let letters = reversed.dropFirst(spaces).prefix(while: { $0.isLetter || $0.isNumber }).count
+        for _ in 0..<(spaces + max(1, letters)) { textDocumentProxy.deleteBackward() }
+    }
 
     @objc private func shiftTapped() {
         if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
