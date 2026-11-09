@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var typingMode = KeyboardSettings.typingMode
     @State private var keyboardTheme = KeyboardSettings.theme
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
+    @State private var autoCapitalize = KeyboardSettings.autoCapitalize
     @State private var preferredTone = KeyboardSettings.preferredTone
     @State private var preferredLength = KeyboardSettings.preferredLength
     @State private var fallbackModel = KeyboardSettings.fallbackModel
@@ -389,6 +390,9 @@ struct ContentView: View {
                 Toggle("Rung nhẹ khi gõ", isOn: $hapticEnabled)
                     .tint(violet)
                     .onChange(of: hapticEnabled) { KeyboardSettings.hapticEnabled = $0 }
+                Toggle("Viết hoa đầu câu", isOn: $autoCapitalize)
+                    .tint(violet)
+                    .onChange(of: autoCapitalize) { KeyboardSettings.autoCapitalize = $0 }
                 Picker("Giọng điệu AI", selection: $preferredTone) {
                     ForEach(["Tự nhiên", "Lịch sự", "Ngọt ngào", "Hài hước", "Chuyên nghiệp"], id: \.self) {
                         Text($0)
