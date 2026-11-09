@@ -1,4 +1,5 @@
 import UIKit
+import AudioToolbox
 
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
@@ -24,6 +25,7 @@ final class KeyboardViewController: UIInputViewController {
     private let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
+    private var lastVibrationAt: CFTimeInterval = 0
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
 
@@ -61,7 +63,7 @@ final class KeyboardViewController: UIInputViewController {
         heightConstraint?.priority = .defaultHigh
         heightConstraint?.isActive = true
         container.axis = .vertical
-        container.spacing = 5
+        container.spacing = 6
         container.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(container)
         NSLayoutConstraint.activate([
@@ -85,7 +87,7 @@ final class KeyboardViewController: UIInputViewController {
         // Keep a real always-visible UIButton for Paste; do not use UIPasteControl here.
         let commands = UIStackView()
         commands.axis = .horizontal
-        commands.spacing = 4
+        commands.spacing = 5
         commands.distribution = .fillEqually
         commands.alignment = .fill
         let tools: [(String, String, Selector)] = [
@@ -145,11 +147,11 @@ final class KeyboardViewController: UIInputViewController {
         for (rowIndex, letters) in rows.enumerated() {
             let row = UIStackView()
             row.axis = .horizontal
-            row.spacing = 4
+            row.spacing = 6
             row.alignment = .fill
             row.distribution = .fillEqually
             if rowIndex == 1 {
-                row.layoutMargins = UIEdgeInsets(top: 0, left: 17, bottom: 0, right: 17)
+                row.layoutMargins = UIEdgeInsets(top: 0, left: 19, bottom: 0, right: 19)
                 row.isLayoutMarginsRelativeArrangement = true
             }
             if rowIndex == 2 {
@@ -181,7 +183,7 @@ final class KeyboardViewController: UIInputViewController {
         // Large spacebar, separate punctuation, globe and return as in iOS.
         let bottom = UIStackView()
         bottom.axis = .horizontal
-        bottom.spacing = 4
+        bottom.spacing = 6
         bottom.distribution = .fill
         bottom.alignment = .fill
 
@@ -459,12 +461,25 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func tactileFeedback() {
-        if KeyboardSettings.hapticEnabled { haptic.impactOccurred(intensity: 0.4) }
+        guard KeyboardSettings.hapticEnabled else { return }
+        if KeyboardSettings.hapticStyle == "vibrate" {
+            // iOS can refuse UIFeedbackGenerator effects inside third-party
+            // keyboard extensions. Use Apple's public vibration system sound
+            // as an alternative, throttled to avoid flooding with each touch.
+            let now = CACurrentMediaTime()
+            guard now - lastVibrationAt >= 0.14 else { return }
+            lastVibrationAt = now
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        } else {
+            haptic.impactOccurred(intensity: 0.85)
+            haptic.prepare()
+        }
     }
 
     @objc private func punctuationTapped(_ sender: UIButton) {
         beginTyping()
         guard let character = sender.title(for: .normal) else { return }
+        tactileFeedback()
         textDocumentProxy.insertText(character)
     }
 
@@ -528,6 +543,7 @@ final class KeyboardViewController: UIInputViewController {
     }
     @objc private func returnTapped() {
         beginTyping()
+        tactileFeedback()
         textDocumentProxy.insertText("\n")
         if KeyboardSettings.autoCapitalize {
             isUppercase = true
@@ -548,12 +564,14 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func shiftTapped() {
+        tactileFeedback()
         if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
         if !isUppercase { isShiftLocked = false }
         updateKeys()
     }
 
     @objc private func numbersTapped() {
+        tactileFeedback()
         isNumbers.toggle()
         updateKeys()
     }
@@ -584,7 +602,10 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    @objc private func globeTapped() { advanceToNextInputMode() }
+    @objc private func globeTapped() {
+        tactileFeedback()
+        advanceToNextInputMode()
+    }
 
     @objc private func coupleTapped() {
         KeyboardSettings.coupleEnabled.toggle()
