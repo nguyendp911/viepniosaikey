@@ -22,6 +22,9 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: ViePN AI Keyboard
         GENERATE_INFOPLIST_FILE: YES
+        # Modern iPhone viewport needs a launch screen; without one iOS can
+        # letterbox the app into a legacy-sized area with black top/bottom bands.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         CODE_SIGN_ENTITLEMENTS: Config/App.entitlements
         PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE_NAME)
     dependencies:
