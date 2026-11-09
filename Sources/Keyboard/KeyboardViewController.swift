@@ -219,9 +219,29 @@ final class KeyboardViewController: UIInputViewController {
                 self?.performWritingAction(action)
             }
         }
-        toolButtons[2].menu = UIMenu(title: "AI viết lại & dịch", children: actions)
+        let selected = ReplyRecipient(rawValue: KeyboardSettings.recipientMode) ?? .automatic
+        let receivers = ReplyRecipient.allCases.map { recipient -> UIAction in
+            let action = UIAction(title: recipient.title) { [weak self] _ in
+                KeyboardSettings.recipientMode = recipient.rawValue
+                self?.installWritingActions()
+                let text = self?.selectedText ?? ""
+                let resolved = ConversationContextResolver.resolve(text)
+                self?.showStatus("Người nhận: " + resolved.displayName + " · Nhấn AI")
+            }
+            action.state = recipient == selected ? .on : .off
+            return action
+        }
+        let receiverMenu = UIMenu(
+            title: "Người nhận: " + selected.title,
+            image: UIImage(systemName: "person.crop.circle"),
+            children: receivers
+        )
+        toolButtons[2].menu = UIMenu(
+            title: "AI · Vai xưng hô và viết lại",
+            children: [receiverMenu] + actions
+        )
         toolButtons[2].showsMenuAsPrimaryAction = false
-        toolButtons[2].accessibilityHint = "Chạm để trả lời; nhấn giữ để sửa câu, dịch hoặc viết lại."
+        toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
     }
 
     private func performWritingAction(_ action: AIWritingAction) {
@@ -664,7 +684,8 @@ final class KeyboardViewController: UIInputViewController {
         selectedText = String(text.prefix(3000))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
-        showStatus("✓ Đã nhận tin nhắn · Bấm ✦ AI để phân tích")
+        let context = ConversationContextResolver.resolve(selectedText)
+        showStatus("✓ Người nhận: " + context.displayName + " · Nhấn AI (giữ AI để đổi)")
     }
 
     private func requestedInput() -> String {
@@ -695,7 +716,8 @@ final class KeyboardViewController: UIInputViewController {
         isRequestRunning = true
         requestID = UUID()
         let currentRequestID = requestID
-        showStatus("AI đang gợi ý câu trả lời...")
+        let context = ConversationContextResolver.resolve(source)
+        showStatus("AI đang phân tích · Người nhận: " + context.displayName)
         Task { [weak self] in
             do {
                 let suggestions = try await AIService.reply(to: source)
