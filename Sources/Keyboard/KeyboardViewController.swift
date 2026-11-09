@@ -71,27 +71,27 @@ final class KeyboardViewController: UIInputViewController {
         // All AI controls live in one slim strip. Expand only for suggestions.
         let commands = makeRow([
             ("📋 Dán", #selector(pasteTapped)),
-            ("✨ Offline", #selector(offlineTapped)),
+            ("♡ Couple", #selector(coupleTapped)),
             ("✦ AI", #selector(cloudTapped)),
-            ("📝 Mẫu", #selector(phrasesTapped)),
-            ("😊", #selector(emojiTapped))
+            ("✨ Offline", #selector(offlineTapped)),
+            ("📝 Mẫu", #selector(phrasesTapped))
         ], height: 36)
         if let bar = commands as? UIStackView {
             toolButtons = bar.arrangedSubviews.compactMap { $0 as? UIButton }
             for (index, button) in toolButtons.enumerated() {
                 button.layer.cornerRadius = 11
                 button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
-                if index == 2 {
+                if index == 0 {
+                    button.setTitleColor(aiColor, for: .normal)
+                } else if index == 2 {
                     button.backgroundColor = aiColor
                     button.setTitleColor(.white, for: .normal)
-                } else if index == 4 {
-                    button.backgroundColor = UIColor(red: 1, green: 0.89, blue: 0.94, alpha: 1)
                 }
             }
         }
         container.addArrangedSubview(commands)
         installWritingActions()
-        updateEmojiTool()
+        updateCoupleTool()
 
         previewLabel.numberOfLines = 2
         previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
@@ -423,16 +423,26 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func globeTapped() { advanceToNextInputMode() }
 
-    @objc private func emojiTapped() {
-        KeyboardSettings.emojiEnabled.toggle()
-        updateEmojiTool()
-        showStatus(KeyboardSettings.emojiEnabled ? "Emoji thông minh đã bật 😊" : "Đã tắt emoji tự động")
+    @objc private func coupleTapped() {
+        KeyboardSettings.coupleEnabled.toggle()
+        updateCoupleTool()
+        showStatus(KeyboardSettings.coupleEnabled
+            ? "💗 Couple đã bật · Dán tin nhắn rồi nhấn ✦ AI"
+            : "Đã chuyển sang trợ lý nhắn tin thông thường")
+        tactileFeedback()
     }
 
-    private func updateEmojiTool() {
-        guard toolButtons.count > 4 else { return }
-        toolButtons[4].setTitle(KeyboardSettings.emojiEnabled ? "😊" : "😶", for: .normal)
-        toolButtons[4].accessibilityLabel = "Bật hoặc tắt emoji tự động"
+    private func updateCoupleTool() {
+        guard toolButtons.count > 1 else { return }
+        let button = toolButtons[1]
+        let active = KeyboardSettings.coupleEnabled
+        button.setTitle(active ? "♥ Couple" : "♡ Couple", for: .normal)
+        button.backgroundColor = active
+            ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
+            : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
+        button.setTitleColor(active ? .white :
+            UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1), for: .normal)
+        button.accessibilityLabel = active ? "Tắt AI Couple" : "Bật AI Couple"
     }
 
     private func showStatus(_ message: String) {
