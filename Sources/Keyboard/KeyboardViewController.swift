@@ -176,9 +176,7 @@ final class KeyboardViewController: UIInputViewController {
     private func installNativePasteButton(in commands: UIView) {
         guard let toolbar = commands as? UIStackView,
               let oldPaste = toolbar.arrangedSubviews.first as? UIButton else { return }
-        pasteConfiguration = UIPasteConfiguration(
-            typeIdentifiersForAcceptingClass: NSString.self
-        )
+        pasteConfiguration = UIPasteConfiguration(forAccepting: NSString.self)
         let appearance = UIPasteControl.Configuration()
         appearance.displayMode = .iconAndLabel
         appearance.cornerStyle = .medium
