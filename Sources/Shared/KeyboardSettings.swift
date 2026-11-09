@@ -49,6 +49,10 @@ enum KeyboardSettings {
         get { defaults.bool(forKey: prefix + "allowCloudAI") }
         set { defaults.set(newValue, forKey: prefix + "allowCloudAI") }
     }
+    static var emojiEnabled: Bool {
+        get { defaults.object(forKey: prefix + "emojiEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "emojiEnabled") }
+    }
     static var telexEnabled: Bool {
         get { defaults.object(forKey: prefix + "telexEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "telexEnabled") }
