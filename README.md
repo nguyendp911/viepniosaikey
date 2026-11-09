@@ -33,7 +33,8 @@ Install app, then open iOS Settings → General → Keyboard → Keyboards → A
 cd backend
 python -m venv .venv
 pip install -r requirements.txt
-export OPENAI_API_KEY='your-secret-key'
+export GEMINI_API_KEY='your-secret-key'
+export GEMINI_MODEL='gemini-2.5-flash'
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -50,3 +51,7 @@ Push to main → unsigned simulator build. Manual Actions → iOS Build → Run 
 - Offline AI is **rule-based suggestions**, not an embedded large language model.
 - Initial Vietnamese accent helper is a basic one-tap acute accent; a full Vietnamese Telex/VNI IME, autocorrect, layout polish, emoji, and accessibility auditing remain future work.
 - No macOS/Xcode build was run in the authoring environment; CI is the first compile verification.
+
+## Gemini
+
+Create a Gemini key in Google AI Studio (https://aistudio.google.com/apikey). Store it only on your server as `GEMINI_API_KEY` and configure the keyboard HTTPS URL as `https://your-host/reply`. The default model is `gemini-2.5-flash` (override using `GEMINI_MODEL`). The `/health` endpoint is available for deployment checks. Public servers require authentication and rate limits; the reference backend currently has neither.
