@@ -23,6 +23,7 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE_NAME)
     dependencies:
       - target: ViePNKeyboardExtension
+        embed: true
   ViePNKeyboardExtension:
     type: app-extension
     platform: iOS
