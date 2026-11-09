@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var phrases = KeyboardSettings.savedPhrases
     @State private var phraseDraft = ""
     @State private var telexEnabled = KeyboardSettings.telexEnabled
+    @State private var emojiEnabled = KeyboardSettings.emojiEnabled
     @State private var demoMessage = "Bạn gửi báo giá cho mình được không?"
     @State private var suggestions: [ReplySuggestion] = []
     @State private var feedback = ""
@@ -222,6 +223,12 @@ struct ContentView: View {
                         }.buttonStyle(.plain)
                     }
                     if !feedback.isEmpty { Text(feedback).font(.footnote) }
+                }
+                Section("Cá nhân hóa AI") {
+                    Toggle("Emoji thông minh theo ngữ cảnh", isOn: $emojiEnabled)
+                        .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
+                    Text("Chỉ thêm emoji khi phù hợp với cảm xúc của câu trả lời. Không tự thêm trong tình huống nghiêm túc hoặc trang trọng.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section("Gõ tiếng Việt") {
                     Toggle("Tự động gõ Telex", isOn: $telexEnabled)
