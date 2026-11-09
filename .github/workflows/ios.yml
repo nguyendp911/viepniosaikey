@@ -4,25 +4,67 @@ on:
     branches: [main]
   workflow_dispatch:
 jobs:
-  simulator:
+  build:
+    name: Compile and package unsigned IPA
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Generate project
+      - name: Generate Xcode project
         run: xcodegen generate
-      - name: Build without signing for simulator
+      - name: Validate and build device app without signing
         run: |
-          xcodebuild -project ViePNAIKeyboard.xcodeproj -scheme ViePNAIKeyboard -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          set -euo pipefail
+          xcodebuild -project ViePNAIKeyboard.xcodeproj \
+            -scheme ViePNAIKeyboard -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA for later signing
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/ViePNAIKeyboard.app"
+          test -d "$APP"
+          test -d "$APP/PlugIns/ViePNKeyboardExtension.appex"
+          mkdir -p "$RUNNER_TEMP/Unsigned/Payload" artifacts
+          cp -R "$APP" "$RUNNER_TEMP/Unsigned/Payload/"
+          cd "$RUNNER_TEMP/Unsigned"
+          zip -qry "$GITHUB_WORKSPACE/artifacts/ViePN-AI-Keyboard-unsigned.ipa" Payload
+      - name: Upload unsigned IPA (requires signing before installing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ViePN-AI-Keyboard-Unsigned-IPA
+          path: artifacts/ViePN-AI-Keyboard-unsigned.ipa
+          if-no-files-found: error
   ipa:
+    name: Signed ad-hoc IPA
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
     runs-on: macos-15
     environment: ios-signing
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
       - run: xcodegen generate
-      - name: Install signing files
+      - name: Validate signing secrets
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          PROFILE_APP_BASE64: ${{ secrets.IOS_PROFILE_APP_BASE64 }}
+          PROFILE_KEYBOARD_BASE64: ${{ secrets.IOS_PROFILE_KEYBOARD_BASE64 }}
+          DEVELOPMENT_TEAM: ${{ secrets.IOS_TEAM_ID }}
+          APP_PROFILE_NAME: ${{ secrets.IOS_APP_PROFILE_NAME }}
+          KEYBOARD_PROFILE_NAME: ${{ secrets.IOS_KEYBOARD_PROFILE_NAME }}
+        run: |
+          set -euo pipefail
+          for name in P12_BASE64 P12_PASSWORD PROFILE_APP_BASE64 PROFILE_KEYBOARD_BASE64 DEVELOPMENT_TEAM APP_PROFILE_NAME KEYBOARD_PROFILE_NAME; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error title=Missing signing secret::$name is not set in ios-signing environment or repository secrets."
+              exit 1
+            fi
+          done
+      - name: Install signing credentials
         env:
           P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
           P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
@@ -30,7 +72,6 @@ jobs:
           PROFILE_KEYBOARD_BASE64: ${{ secrets.IOS_PROFILE_KEYBOARD_BASE64 }}
         run: |
           set -euo pipefail
-          test -n "$P12_BASE64" && test -n "$PROFILE_APP_BASE64" && test -n "$PROFILE_KEYBOARD_BASE64"
           KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
           security create-keychain -p temp-password "$KEYCHAIN"
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
@@ -42,17 +83,23 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           echo "$PROFILE_APP_BASE64" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
           echo "$PROFILE_KEYBOARD_BASE64" | base64 --decode > "$RUNNER_TEMP/keyboard.mobileprovision"
-          cp "$RUNNER_TEMP/app.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/app.mobileprovision"
-          cp "$RUNNER_TEMP/keyboard.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/keyboard.mobileprovision"
-      - name: Archive and export
+          for kind in app keyboard; do
+            uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$RUNNER_TEMP/$kind.mobileprovision")")
+            cp "$RUNNER_TEMP/$kind.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+          done
+      - name: Archive and export signed IPA
         env:
           DEVELOPMENT_TEAM: ${{ secrets.IOS_TEAM_ID }}
           APP_PROFILE_NAME: ${{ secrets.IOS_APP_PROFILE_NAME }}
           KEYBOARD_PROFILE_NAME: ${{ secrets.IOS_KEYBOARD_PROFILE_NAME }}
         run: |
           set -euo pipefail
-          test -n "$DEVELOPMENT_TEAM" && test -n "$APP_PROFILE_NAME" && test -n "$KEYBOARD_PROFILE_NAME"
-          xcodebuild -project ViePNAIKeyboard.xcodeproj -scheme ViePNAIKeyboard -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/ViePN.xcarchive" DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Manual "APP_PROFILE_NAME=$APP_PROFILE_NAME" "KEYBOARD_PROFILE_NAME=$KEYBOARD_PROFILE_NAME" archive
+          xcodebuild -project ViePNAIKeyboard.xcodeproj \
+            -scheme ViePNAIKeyboard -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/ViePN.xcarchive" \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Manual \
+            "APP_PROFILE_NAME=$APP_PROFILE_NAME" "KEYBOARD_PROFILE_NAME=$KEYBOARD_PROFILE_NAME" archive
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <plist version="1.0"><dict>
@@ -64,11 +111,13 @@ jobs:
           <key>com.viepn.aikey.keyboard</key><string>$KEYBOARD_PROFILE_NAME</string>
           </dict></dict></plist>
           EOF
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/ViePN.xcarchive" -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/ViePN.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
           mkdir -p artifacts
           cp "$RUNNER_TEMP/export/"*.ipa artifacts/
       - uses: actions/upload-artifact@v4
         with:
-          name: ViePN-AI-Keyboard-IPA
+          name: ViePN-AI-Keyboard-Signed-IPA
           path: artifacts/*.ipa
           if-no-files-found: error
