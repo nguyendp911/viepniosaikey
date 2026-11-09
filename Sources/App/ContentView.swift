@@ -6,6 +6,7 @@ import UIKit
 /// the first card starts directly below the iPhone safe area.
 struct ContentView: View {
     @State private var provider = KeyboardSettings.provider
+    @State private var recipientMode = KeyboardSettings.recipientMode
     @State private var selectedPage = "couple"
     @State private var showCouplePrivacy = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
@@ -564,6 +565,17 @@ struct ContentView: View {
                     apiFeedback = ""
                     suggestions = []
                 }
+
+                keyboardMenuRow("Người nhận tin nhắn", symbol: "person.crop.circle",
+                                value: $recipientMode,
+                                options: ReplyRecipient.allCases.map { ($0.rawValue, $0.title) })
+                    .onChange(of: recipientMode) {
+                        KeyboardSettings.recipientMode = $0
+                    }
+                Text("Tự nhận diện từ tin được dán. Nếu AI xưng hô sai, hãy chọn Chú, Cô, Bác, Thầy/Cô, Bạn bè…; chế độ đã chọn dùng cho các tin tiếp theo tới khi đổi lại.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(isOn: $cloudEnabled) {
                     VStack(alignment: .leading, spacing: 3) {
