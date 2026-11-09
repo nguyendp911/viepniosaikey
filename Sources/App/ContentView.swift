@@ -365,7 +365,44 @@ struct ContentView: View {
                 .tint(violet)
                 .onChange(of: emojiEnabled) { KeyboardSettings.emojiEnabled = $0 }
 
-                Text("Telex: aa → â, aw → ă, dd → đ; s/f/r/x/j để thêm dấu. Emoji không tự thêm vào câu trang trọng hoặc nhạy cảm.")
+                Picker("Kiểu gõ", selection: $typingMode) {
+                    Text("Telex").tag("telex")
+                    Text("VNI").tag("vni")
+                    Text("Không dấu").tag("off")
+                }
+                .onChange(of: typingMode) {
+                    KeyboardSettings.typingMode = $0
+                    telexEnabled = $0 == "telex"
+                    KeyboardSettings.telexEnabled = telexEnabled
+                }
+                Picker("Chủ đề", selection: $keyboardTheme) {
+                    Text("Theo hệ thống").tag("system")
+                    Text("Midnight").tag("midnight")
+                    Text("Ocean").tag("ocean")
+                    Text("Rose").tag("rose")
+                }
+                .onChange(of: keyboardTheme) { KeyboardSettings.theme = $0 }
+                Toggle("Rung nhẹ khi gõ", isOn: $hapticEnabled)
+                    .tint(violet)
+                    .onChange(of: hapticEnabled) { KeyboardSettings.hapticEnabled = $0 }
+                Picker("Giọng điệu AI", selection: $preferredTone) {
+                    ForEach(["Tự nhiên", "Lịch sự", "Ngọt ngào", "Hài hước", "Chuyên nghiệp"], id: \.self) {
+                        Text($0)
+                    }
+                }
+                .onChange(of: preferredTone) { KeyboardSettings.preferredTone = $0 }
+                Picker("Độ dài câu trả lời", selection: $preferredLength) {
+                    ForEach(["Ngắn", "Vừa", "Chi tiết"], id: \.self) { Text($0) }
+                }
+                .onChange(of: preferredLength) { KeyboardSettings.preferredLength = $0 }
+                Picker("Ngôn ngữ dịch", selection: $translationLanguage) {
+                    ForEach(["English", "Chinese (Simplified)", "Japanese", "Korean", "French"], id: \.self) {
+                        Text($0)
+                    }
+                }
+                .onChange(of: translationLanguage) { KeyboardSettings.translationLanguage = $0 }
+                Text("Telex/VNI, 4 chủ đề, rung phím và sửa câu AI có thể điều chỉnh tại đây.")
+
                     .font(.system(size: 11))
                     .foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
