@@ -111,8 +111,8 @@ enum AIService {
         guard let first = candidates.first else {
             let blockReason = ((root["promptFeedback"] as? [String: Any])?["blockReason"] as? String)
             throw AIServiceError.malformedResponse(
-                blockReason.map { "Yêu cầu bị chặn (\\($0))." } ??
-                "Không có câu trả lời từ model \\(model)."
+                blockReason.map { "Yêu cầu bị chặn (\($0))." } ??
+                "Không có câu trả lời từ model \(model)."
             )
         }
         let finishReason = first["finishReason"] as? String ?? "UNKNOWN"
@@ -122,20 +122,20 @@ enum AIService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else {
             throw AIServiceError.malformedResponse(
-                "Model \\(model) trả về nội dung trống (finishReason: \\(finishReason))."
+                "Model \(model) trả về nội dung trống (finishReason: \(finishReason))."
             )
         }
         // Some responses include a Markdown fence despite JSON mode.
         if raw.hasPrefix("```") {
             let lines = raw.components(separatedBy: .newlines)
             if lines.count >= 3, lines.last?.trimmingCharacters(in: .whitespacesAndNewlines) == "```" {
-                raw = lines.dropFirst().dropLast().joined(separator: "\\n")
+                raw = lines.dropFirst().dropLast().joined(separator: "\n")
             }
         }
         guard let jsonData = raw.data(using: .utf8),
               let parsed = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
             throw AIServiceError.malformedResponse(
-                "Model \\(model) chưa trả đúng JSON. Hãy thử lại; nếu vẫn lỗi, chọn model khác."
+                "Model \(model) chưa trả đúng JSON. Hãy thử lại; nếu vẫn lỗi, chọn model khác."
             )
         }
         let replyObjects = parsed["replies"] as? [[String: Any]] ?? []
