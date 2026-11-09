@@ -25,6 +25,7 @@ final class KeyboardViewController: UIInputViewController {
     private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var currentTheme: String = ""
+    private let aiGradient = CAGradientLayer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -37,6 +38,11 @@ final class KeyboardViewController: UIInputViewController {
         super.textDidChange(textInput)
         if currentTheme != KeyboardSettings.theme { applyTheme() }
         // Avoid erasing the reply when the host app changes text focus.
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
     }
 
     private func buildKeyboard() {
@@ -79,13 +85,25 @@ final class KeyboardViewController: UIInputViewController {
         if let bar = commands as? UIStackView {
             toolButtons = bar.arrangedSubviews.compactMap { $0 as? UIButton }
             for (index, button) in toolButtons.enumerated() {
-                button.layer.cornerRadius = 11
-                button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+                button.layer.cornerRadius = 12
+                button.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
+                button.layer.shadowOpacity = 0.09
+                button.layer.shadowRadius = 2
+                button.layer.shadowOffset = CGSize(width: 0, height: 2)
                 if index == 0 {
                     button.setTitleColor(aiColor, for: .normal)
                 } else if index == 2 {
                     button.backgroundColor = aiColor
                     button.setTitleColor(.white, for: .normal)
+                    aiGradient.colors = [
+                        UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
+                        UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
+                    ]
+                    aiGradient.startPoint = CGPoint(x: 0, y: 0)
+                    aiGradient.endPoint = CGPoint(x: 1, y: 1)
+                    aiGradient.cornerRadius = 12
+                    button.layer.insertSublayer(aiGradient, at: 0)
+                    button.clipsToBounds = true
                 }
             }
         }
@@ -98,9 +116,9 @@ final class KeyboardViewController: UIInputViewController {
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
         previewLabel.backgroundColor = .secondarySystemBackground
-        previewLabel.layer.cornerRadius = 13
+        previewLabel.layer.cornerRadius = 15
         previewLabel.layer.borderWidth = 1
-        previewLabel.layer.borderColor = cyanColor.withAlphaComponent(0.35).cgColor
+        previewLabel.layer.borderColor = aiColor.withAlphaComponent(0.35).cgColor
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
         previewLabel.heightAnchor.constraint(equalToConstant: 45).isActive = true
@@ -223,7 +241,7 @@ final class KeyboardViewController: UIInputViewController {
         button.backgroundColor = UIColor { trait in
             trait.userInterfaceStyle == .dark ? UIColor(white: 0.31, alpha: 1) : .white
         }
-        button.layer.cornerRadius = 9
+        button.layer.cornerRadius = 10
         button.layer.shadowColor = UIColor.black.cgColor
         button.layer.shadowOpacity = 0.08
         button.layer.shadowOffset = CGSize(width: 0, height: 1)
@@ -564,6 +582,17 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardHeight()
     }
 
+    private func coupleIcon(_ tone: String, index: Int) -> String {
+        let name = tone.folding(options: [.caseInsensitive, .diacriticInsensitive],
+                                locale: Locale(identifier: "vi_VN"))
+        if name.contains("ranh gioi") { return "🛡" }
+        if name.contains("lang nghe") { return "🤍" }
+        if name.contains("diu dang") || name.contains("ngot") { return "💗" }
+        if name.contains("quan tam") { return "🌷" }
+        if name.contains("de thuong") || name.contains("vui") { return "✨" }
+        return ["✦", "♥", "◉"][index % 3]
+    }
+
     private func show(_ items: [ReplySuggestion]) {
         clearSuggestions()
         lastSuggestions = Array(items.prefix(3))
@@ -587,8 +616,8 @@ final class KeyboardViewController: UIInputViewController {
         toneButtons.removeAll()
 
         for (index, item) in lastSuggestions.enumerated() {
-            let emoji = ["💜", "😊", "🤍"][index % 3]
-            let button = keyButton("\(emoji) \(item.tone)", action: #selector(selectSuggestion(_:)))
+            let symbol = coupleIcon(item.tone, index: index)
+            let button = keyButton("\(symbol) \(item.tone)", action: #selector(selectSuggestion(_:)))
             button.tag = index
             button.layer.cornerRadius = 10
             button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
@@ -634,7 +663,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func updatePreview() {
         guard lastSuggestions.indices.contains(chosenIndex) else { return }
-        previewLabel.text = "  ✦  " + lastSuggestions[chosenIndex].text
+        previewLabel.text = "  " + (KeyboardSettings.coupleEnabled ? "♥" : "✦") + "  " + lastSuggestions[chosenIndex].text
         previewLabel.isHidden = false
     }
 
