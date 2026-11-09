@@ -6,6 +6,8 @@ import UIKit
 /// the first card starts directly below the iPhone safe area.
 struct ContentView: View {
     @State private var provider = KeyboardSettings.provider
+    @State private var selectedPage = "couple"
+    @State private var showCouplePrivacy = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel
     @State private var openAIAPIKey = KeyboardSettings.openAIAPIKey
@@ -53,39 +55,54 @@ struct ContentView: View {
     private let cyan = Color(red: 0.28, green: 0.82, blue: 0.97)
     private let muted = Color(red: 0.66, green: 0.71, blue: 0.82)
 
+    // Full-height dashboard. The background bleeds under both iOS safe areas,
+    // while interactive controls remain inside the safe area.
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [background, Color(red: 0.075, green: 0.09, blue: 0.17), background],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [background, Color(red: 0.085, green: 0.095, blue: 0.16), background],
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
-                    compactHeader
-                    quickStatus
-                    coupleStudio
-                    aiConfiguration
-                    personalization
-                    testArea
-                    savedReplies
-                    activationGuide
-                    keyboardDiagnostics
-                    privacyInfo
-                    Text("ViePN AI Keyboard · Thiết lập được lưu trên thiết bị")
-                        .font(.system(size: 11))
-                        .foregroundStyle(muted.opacity(0.85))
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 6)
+            VStack(spacing: 0) {
+                compactHeader
+                    .padding(.horizontal, 17)
+                    .padding(.top, 5)
+                    .padding(.bottom, 8)
+
+                Rectangle()
+                    .fill(.white.opacity(0.08))
+                    .frame(height: 1)
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 12) {
+                        if selectedPage == "couple" {
+                            coupleStudio
+                        } else if selectedPage == "ai" {
+                            aiConfiguration
+                        } else if selectedPage == "keyboard" {
+                            personalization
+                        } else {
+                            testArea
+                            savedReplies
+                            activationGuide
+                            keyboardDiagnostics
+                            privacyInfo
+                        }
+                    }
+                    .frame(maxWidth: 600)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 13)
+                    .padding(.top, 12)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 36)
-                .frame(maxWidth: 620)
-                .frame(maxWidth: .infinity)
+                .scrollDismissesKeyboard(.interactively)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                bottomNavigation
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .preferredColorScheme(.dark)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -99,55 +116,77 @@ struct ContentView: View {
     }
 
     private var compactHeader: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(LinearGradient(colors: [cyan, violet],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 50, height: 50)
-                Image(systemName: "keyboard.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 10) {
+            Image(systemName: "keyboard.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 38, height: 38)
+                .background(
+                    LinearGradient(colors: [cyan, violet], startPoint: .topLeading,
+                                   endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 11)
+                )
+            VStack(alignment: .leading, spacing: 2) {
                 Text("ViePN AI Keyboard")
-                    .font(.system(size: 19, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-                Text("Trợ lý trả lời AI · Cài đặt")
-                    .font(.system(size: 12))
+                Text("AI · Couple · Tiếng Việt")
+                    .font(.system(size: 11))
                     .foregroundStyle(muted)
             }
-            Spacer(minLength: 4)
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(cyan)
-                .accessibilityLabel("Quyền riêng tư")
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var quickStatus: some View {
-        HStack(spacing: 7) {
-            statusChip(provider == "gemini" ? "✦ Gemini" : "✦ OpenAI", tint: cyan)
-            statusChip(telexEnabled ? "Telex bật" : "Telex tắt", tint: .mint)
-            statusChip(coupleEnabled ? "♥ Couple" : "AI thường", tint: .pink)
             Spacer(minLength: 0)
+            Text(provider == "gemini" ? "Gemini" : "OpenAI")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(cyan)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(cyan.opacity(0.1), in: Capsule())
         }
-        .accessibilityElement(children: .contain)
     }
 
-    private func statusChip(_ label: String, tint: Color) -> some View {
-        Text(label)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.12), in: Capsule())
-            .overlay(Capsule().stroke(tint.opacity(0.23), lineWidth: 1))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+    private var bottomNavigation: some View {
+        HStack(spacing: 4) {
+            tabItem("Couple", symbol: "heart.fill", page: "couple")
+            tabItem("AI & API", symbol: "sparkles", page: "ai")
+            tabItem("Bàn phím", symbol: "keyboard", page: "keyboard")
+            tabItem("Công cụ", symbol: "square.grid.2x2", page: "tools")
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 9)
+        .padding(.bottom, 4)
+        .background {
+            Color(red: 0.09, green: 0.11, blue: 0.18)
+                .ignoresSafeArea(edges: .bottom)
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+        }
+    }
+
+    private func tabItem(_ title: String, symbol: String, page: String) -> some View {
+        let active = selectedPage == page
+        return Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selectedPage = page
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: active ? .semibold : .regular))
+                Text(title)
+                    .font(.system(size: 10, weight: active ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+            }
+            .foregroundStyle(active ? cyan : muted)
+            .frame(maxWidth: .infinity)
+            .frame(height: 45)
+            .background(active ? cyan.opacity(0.10) : .clear,
+                        in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
     }
 
     private func card<Content: View>(
