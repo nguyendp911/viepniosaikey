@@ -9,6 +9,17 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Vietnamese conversation context
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-context" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_conversation_context.swift
+          "$RUNNER_TEMP/verify-context"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
