@@ -104,7 +104,7 @@ enum AIService {
         guard let jsonData = raw.data(using: .utf8) else { throw AIServiceError.invalidResponse }
         let payload = try JSONDecoder().decode(GeminiReply.self, from: jsonData)
         let replies = payload.replies.prefix(5).compactMap { item -> ReplySuggestion? in
-            let body = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let body = ReplyTextCleaner.answerOnly(item.text, source: message)
             guard !body.isEmpty else { return nil }
             return ReplySuggestion(tone: item.tone, text: String(body.prefix(1500)))
         }
