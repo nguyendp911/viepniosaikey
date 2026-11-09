@@ -25,6 +25,54 @@ enum VietnameseTelex {
         return nil
     }
 
+    /// Change the shape while preserving any tone already applied.
+    private static func restyle(_ original: Character, as newBase: Character) -> Character {
+        let lower = Character(String(original).lowercased())
+        let oldBase = base(lower) ?? newBase
+        let oldForms = Array(vowels[oldBase] ?? "")
+        let newForms = Array(vowels[newBase] ?? "")
+        let tone = oldForms.firstIndex(of: lower) ?? 0
+        let output = tone < newForms.count ? newForms[tone] : newBase
+        return String(original).uppercased() == String(original)
+            ? Character(String(output).uppercased()) : output
+    }
+
+    /// Users may type "thuongw", "truongw", "muaw" without placing W next to
+    /// the vowel. Always prioritize the uo -> ươ syllable pattern.
+    private static func shiftedW(in letters: [Character]) -> String? {
+        guard !letters.isEmpty else { return nil }
+        var output = letters
+        if letters.count >= 2 {
+            for index in 0..<(letters.count - 1) {
+                if base(letters[index]) == "u", base(letters[index + 1]) == "o" {
+                    output[index] = restyle(letters[index], as: "ư")
+                    output[index + 1] = restyle(letters[index + 1], as: "ơ")
+                    if output != letters { return String(output) }
+                }
+            }
+            // For "mua" + w, the a is the vowel nucleus, while u becomes ư.
+            for index in 0..<(letters.count - 1) {
+                if base(letters[index]) == "u", base(letters[index + 1]) == "a" {
+                    output[index] = restyle(letters[index], as: "ư")
+                    if output != letters { return String(output) }
+                }
+            }
+        }
+        for index in letters.indices.reversed() {
+            guard let oldBase = base(letters[index]) else { continue }
+            let target: Character
+            switch oldBase {
+            case "u": target = "ư"
+            case "o": target = "ơ"
+            case "a": target = "ă"
+            default: continue
+            }
+            output[index] = restyle(letters[index], as: target)
+            if output != letters { return String(output) }
+        }
+        return nil
+    }
+
     /// Returns nil when the typed key should be inserted literally.
     static func transformed(word: String, key: String) -> String? {
         guard word.count <= 40, let letter = key.first, key.count == 1 else { return nil }
@@ -32,7 +80,13 @@ enum VietnameseTelex {
         let chars = Array(word)
         guard !chars.isEmpty else { return nil }
 
-        // dd, aa, aw, ee, oo, ow, uw. Shape keys act on the word ending.
+        // Telex W can be typed at the end of the whole syllable, not just
+        // immediately after the vowel: "thuongw" -> "thương".
+        if code == "w", let shifted = shiftedW(in: chars) {
+            return shifted
+        }
+
+        // Other Telex double-letter shape keys still work as before.
         let previous = String(chars[chars.count - 1]).lowercased()
         let pair = previous + String(code)
         if let replacement = shape[pair] {
