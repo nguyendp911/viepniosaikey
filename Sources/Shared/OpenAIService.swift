@@ -81,7 +81,7 @@ enum OpenAIService {
         else { throw AIServiceError.invalidResponse }
         let decoded = try JSONDecoder().decode(OpenAIReplyPayload.self, from: output)
         let result = decoded.replies.prefix(5).compactMap { item -> ReplySuggestion? in
-            let text = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = ReplyTextCleaner.answerOnly(item.text, source: message)
             guard !text.isEmpty else { return nil }
             return ReplySuggestion(tone: String(item.tone.prefix(40)), text: String(text.prefix(1500)))
         }
