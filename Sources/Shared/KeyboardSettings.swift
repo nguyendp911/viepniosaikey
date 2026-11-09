@@ -103,6 +103,13 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "autoCapitalize") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "autoCapitalize") }
     }
+    // Some iOS keyboard extensions cannot use UIFeedbackGenerator reliably.
+    // "vibrate" uses Apple's public AudioToolbox vibration as an alternative.
+    static var hapticStyle: String {
+        get { defaults.string(forKey: prefix + "hapticStyle") ?? "vibrate" }
+        set { defaults.set(["light", "vibrate"].contains(newValue) ? newValue : "vibrate",
+                           forKey: prefix + "hapticStyle") }
+    }
     static var hapticEnabled: Bool {
         get { defaults.object(forKey: prefix + "hapticEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "hapticEnabled") }
