@@ -82,6 +82,10 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            favorites = KeyboardSettings.favoriteReplies
+            phrases = KeyboardSettings.savedPhrases
+        }
     }
 
     private var compactHeader: some View {
@@ -596,6 +600,10 @@ struct ContentView: View {
                     guideStep(2, "Chọn Bàn phím → Thêm bàn phím mới.")
                     guideStep(3, "Chọn ViePN AI Keyboard.")
                     guideStep(4, "Để gọi AI, bật Cho phép truy cập đầy đủ nếu bạn tin tưởng ứng dụng.")
+                    guideStep(5, "Nếu iOS còn hỏi quyền Dán: Cài đặt → Ứng dụng → ViePN AI Keyboard → Dán từ ứng dụng khác → Cho phép (khi mục này xuất hiện).")
+                    Text("Nút Dán dùng điều khiển của Apple. Quyền lâu dài do iOS quản lý, ứng dụng không tự cấp quyền.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
                     actionButton("Mở Cài đặt của ứng dụng", symbol: "gearshape",
                                  prominent: true) {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
