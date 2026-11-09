@@ -515,6 +515,29 @@ struct ContentView: View {
              icon: "text.bubble") {
             DisclosureGroup("Quản lý \(phrases.count) mẫu câu", isExpanded: $showQuickReplies) {
                 VStack(spacing: 8) {
+                    if !favorites.isEmpty {
+                        Text("Câu trả lời AI đã lưu")
+                            .font(.system(size: 13, weight: .semibold))
+                        ForEach(Array(favorites.enumerated()), id: \.offset) { index, reply in
+                            HStack {
+                                Button {
+                                    UIPasteboard.general.string = reply
+                                } label: {
+                                    Text(reply).font(.system(size: 12))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                Button(role: .destructive) {
+                                    favorites.remove(at: index)
+                                    KeyboardSettings.favoriteReplies = favorites
+                                } label: {
+                                    Image(systemName: "trash").foregroundStyle(.red)
+                                }
+                            }
+                            .padding(9)
+                            .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
                     ForEach(Array(phrases.enumerated()), id: \.offset) { index, phrase in
                         HStack(spacing: 10) {
                             Text(phrase)
