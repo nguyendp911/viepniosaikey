@@ -401,7 +401,45 @@ struct ContentView: View {
                     }
                 }
                 .onChange(of: translationLanguage) { KeyboardSettings.translationLanguage = $0 }
-                Text("Telex/VNI, 4 chủ đề, rung phím và sửa câu AI có thể điều chỉnh tại đây.")
+                Text("Từ viết tắt cá nhân")
+                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    TextField("Viết tắt", text: $shortcut)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("Thay bằng", text: $expansion)
+                    Button {
+                        let key = shortcut.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                        let value = expansion.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !key.isEmpty, key.count <= 20, !value.isEmpty, value.count <= 80 else { return }
+                        abbreviations[key] = value
+                        KeyboardSettings.replacementDictionary = abbreviations
+                        shortcut = ""
+                        expansion = ""
+                    } label: {
+                        Image(systemName: "plus.circle.fill").foregroundStyle(cyan)
+                    }
+                    .accessibilityLabel("Thêm từ viết tắt")
+                }
+                .font(.system(size: 12))
+                .padding(8)
+                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+                ForEach(abbreviations.keys.sorted(), id: \.self) { key in
+                    HStack {
+                        Text(key + " → " + (abbreviations[key] ?? ""))
+                            .font(.system(size: 12))
+                        Spacer()
+                        Button(role: .destructive) {
+                            abbreviations.removeValue(forKey: key)
+                            KeyboardSettings.replacementDictionary = abbreviations
+                        } label: {
+                            Image(systemName: "minus.circle").foregroundStyle(.red)
+                        }
+                        .accessibilityLabel("Xóa từ viết tắt")
+                    }
+                }
+                Text("Telex/VNI, 4 chủ đề, rung phím, gợi ý AI và từ viết tắt cá nhân.")
+
 
                     .font(.system(size: 11))
                     .foregroundStyle(muted)
