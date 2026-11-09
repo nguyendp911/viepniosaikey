@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
+    @State private var provider = KeyboardSettings.provider
+    @State private var openAIAPIKey = KeyboardSettings.openAIAPIKey
+    @State private var openAIModel = KeyboardSettings.openAIModel
+    @State private var showOpenAIKey = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel
     @State private var showAPIKey = false
@@ -122,6 +126,61 @@ struct ContentView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                     if !feedback.isEmpty {
                         Text(feedback).font(.footnote).textSelection(.enabled)
+                    }
+                }
+                }
+                if provider == "openai" {
+                    Section("OpenAI API - Nhập khóa trực tiếp") {
+                        HStack {
+                            Group {
+                                if showOpenAIKey {
+                                    TextField("Nhập OpenAI API Key", text: $openAIAPIKey)
+                                } else {
+                                    SecureField("Nhập OpenAI API Key", text: $openAIAPIKey)
+                                }
+                            }
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .onChange(of: openAIAPIKey) { KeyboardSettings.openAIAPIKey = $0 }
+                            Button {
+                                showOpenAIKey.toggle()
+                            } label: {
+                                Image(systemName: showOpenAIKey ? "eye.slash" : "eye")
+                            }
+                            .accessibilityLabel(showOpenAIKey ? "Ẩn API Key" : "Hiện API Key")
+                        }
+                        HStack {
+                            Text("Model OpenAI")
+                            Spacer()
+                            TextField("gpt-4o-mini", text: $openAIModel)
+                                .multilineTextAlignment(.trailing)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .onChange(of: openAIModel) { KeyboardSettings.openAIModel = $0 }
+                        }
+                        Button(loading ? "Đang kiểm tra…" : "Kiểm tra OpenAI API") {
+                            loading = true
+                            Task {
+                                do {
+                                    let result = try await AIService.reply(to: "Xin chào!")
+                                    feedback = "OpenAI hoạt động: nhận được \\(result.count) gợi ý."
+                                } catch {
+                                    feedback = error.localizedDescription
+                                }
+                                loading = false
+                            }
+                        }
+                        .disabled(loading || !cloudEnabled || openAIAPIKey.isEmpty)
+                        Button("Xóa OpenAI API Key", role: .destructive) {
+                            openAIAPIKey = ""
+                            KeyboardSettings.openAIAPIKey = ""
+                            feedback = "Đã xóa OpenAI API Key."
+                        }
+                        Text("Chỉ các model hỗ trợ Chat Completions và JSON mode mới dùng được. API Key được lưu vào dữ liệu App Group để bàn phím truy cập, chưa được bảo vệ bằng Keychain. Chỉ sử dụng khóa cá nhân có giới hạn chi tiêu.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        if !feedback.isEmpty {
+                            Text(feedback).font(.footnote).textSelection(.enabled)
+                        }
                     }
                 }
                 Section("Thử câu trả lời") {
