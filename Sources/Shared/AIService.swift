@@ -72,7 +72,7 @@ enum AIService {
                 "Model \(model) không tạo được câu trả lời hoàn chỉnh. Thử chọn model khác."
             )
         }
-        return [ReplySuggestion(tone: "Gợi ý AI", text: String(clean.prefix(1000)))]
+        return [ReplySuggestion(tone: "Gợi ý AI", text: String(EmojiEnhancer.decorate(clean, tone: "Gợi ý AI").prefix(1000)))]
     }
 
     private static func parseReplies(_ input: String, source: String) -> [ReplySuggestion]? {
@@ -97,7 +97,7 @@ enum AIService {
             guard !clean.isEmpty else { return nil }
             return ReplySuggestion(
                 tone: String((item["tone"] as? String ?? "Gợi ý").prefix(35)),
-                text: String(clean.prefix(1000))
+                text: String(EmojiEnhancer.decorate(clean, tone: item["tone"] as? String ?? "Gợi ý").prefix(1000))
             )
         }
         return suggestions.isEmpty ? nil : suggestions
