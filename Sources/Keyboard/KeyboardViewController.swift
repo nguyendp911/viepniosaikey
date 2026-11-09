@@ -18,6 +18,7 @@ final class KeyboardViewController: UIInputViewController {
     private var letterButtons: [UIButton] = []
     private var letterRows: [UIStackView] = []
     private var secondaryRow: UIStackView?
+    private var heightConstraint: NSLayoutConstraint?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,16 +31,23 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func buildKeyboard() {
-        view.backgroundColor = UIColor.systemGray5
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.17, green: 0.18, blue: 0.20, alpha: 1)
+                : UIColor(red: 0.82, green: 0.84, blue: 0.88, alpha: 1)
+        }
+        heightConstraint = view.heightAnchor.constraint(equalToConstant: 315)
+        heightConstraint?.priority = .defaultHigh
+        heightConstraint?.isActive = true
         container.axis = .vertical
-        container.spacing = 5
+        container.spacing = 7
         container.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(container)
         NSLayoutConstraint.activate([
             container.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4),
             container.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
             container.topAnchor.constraint(equalTo: view.topAnchor, constant: 5),
-            container.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4)
+            container.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -4)
         ])
 
         statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
@@ -47,74 +55,133 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 2
         statusLabel.text = "ViePN AI · Chọn Dán để phân tích nội dung clipboard"
+        statusLabel.heightAnchor.constraint(equalToConstant: 18).isActive = true
         container.addArrangedSubview(statusLabel)
 
+        // A compact command strip leaves the usual iPhone letter keyboard intact.
         let commands = makeRow([
             ("📋 Dán", #selector(pasteTapped)),
             ("✨ Offline", #selector(offlineTapped)),
             ("☁️ AI", #selector(cloudTapped)),
             ("📝 Mẫu", #selector(phrasesTapped))
-        ], height: 39)
+        ], height: 34)
         container.addArrangedSubview(commands)
 
         previewLabel.numberOfLines = 3
-        previewLabel.font = .systemFont(ofSize: 13)
+        previewLabel.font = .systemFont(ofSize: 12, weight: .medium)
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
         previewLabel.backgroundColor = .secondarySystemBackground
         previewLabel.layer.cornerRadius = 8
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
+        previewLabel.heightAnchor.constraint(lessThanOrEqualToConstant: 56).isActive = true
         container.addArrangedSubview(previewLabel)
 
-        for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
+        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+        for (rowIndex, letters) in rows.enumerated() {
             let row = UIStackView()
             row.axis = .horizontal
-            row.spacing = 3
+            row.spacing = 4
+            row.alignment = .fill
             row.distribution = .fillEqually
+            if rowIndex == 1 {
+                row.layoutMargins = UIEdgeInsets(top: 0, left: 17, bottom: 0, right: 17)
+                row.isLayoutMarginsRelativeArrangement = true
+            }
+            if rowIndex == 2 {
+                let shift = keyButton("⇧", action: #selector(shiftTapped))
+                styleModifier(shift)
+                row.addArrangedSubview(shift)
+            }
             for letter in letters {
                 let key = keyButton(String(letter), action: #selector(letterTapped(_:)))
                 letterButtons.append(key)
                 row.addArrangedSubview(key)
             }
-            row.heightAnchor.constraint(equalToConstant: 43).isActive = true
+            if rowIndex == 2 {
+                let delete = keyButton("⌫", action: #selector(deleteTapped))
+                styleModifier(delete)
+                row.addArrangedSubview(delete)
+            }
+            row.heightAnchor.constraint(equalToConstant: 46).isActive = true
             letterRows.append(row)
             container.addArrangedSubview(row)
         }
 
-        let bottom = makeRow([
-            ("⇧", #selector(shiftTapped)),
-            ("🌐", #selector(globeTapped)),
-            ("⌫", #selector(deleteTapped)),
-            ("123", #selector(numbersTapped)),
-            ("space", #selector(spaceTapped)),
-            ("↵", #selector(returnTapped))
-        ], height: 43)
-        secondaryRow = bottom as? UIStackView
+        // Large spacebar, separate punctuation, globe and return as in iOS.
+        let bottom = UIStackView()
+        bottom.axis = .horizontal
+        bottom.spacing = 4
+        bottom.distribution = .fill
+        bottom.alignment = .fill
+
+        let numeric = keyButton("123", action: #selector(numbersTapped))
+        let globe = keyButton("🌐", action: #selector(globeTapped))
+        let comma = keyButton(",", action: #selector(punctuationTapped(_:)))
+        let space = keyButton("dấu cách", action: #selector(spaceTapped))
+        let period = keyButton(".", action: #selector(punctuationTapped(_:)))
+        let enter = keyButton("↵", action: #selector(returnTapped))
+        for key in [numeric, globe, comma, period] { styleModifier(key) }
+        enter.backgroundColor = UIColor(red: 0.29, green: 0.54, blue: 0.98, alpha: 1)
+        enter.setTitleColor(.white, for: .normal)
+        for key in [numeric, globe, comma, space, period, enter] { bottom.addArrangedSubview(key) }
+        numeric.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        globe.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        comma.widthAnchor.constraint(equalToConstant: 34).isActive = true
+        period.widthAnchor.constraint(equalToConstant: 34).isActive = true
+        enter.widthAnchor.constraint(equalToConstant: 48).isActive = true
+        bottom.heightAnchor.constraint(equalToConstant: 45).isActive = true
+        secondaryRow = bottom
         container.addArrangedSubview(bottom)
+        updateKeys()
     }
 
     private func keyButton(_ title: String, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
         button.setTitle(title, for: .normal)
         button.setTitleColor(.label, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        button.backgroundColor = .systemBackground
-        button.layer.cornerRadius = 7
+        button.titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
+        button.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor(white: 0.31, alpha: 1) : .white
+        }
+        button.layer.cornerRadius = 6
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.13
+        button.layer.shadowOffset = CGSize(width: 0, height: 1)
+        button.layer.shadowRadius = 0.5
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.7
         button.addTarget(self, action: action, for: .touchUpInside)
         return button
     }
 
+    private func styleModifier(_ button: UIButton) {
+        button.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(white: 0.24, alpha: 1)
+                : UIColor(red: 0.66, green: 0.70, blue: 0.76, alpha: 1)
+        }
+        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
+    }
+
     private func makeRow(_ actions: [(String, Selector)], height: CGFloat) -> UIView {
         let row = UIStackView()
         row.axis = .horizontal
         row.distribution = .fillEqually
-        row.spacing = 3
-        for (title, action) in actions { row.addArrangedSubview(keyButton(title, action: action)) }
+        row.spacing = 4
+        for (title, action) in actions {
+            let button = keyButton(title, action: action)
+            button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+            row.addArrangedSubview(button)
+        }
         row.heightAnchor.constraint(equalToConstant: height).isActive = true
         return row
+    }
+
+    @objc private func punctuationTapped(_ sender: UIButton) {
+        guard let character = sender.title(for: .normal) else { return }
+        textDocumentProxy.insertText(character)
     }
 
     @objc private func letterTapped(_ sender: UIButton) {
@@ -159,11 +226,14 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateKeys() {
-        let rows = isNumbers ? ["1234567890", "@#$%&*()-", ".,?!':;/"] : ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+        let rows = isNumbers
+            ? ["1234567890", "@#$%&*()-", "/:;!?.,"] : ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         for (rowIndex, row) in letterRows.enumerated() {
-            let buttons = row.arrangedSubviews.compactMap { $0 as? UIButton }
+            let arranged = row.arrangedSubviews.compactMap { $0 as? UIButton }
+            // Row 3 reserves first and last keys for Shift and Delete.
+            let letterKeys = rowIndex == 2 ? Array(arranged.dropFirst().dropLast()) : arranged
             let characters = Array(rows[rowIndex]).map(String.init)
-            for (index, button) in buttons.enumerated() {
+            for (index, button) in letterKeys.enumerated() {
                 if index < characters.count {
                     let ch = characters[index]
                     button.setTitle(isNumbers ? ch : (isUppercase ? ch.uppercased() : ch), for: .normal)
@@ -172,11 +242,12 @@ final class KeyboardViewController: UIInputViewController {
                     button.isHidden = true
                 }
             }
+            if rowIndex == 2, let shift = arranged.first {
+                shift.setTitle(isShiftLocked ? "⇧⇧" : "⇧", for: .normal)
+            }
         }
-        if let row = secondaryRow {
-            let buttons = row.arrangedSubviews.compactMap { $0 as? UIButton }
-            if buttons.count > 3 { buttons[3].setTitle(isNumbers ? "ABC" : "123", for: .normal) }
-            if let shift = buttons.first { shift.setTitle(isShiftLocked ? "⇧⇧" : "⇧", for: .normal) }
+        if let bottom = secondaryRow, let numeric = bottom.arrangedSubviews.first as? UIButton {
+            numeric.setTitle(isNumbers ? "ABC" : "123", for: .normal)
         }
     }
 
@@ -259,6 +330,7 @@ final class KeyboardViewController: UIInputViewController {
         lastSuggestions = []
         previewLabel.text = nil
         previewLabel.isHidden = true
+        heightConstraint?.constant = 315
     }
 
     private func show(_ items: [ReplySuggestion]) {
@@ -293,6 +365,7 @@ final class KeyboardViewController: UIInputViewController {
         ], height: 33)
         bar.addArrangedSubview(actions)
         suggestionContainer = bar
+        heightConstraint?.constant = 410
         // Only a preview of the answer appears above the keys. No source text.
         container.insertArrangedSubview(bar, at: 3)
         updatePreview()
