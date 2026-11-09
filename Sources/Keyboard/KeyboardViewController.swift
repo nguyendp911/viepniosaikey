@@ -460,7 +460,27 @@ final class KeyboardViewController: UIInputViewController {
             : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
         button.setTitleColor(active ? .white :
             UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1), for: .normal)
-        button.accessibilityLabel = active ? "Tắt AI Couple" : "Bật AI Couple"
+        button.accessibilityLabel = active
+            ? "AI Couple: " + CoupleStyleCatalog.active.title : "Bật AI Couple"
+        button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn một trong các phong cách."
+        installCoupleStyleMenu()
+    }
+
+    private func installCoupleStyleMenu() {
+        guard toolButtons.count > 1 else { return }
+        let selected = KeyboardSettings.coupleStyle
+        let actions = CoupleStyleCatalog.styles.map { style -> UIAction in
+            let action = UIAction(title: style.icon + " " + style.title) { [weak self] _ in
+                KeyboardSettings.coupleEnabled = true
+                KeyboardSettings.coupleStyle = style.id
+                self?.updateCoupleTool()
+                self?.showStatus("♥ Couple: " + style.title + " · Dán rồi nhấn ✦ AI")
+            }
+            action.state = style.id == selected ? .on : .off
+            return action
+        }
+        toolButtons[1].menu = UIMenu(title: "Phong cách AI Couple", children: actions)
+        toolButtons[1].showsMenuAsPrimaryAction = false
     }
 
     private func showStatus(_ message: String) {
