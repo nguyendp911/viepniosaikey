@@ -10,6 +10,9 @@ enum OfflineReplyEngine {
     static func suggest(for source: String) -> [ReplySuggestion] {
         let message = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return [] }
+        if CoupleReplyGuide.isEnabled {
+            return CoupleReplyGuide.offlineSuggestions(for: message)
+        }
         let lower = message.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "vi_VN"))
         let answers: [String]
         if lower.contains("bao gia") || lower.contains("gia bao nhieu") {
