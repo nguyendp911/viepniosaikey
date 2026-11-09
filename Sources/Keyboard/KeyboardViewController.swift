@@ -19,10 +19,16 @@ final class KeyboardViewController: UIInputViewController {
     private var letterRows: [UIStackView] = []
     private var secondaryRow: UIStackView?
     private var heightConstraint: NSLayoutConstraint?
+    private var toneButtons: [UIButton] = []
+    private var toolButtons: [UIButton] = []
+    private let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
+    private let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         buildKeyboard()
+        haptic.prepare()
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -33,14 +39,14 @@ final class KeyboardViewController: UIInputViewController {
     private func buildKeyboard() {
         view.backgroundColor = UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0.17, green: 0.18, blue: 0.20, alpha: 1)
-                : UIColor(red: 0.82, green: 0.84, blue: 0.88, alpha: 1)
+                ? UIColor(red: 0.11, green: 0.13, blue: 0.20, alpha: 1)
+                : UIColor(red: 0.89, green: 0.92, blue: 0.97, alpha: 1)
         }
         heightConstraint = view.heightAnchor.constraint(equalToConstant: 315)
         heightConstraint?.priority = .defaultHigh
         heightConstraint?.isActive = true
         container.axis = .vertical
-        container.spacing = 7
+        container.spacing = 6
         container.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(container)
         NSLayoutConstraint.activate([
@@ -50,29 +56,46 @@ final class KeyboardViewController: UIInputViewController {
             container.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -4)
         ])
 
-        statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        statusLabel.font = .systemFont(ofSize: 11, weight: .semibold)
         statusLabel.textColor = .secondaryLabel
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 2
-        statusLabel.text = "ViePN AI · Chọn Dán để phân tích nội dung clipboard"
-        statusLabel.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        statusLabel.text = "✦ ViePN AI · Viết hay hơn, gửi nhanh hơn"
+        statusLabel.heightAnchor.constraint(equalToConstant: 21).isActive = true
         container.addArrangedSubview(statusLabel)
 
         // A compact command strip leaves the usual iPhone letter keyboard intact.
         let commands = makeRow([
             ("📋 Dán", #selector(pasteTapped)),
             ("✨ Offline", #selector(offlineTapped)),
-            ("☁️ AI", #selector(cloudTapped)),
-            ("📝 Mẫu", #selector(phrasesTapped))
-        ], height: 34)
+            ("✦ AI", #selector(cloudTapped)),
+            ("📝 Mẫu", #selector(phrasesTapped)),
+            ("😊", #selector(emojiTapped))
+        ], height: 39)
+        if let bar = commands as? UIStackView {
+            toolButtons = bar.arrangedSubviews.compactMap { $0 as? UIButton }
+            for (index, button) in toolButtons.enumerated() {
+                button.layer.cornerRadius = 12
+                button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+                if index == 2 {
+                    button.backgroundColor = aiColor
+                    button.setTitleColor(.white, for: .normal)
+                } else if index == 4 {
+                    button.backgroundColor = UIColor(red: 1, green: 0.89, blue: 0.94, alpha: 1)
+                }
+            }
+        }
         container.addArrangedSubview(commands)
+        updateEmojiTool()
 
         previewLabel.numberOfLines = 3
-        previewLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
         previewLabel.backgroundColor = .secondarySystemBackground
-        previewLabel.layer.cornerRadius = 8
+        previewLabel.layer.cornerRadius = 13
+        previewLabel.layer.borderWidth = 1
+        previewLabel.layer.borderColor = cyanColor.withAlphaComponent(0.35).cgColor
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
         previewLabel.heightAnchor.constraint(lessThanOrEqualToConstant: 56).isActive = true
@@ -145,7 +168,7 @@ final class KeyboardViewController: UIInputViewController {
         button.backgroundColor = UIColor { trait in
             trait.userInterfaceStyle == .dark ? UIColor(white: 0.31, alpha: 1) : .white
         }
-        button.layer.cornerRadius = 6
+        button.layer.cornerRadius = 9
         button.layer.shadowColor = UIColor.black.cgColor
         button.layer.shadowOpacity = 0.13
         button.layer.shadowOffset = CGSize(width: 0, height: 1)
