@@ -2,13 +2,10 @@ import UIKit
 
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
-final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
+final class KeyboardViewController: UIInputViewController {
     private let container = UIStackView()
     private let statusLabel = UILabel()
     private let previewLabel = UILabel()
-    private let pasteReceiver = UITextView(frame: .zero)
-    private var systemPasteButton: UIPasteControl?
-
     private var selectedText = ""
     private var isUppercase = KeyboardSettings.autoCapitalize
     private var isNumbers = false
@@ -93,7 +90,6 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
             }
         }
         container.addArrangedSubview(commands)
-        installSystemPasteControl(into: commands)
         installWritingActions()
         updateEmojiTool()
 
@@ -172,89 +168,6 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
         container.addArrangedSubview(bottom)
         updateKeys()
     }
-
-    private func installSystemPasteControl(into commands: UIView) {
-        guard let toolbar = commands as? UIStackView,
-              let old = toolbar.arrangedSubviews.first as? UIButton else { return }
-        // A system paste control does not trigger the repeated iOS clipboard
-        // approval prompt when explicitly tapped. Never access UIPasteboard
-        // from this control; the authorized text flows to pasteReceiver.
-        pasteReceiver.delegate = self
-        pasteReceiver.isEditable = true
-        pasteReceiver.isSelectable = true
-        pasteReceiver.pasteConfiguration = UIPasteConfiguration(
-            acceptableTypeIdentifiers: ["public.utf8-plain-text", "public.plain-text", "public.text"]
-        )
-        pasteReceiver.translatesAutoresizingMaskIntoConstraints = false
-        pasteReceiver.isScrollEnabled = false
-        pasteReceiver.alpha = 1
-        pasteReceiver.backgroundColor = .clear
-        view.addSubview(pasteReceiver)
-        NSLayoutConstraint.activate([
-            pasteReceiver.widthAnchor.constraint(equalToConstant: 1),
-            pasteReceiver.heightAnchor.constraint(equalToConstant: 1),
-            pasteReceiver.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            pasteReceiver.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-
-        let config = UIPasteControl.Configuration()
-        config.displayMode = .labelOnly
-        config.cornerStyle = .medium
-        config.baseBackgroundColor = UIColor.systemBackground
-        config.baseForegroundColor = UIColor.label
-        let control = UIPasteControl(configuration: config)
-        control.target = pasteReceiver
-        control.accessibilityLabel = "Dán để AI phân tích"
-        control.translatesAutoresizingMaskIntoConstraints = false
-
-        // In compact third-party keyboard layouts, iOS can suppress the
-        // system control's glyph/text when the pasteboard is empty. Keep a
-        // non-interactive, readable label on its face, without replacing its
-        // native hit target (or bypassing the system paste permission).
-        let tile = UIView()
-        tile.translatesAutoresizingMaskIntoConstraints = false
-        tile.layer.cornerRadius = 11
-        tile.clipsToBounds = true
-        tile.addSubview(control)
-        NSLayoutConstraint.activate([
-            control.leadingAnchor.constraint(equalTo: tile.leadingAnchor),
-            control.trailingAnchor.constraint(equalTo: tile.trailingAnchor),
-            control.topAnchor.constraint(equalTo: tile.topAnchor),
-            control.bottomAnchor.constraint(equalTo: tile.bottomAnchor)
-        ])
-        let title = UILabel()
-        title.text = "📋 Dán"
-        title.textAlignment = .center
-        title.font = .systemFont(ofSize: 13, weight: .semibold)
-        title.textColor = .label
-        title.adjustsFontSizeToFitWidth = true
-        title.minimumScaleFactor = 0.75
-        title.isUserInteractionEnabled = false
-        title.translatesAutoresizingMaskIntoConstraints = false
-        tile.addSubview(title)
-        NSLayoutConstraint.activate([
-            title.leadingAnchor.constraint(equalTo: tile.leadingAnchor, constant: 3),
-            title.trailingAnchor.constraint(equalTo: tile.trailingAnchor, constant: -3),
-            title.topAnchor.constraint(equalTo: tile.topAnchor),
-            title.bottomAnchor.constraint(equalTo: tile.bottomAnchor)
-        ])
-
-        toolbar.removeArrangedSubview(old)
-        old.removeFromSuperview()
-        toolbar.insertArrangedSubview(tile, at: 0)
-        systemPasteButton = control
-    }
-
-    func textViewDidChange(_ textView: UITextView) {
-        guard textView === pasteReceiver else { return }
-        let text = textView.text ?? ""
-        textView.text = ""
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
-        clearSuggestions()
-        showStatus("✓ Đã chọn nội dung, chạm AI để phân tích")
-    }
-
 
     private func installWritingActions() {
         guard toolButtons.count > 2 else { return }
@@ -555,15 +468,16 @@ final class KeyboardViewController: UIInputViewController, UITextViewDelegate {
             showStatus("Hãy bật Full Access để đọc clipboard theo yêu cầu")
             return
         }
-        guard let text = UIPasteboard.general.string,
+        let clipboard = UIPasteboard.general
+        guard let text = clipboard.string,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            showStatus("Clipboard trống")
+            showStatus("Không có văn bản để Dán · Hãy Sao chép tin nhắn rồi thử lại")
             return
         }
         // IMPORTANT: reading the source is not inserting it into the chat draft.
         selectedText = String(text.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
-        showStatus("Đã chọn tin nhắn để phân tích (KHÔNG chèn vào ô soạn)")
+        showStatus("✓ Đã Dán tin nhắn vào AI · Nhấn ✦ AI để phân tích")
     }
 
     private func requestedInput() -> String {
