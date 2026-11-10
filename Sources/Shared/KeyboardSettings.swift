@@ -91,6 +91,49 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "telexEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "telexEnabled") }
     }
+    // Local-first typing controls. All are opt-in and stored in App Group.
+    static var smartBilingual: Bool {
+        get { defaults.object(forKey: prefix + "smartBilingual") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "smartBilingual") }
+    }
+    static var predictionsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "predictionsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "predictionsEnabled") }
+    }
+    static var glideEnabled: Bool {
+        get { defaults.bool(forKey: prefix + "glideEnabled") }
+        set { defaults.set(newValue, forKey: prefix + "glideEnabled") }
+    }
+    static var autoLearnWords: Bool {
+        get { defaults.bool(forKey: prefix + "autoLearnWords") }
+        set { defaults.set(newValue, forKey: prefix + "autoLearnWords") }
+    }
+    static var learnedWords: [String: Int] {
+        get { defaults.dictionary(forKey: prefix + "learnedWords") as? [String: Int] ?? [:] }
+        set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(300))
+                        .map { ($0.key, $0.value) }), forKey: prefix + "learnedWords") }
+    }
+    static var keyHeight: Int {
+        get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
+        set { defaults.set(min(49, max(40, newValue)), forKey: prefix + "keyHeight") }
+    }
+    static var keySpacing: Int {
+        get { defaults.object(forKey: prefix + "keySpacing") as? Int ?? 6 }
+        set { defaults.set(min(9, max(3, newValue)), forKey: prefix + "keySpacing") }
+    }
+    static var oneHandMode: String {
+        get { defaults.string(forKey: prefix + "oneHandMode") ?? "off" }
+        set { defaults.set(["off", "left", "right"].contains(newValue) ? newValue : "off",
+                           forKey: prefix + "oneHandMode") }
+    }
+    static var textSnippets: [String: String] {
+        get { defaults.dictionary(forKey: prefix + "textSnippets") as? [String: String]
+                  ?? [";date": "{date}", ";time": "{time}"] }
+        set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(70))
+                         .map { (String($0.key.prefix(30)), String($0.value.prefix(500))) }),
+                       forKey: prefix + "textSnippets") }
+    }
+
     static var typingMode: String {
         get { defaults.string(forKey: prefix + "typingMode") ?? "telex" }
         set { defaults.set(["telex", "vni", "off"].contains(newValue) ? newValue : "telex", forKey: prefix + "typingMode") }
