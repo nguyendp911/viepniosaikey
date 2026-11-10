@@ -29,6 +29,23 @@ struct ContentView: View {
     @State private var showAllShortcuts = false
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
     @State private var hapticStyle = KeyboardSettings.hapticStyle
+    @State private var smartBilingual = KeyboardSettings.smartBilingual
+    @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
+    @State private var glideEnabled = KeyboardSettings.glideEnabled
+    @State private var autoLearnWords = KeyboardSettings.autoLearnWords
+    @State private var oneHandMode = KeyboardSettings.oneHandMode
+    @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
+    @State private var keyHeightValue = String(KeyboardSettings.keyHeight)
+    @State private var newSnippetKey = ""
+    @State private var newSnippetValue = ""
+    @State private var snippets = KeyboardSettings.textSnippets
+    @State private var personas = PersonaStore.all
+    @State private var activePersonaID = PersonaStore.activeID
+    @State private var personaName = ""
+    @State private var personaRole = "uncle"
+    @State private var personaSelfAddress = "cháu"
+    @State private var personaTone = "Lịch sự"
+    @State private var savedClipboard = ClipboardVault.items
     @State private var autoCapitalize = KeyboardSettings.autoCapitalize
     @State private var preferredTone = KeyboardSettings.preferredTone
     @State private var preferredLength = KeyboardSettings.preferredLength
@@ -88,11 +105,13 @@ struct ContentView: View {
                             savedReplies
                         } else if selectedPage == "ai" {
                             aiConfiguration
+                            personaSettingsCard
                         } else if selectedPage == "keyboard" {
                             personalization
                         } else {
                             activationGuide
                             keyboardDiagnostics
+                            clipboardSettingsCard
                             privacyInfo
                         }
                     }
@@ -117,6 +136,9 @@ struct ContentView: View {
             coupleStage = KeyboardSettings.coupleStage
             coupleStyle = KeyboardSettings.coupleStyle
             coupleAddress = KeyboardSettings.coupleAddress
+            savedClipboard = ClipboardVault.items
+            personas = PersonaStore.all
+            activePersonaID = PersonaStore.activeID
         }
     }
 
@@ -572,6 +594,8 @@ struct ContentView: View {
                                 value: $recipientMode,
                                 options: ReplyRecipient.allCases.map { ($0.rawValue, $0.title) })
                     .onChange(of: recipientMode) {
+                        PersonaStore.activeID = ""
+                        activePersonaID = ""
                         KeyboardSettings.recipientMode = $0
                     }
                 Text("Tự nhận diện từ tin được dán. Nếu AI xưng hô sai, hãy chọn Chú, Cô, Bác, Thầy/Cô, Bạn bè…; chế độ đã chọn dùng cho các tin tiếp theo tới khi đổi lại.")
@@ -695,8 +719,10 @@ struct ContentView: View {
         VStack(spacing: 12) {
             keyboardInputCard
             keyboardPreferencesCard
+            smartTypingCard
             keyboardThemesCard
             keyboardShortcutsCard
+            snippetsCard
         }
     }
 
@@ -889,6 +915,105 @@ struct ContentView: View {
                     .onChange(of: translationLanguage) {
                         KeyboardSettings.translationLanguage = $0
                     }
+            }
+        }
+    }
+
+    private var smartTypingCard: some View {
+        keyboardPanel("Gõ thông minh & Hiệu năng", icon: "brain") {
+            VStack(spacing: 9) {
+                keyboardToggleRow("Tự phân biệt Việt – Anh", symbol: "globe",
+                                  isOn: $smartBilingual)
+                    .onChange(of: smartBilingual) { KeyboardSettings.smartBilingual = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Gợi ý ba từ offline", symbol: "text.word.spacing",
+                                  isOn: $predictionsEnabled)
+                    .onChange(of: predictionsEnabled) { KeyboardSettings.predictionsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Vuốt chữ trên bàn phím (thử nghiệm)",
+                                  symbol: "hand.draw", isOn: $glideEnabled)
+                    .onChange(of: glideEnabled) { KeyboardSettings.glideEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
+                                  symbol: "book.closed", isOn: $autoLearnWords)
+                    .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
+                if autoLearnWords {
+                    Button(role: .destructive) {
+                        KeyboardSettings.learnedWords = [:]
+                    } label: {
+                        Label("Xóa từ cá nhân đã học", systemImage: "trash")
+                            .font(.system(size: 11))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                keyboardDivider()
+                keyboardMenuRow("Chế độ một tay", symbol: "hand.point.up.left",
+                                value: $oneHandMode,
+                                options: [("off", "Tắt"), ("left", "Tay trái"),
+                                          ("right", "Tay phải")])
+                    .onChange(of: oneHandMode) { KeyboardSettings.oneHandMode = $0 }
+                keyboardDivider()
+                keyboardMenuRow("Khoảng cách phím", symbol: "arrow.left.and.right",
+                                value: $keySpacingValue,
+                                options: ["3","4","5","6","7","8","9"].map { ($0, $0 + " pt") })
+                    .onChange(of: keySpacingValue) {
+                        KeyboardSettings.keySpacing = Int($0) ?? 6
+                    }
+                keyboardDivider()
+                keyboardMenuRow("Chiều cao phím", symbol: "arrow.up.and.down",
+                                value: $keyHeightValue,
+                                options: ["40","43","46","49"].map { ($0, $0 + " pt") })
+                    .onChange(of: keyHeightValue) {
+                        KeyboardSettings.keyHeight = Int($0) ?? 43
+                    }
+                Text("Bàn phím tải thiết lập mới khi mở lại. Tính năng vuốt chữ sử dụng từ điển offline giới hạn; không tự gửi nội dung gõ tới AI.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var snippetsCard: some View {
+        keyboardPanel("Mẫu gõ nhanh", icon: "text.insert") {
+            VStack(spacing: 10) {
+                Text("Gõ ;date hoặc ;time rồi nhấn dấu cách. Tạo mẫu khác với {date} và {time} để tự điền ngày giờ.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                HStack(spacing: 6) {
+                    TextField(";phimtat", text: $newSnippetKey)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .frame(width: 90)
+                    TextField("Nội dung thay thế", text: $newSnippetValue)
+                    Button {
+                        let key = newSnippetKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let value = newSnippetValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard key.hasPrefix(";"), key.count >= 2, key.count <= 30,
+                              !key.contains(" "), !value.isEmpty else { return }
+                        snippets[key] = String(value.prefix(500))
+                        KeyboardSettings.textSnippets = snippets
+                        newSnippetKey = ""
+                        newSnippetValue = ""
+                    } label: { Image(systemName: "plus.circle.fill").font(.system(size: 23)) }
+                        .accessibilityLabel("Thêm mẫu gõ nhanh")
+                }
+                .font(.system(size: 12))
+                .textFieldStyle(.roundedBorder)
+                ForEach(snippets.keys.sorted(), id: \.self) { key in
+                    HStack {
+                        Text(key).foregroundStyle(cyan)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("→").foregroundStyle(muted)
+                        Text(snippets[key] ?? "").font(.system(size: 11))
+                            .lineLimit(1)
+                        Spacer()
+                        Button {
+                            snippets.removeValue(forKey: key)
+                            KeyboardSettings.textSnippets = snippets
+                        } label: { Image(systemName: "trash").foregroundStyle(.red.opacity(0.8)) }
+                            .accessibilityLabel("Xóa mẫu " + key)
+                    }
+                }
             }
         }
     }
