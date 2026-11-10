@@ -743,10 +743,145 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardHeight()
     }
 
+    private func updateAdaptiveLayout() {
+        let spacing = CGFloat(KeyboardSettings.keySpacing)
+        let height = CGFloat(KeyboardSettings.keyHeight)
+        for row in letterRows { row.spacing = spacing }
+        secondaryRow?.spacing = spacing
+        for constraint in keyHeightConstraints { constraint.constant = height }
+        let side = min(56, max(38, view.bounds.width * 0.12))
+        switch KeyboardSettings.oneHandMode {
+        case "left":
+            keyboardLeadingConstraint?.constant = 4
+            keyboardTrailingConstraint?.constant = -side
+        case "right":
+            keyboardLeadingConstraint?.constant = side
+            keyboardTrailingConstraint?.constant = -4
+        default:
+            keyboardLeadingConstraint?.constant = 4
+            keyboardTrailingConstraint?.constant = -4
+        }
+        updateKeyboardHeight()
+    }
+
+    private func updateCandidates(_ override: [String]? = nil) {
+        let results = override ?? (useSuggestions
+            ? SmartTyping.predictions(prefix: recentWord, learned: learnedWords) : [])
+        let visible = !results.isEmpty
+        candidateWords = results
+        if candidateBar.isHidden == visible {
+            candidateBar.isHidden = !visible
+            updateKeyboardHeight()
+        }
+        for (index, button) in candidateButtons.enumerated() {
+            button.setTitle(index < results.count ? results[index] : "", for: .normal)
+            button.isEnabled = index < results.count
+        }
+    }
+
+    @objc private func candidateTapped(_ sender: UIButton) {
+        guard candidateWords.indices.contains(sender.tag) else { return }
+        replaceCurrentWord(candidateWords[sender.tag])
+        tactileFeedback()
+    }
+
+    private func replaceCurrentWord(_ replacement: String) {
+        guard let before = textDocumentProxy.documentContextBeforeInput else { return }
+        let current = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
+        guard current.count <= 40 else { return }
+        if let edit = FastTyping.edit(from: current, to: replacement) {
+            for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+            if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+        } else if current.isEmpty {
+            textDocumentProxy.insertText(replacement)
+        }
+        recentWord = replacement
+        updateCandidates()
+    }
+
+    @objc private func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
+        let space = recognizer.view
+        switch recognizer.state {
+        case .began:
+            cursorSteps = 0
+        case .changed:
+            let translation = recognizer.translation(in: space)
+            let steps = Int(translation.x / 13)
+            let move = steps - cursorSteps
+            if move != 0 {
+                textDocumentProxy.adjustTextPosition(byCharacterOffset: move)
+                cursorSteps = steps
+                tactileFeedback()
+            }
+        default:
+            cursorSteps = 0
+            recentWord = ""
+            updateCandidates()
+        }
+    }
+
+    private func letterUnder(_ position: CGPoint) -> String? {
+        for key in letterButtons where !key.isHidden {
+            if key.convert(key.bounds, to: view).contains(position),
+               let name = key.title(for: .normal), name.count == 1 {
+                return name.lowercased()
+            }
+        }
+        return nil
+    }
+
+    private func captureGlidePoint(_ position: CGPoint) {
+        guard let key = letterUnder(position), key != glideLastKey else { return }
+        glideLastKey = key
+        glidePath += key
+    }
+
+    @objc private func glidePanned(_ recognizer: UIPanGestureRecognizer) {
+        guard useGlide, !isNumbers else { return }
+        let point = recognizer.location(in: view)
+        switch recognizer.state {
+        case .began:
+            glidePath = ""
+            glideLastKey = ""
+            glideIsActive = false
+            let delta = recognizer.translation(in: view)
+            let origin = CGPoint(x: point.x - delta.x, y: point.y - delta.y)
+            captureGlidePoint(origin)
+            captureGlidePoint(point)
+        case .changed:
+            captureGlidePoint(point)
+            if glidePath.count >= 3 { glideIsActive = true }
+        case .ended:
+            captureGlidePoint(point)
+            guard glideIsActive, glidePath.count >= 3 else { return }
+            let suggestions = SmartTyping.glideCandidates(trace: glidePath)
+            if !suggestions.isEmpty {
+                // A swipe beginning on a character can have inserted that
+                // initial character via touchDown. Only auto-replace a
+                // one-character word, never overwrite an existing draft.
+                let before = textDocumentProxy.documentContextBeforeInput ?? ""
+                let current = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
+                if current.count == 1, suggestions[0].lowercased().hasPrefix(current.lowercased()) {
+                    replaceCurrentWord(suggestions[0])
+                } else {
+                    updateCandidates(suggestions)
+                }
+            }
+            glidePath = ""
+            glideLastKey = ""
+            glideIsActive = false
+        default:
+            glidePath = ""
+            glideLastKey = ""
+            glideIsActive = false
+        }
+    }
+
     private func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
-        let base: CGFloat = 240
+        let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
         heightConstraint?.constant = base +
+            (candidateBar.isHidden ? 0 : 36) +
             (statusLabel.isHidden ? 0 : 22) +
             (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()
