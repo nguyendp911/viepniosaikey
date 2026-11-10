@@ -31,12 +31,31 @@ final class KeyboardViewController: UIInputViewController {
     private var telexEnabled = KeyboardSettings.telexEnabled
     private var hapticsEnabled = KeyboardSettings.hapticEnabled
     private var hapticsStyle = KeyboardSettings.hapticStyle
+    private var useSmartBilingual = KeyboardSettings.smartBilingual
+    private var useSuggestions = KeyboardSettings.predictionsEnabled
+    private var useGlide = KeyboardSettings.glideEnabled
+    private var learnedWords: [String: Int] = [:]
+    private var recentWord = ""
+    private let candidateBar = UIStackView()
+    private var candidateButtons: [UIButton] = []
+    private var candidateWords: [String] = []
+    private var keyboardLeadingConstraint: NSLayoutConstraint?
+    private var keyboardTrailingConstraint: NSLayoutConstraint?
+    private var keyHeightConstraints: [NSLayoutConstraint] = []
+    private var glidePath = ""
+    private var glideLastKey = ""
+    private var glideIsActive = false
+    private var cursorSteps = 0
 
     private func refreshTypingPreferences() {
         typingMode = KeyboardSettings.typingMode
         telexEnabled = KeyboardSettings.telexEnabled
         hapticsEnabled = KeyboardSettings.hapticEnabled
         hapticsStyle = KeyboardSettings.hapticStyle
+        useSmartBilingual = KeyboardSettings.smartBilingual
+        useSuggestions = KeyboardSettings.predictionsEnabled
+        useGlide = KeyboardSettings.glideEnabled
+        learnedWords = KeyboardSettings.learnedWords
     }
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
@@ -59,7 +78,9 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
         applyTheme()
+        updateAdaptiveLayout()
         updateCoupleTool()
+        updateCandidates()
     }
 
     override func viewDidLayoutSubviews() {
@@ -80,9 +101,11 @@ final class KeyboardViewController: UIInputViewController {
         container.spacing = 6
         container.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(container)
+        keyboardLeadingConstraint = container.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4)
+        keyboardTrailingConstraint = container.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4)
         NSLayoutConstraint.activate([
-            container.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4),
-            container.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
+            keyboardLeadingConstraint!,
+            keyboardTrailingConstraint!,
             container.topAnchor.constraint(equalTo: view.topAnchor, constant: 5),
             container.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4)
         ])
@@ -157,11 +180,30 @@ final class KeyboardViewController: UIInputViewController {
         previewLabel.heightAnchor.constraint(equalToConstant: 45).isActive = true
         container.addArrangedSubview(previewLabel)
 
+        candidateBar.axis = .horizontal
+        candidateBar.spacing = 5
+        candidateBar.distribution = .fillEqually
+        candidateBar.isHidden = true
+        candidateBar.heightAnchor.constraint(equalToConstant: 31).isActive = true
+        for index in 0..<3 {
+            let button = UIButton(type: .system)
+            button.tag = index
+            button.layer.cornerRadius = 9
+            button.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
+            button.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium)
+            button.titleLabel?.lineBreakMode = .byTruncatingTail
+            button.setTitleColor(.label, for: .normal)
+            button.addTarget(self, action: #selector(candidateTapped(_:)), for: .touchUpInside)
+            candidateButtons.append(button)
+            candidateBar.addArrangedSubview(button)
+        }
+        container.addArrangedSubview(candidateBar)
+
         let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         for (rowIndex, letters) in rows.enumerated() {
             let row = UIStackView()
             row.axis = .horizontal
-            row.spacing = 6
+            row.spacing = CGFloat(KeyboardSettings.keySpacing)
             row.alignment = .fill
             row.distribution = .fillEqually
             if rowIndex == 1 {
@@ -193,7 +235,9 @@ final class KeyboardViewController: UIInputViewController {
                 delete.accessibilityHint = "Nhấn giữ để xóa từ"
                 row.addArrangedSubview(delete)
             }
-            row.heightAnchor.constraint(equalToConstant: 43).isActive = true
+            let height = row.heightAnchor.constraint(equalToConstant: CGFloat(KeyboardSettings.keyHeight))
+            height.isActive = true
+            keyHeightConstraints.append(height)
             letterRows.append(row)
             container.addArrangedSubview(row)
         }
@@ -201,7 +245,7 @@ final class KeyboardViewController: UIInputViewController {
         // Large spacebar, separate punctuation, globe and return as in iOS.
         let bottom = UIStackView()
         bottom.axis = .horizontal
-        bottom.spacing = 6
+        bottom.spacing = CGFloat(KeyboardSettings.keySpacing)
         bottom.distribution = .fill
         bottom.alignment = .fill
 
@@ -210,6 +254,10 @@ final class KeyboardViewController: UIInputViewController {
         configureIconOnly(globe, symbol: "globe", size: 20)
         let comma = keyButton(",", action: #selector(punctuationTapped(_:)))
         let space = keyButton("dấu cách", action: #selector(spaceTapped))
+        let cursorPan = UIPanGestureRecognizer(target: self, action: #selector(spaceCursorPanned(_:)))
+        cursorPan.cancelsTouchesInView = true
+        space.addGestureRecognizer(cursorPan)
+        space.accessibilityHint = "Vuốt ngang để di chuyển con trỏ"
         let period = keyButton(".", action: #selector(punctuationTapped(_:)))
         let enter = keyButton("", action: #selector(returnTapped))
         configureIconOnly(enter, symbol: "return.left", size: 20)
@@ -223,10 +271,19 @@ final class KeyboardViewController: UIInputViewController {
         comma.widthAnchor.constraint(equalToConstant: 34).isActive = true
         period.widthAnchor.constraint(equalToConstant: 34).isActive = true
         enter.widthAnchor.constraint(equalToConstant: 48).isActive = true
-        bottom.heightAnchor.constraint(equalToConstant: 43).isActive = true
+        let bottomHeight = bottom.heightAnchor.constraint(equalToConstant: CGFloat(KeyboardSettings.keyHeight))
+        bottomHeight.isActive = true
+        keyHeightConstraints.append(bottomHeight)
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
+        if useGlide {
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(glidePanned(_:)))
+            pan.cancelsTouchesInView = false
+            view.addGestureRecognizer(pan)
+        }
         updateKeys()
+        updateAdaptiveLayout()
+        updateKeyboardHeight()
     }
 
     /// The paste target is the visible keyboard controller itself.
