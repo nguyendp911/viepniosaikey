@@ -122,17 +122,36 @@ enum SmartTyping {
                             limit: Int = 3) -> [String] {
         let prefix = raw.lowercased()
         guard prefix.count >= 2, prefix.count <= 24 else { return [] }
-        let learnedWords = learned.keys.filter { $0.lowercased().hasPrefix(prefix) }
-        let candidates = Array(Set(learnedWords + englishWords.filter { $0.hasPrefix(prefix) }
-                                   + vietnameseWords.filter { $0.hasPrefix(prefix) }))
+        var seen = Set<String>()
+        var candidates: [String] = []
+        for word in learned.keys where word.lowercased().hasPrefix(prefix) {
+            if seen.insert(word).inserted { candidates.append(word) }
+        }
+        for word in englishWords where word.hasPrefix(prefix) {
+            if seen.insert(word).inserted { candidates.append(word) }
+        }
+        for word in vietnameseWords where word.hasPrefix(prefix) {
+            if seen.insert(word).inserted { candidates.append(word) }
+        }
+        // Plain `<` instead of localizedStandardCompare: the locale-aware
+        // comparison is very slow and ran for every candidate on every key.
         return Array(candidates.sorted {
             let a = learned[$0] ?? 0, b = learned[$1] ?? 0
             if a != b { return a > b }
             if $0 == prefix { return true }
             if $1 == prefix { return false }
             if $0.count != $1.count { return $0.count < $1.count }
-            return $0.localizedStandardCompare($1) == .orderedAscending
+            return $0 < $1
         }.prefix(limit))
+    }
+
+    /// Touch the lazily built lookup tables so the first key press does not
+    /// pay for creating them. Safe to call from a background queue.
+    static func warmUp() {
+        _ = isEnglishPrefix("abc")
+        _ = isVietnameseWord("anh")
+        _ = predictions(prefix: "th")
+        _ = VietnameseTelex.composeKeys("tooi")
     }
 
     /// A small local glide recognizer. The traced key sequence is compressed

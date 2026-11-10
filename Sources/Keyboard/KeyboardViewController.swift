@@ -80,6 +80,8 @@ final class KeyboardViewController: UIInputViewController {
         buildKeyboard()
         applyTheme()
         if hapticsEnabled && hapticsStyle == "light" { haptic.prepare() }
+        // Build dictionaries off the main thread so the first keys are not slow.
+        DispatchQueue.global(qos: .userInitiated).async { SmartTyping.warmUp() }
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -963,6 +965,8 @@ final class KeyboardViewController: UIInputViewController {
         let results = override ?? (useSuggestions
             ? SmartTyping.predictions(prefix: recentWord, learned: learnedWords) : [])
         let visible = !results.isEmpty
+        // Skip all UI work when nothing changed (common while typing).
+        if results == candidateWords && candidateBar.isHidden != visible { return }
         candidateWords = results
         if candidateBar.isHidden == visible {
             candidateBar.isHidden = !visible
