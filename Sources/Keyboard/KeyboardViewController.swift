@@ -661,6 +661,28 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         let key = isUppercase && !isNumbers ? title.uppercased() : title
 
+        // A bilingual prefix can postpone a Telex vowel conversion:
+        // "too" may become "tool" (English) or "tôi" (Vietnamese).
+        // Resolve it only when the next key completes a known Vietnamese word.
+        if !isNumbers && typingMode == "telex" && telexEnabled,
+           useSmartBilingual && key.lowercased() == "i",
+           let context = textDocumentProxy.documentContextBeforeInput {
+            let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
+            if let converted = SmartTyping.resolveDeferredVietnamese(word: word, adding: key),
+               let edit = FastTyping.edit(from: word, to: converted) {
+                for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+                if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+                recentWord = converted
+                if isUppercase && !isShiftLocked {
+                    isUppercase = false
+                    updateKeys()
+                }
+                updateCandidates()
+                tactileFeedback()
+                return
+            }
+        }
+
         if !isNumbers && typingMode == "telex" && telexEnabled,
            FastTyping.isTelexModifier(key),
            let before = textDocumentProxy.documentContextBeforeInput {
