@@ -80,6 +80,8 @@ final class KeyboardViewController: UIInputViewController {
         applyTheme()
         updateAdaptiveLayout()
         updateCoupleTool()
+        installWritingActions()
+        installClipboardMenu()
         updateCandidates()
     }
 
@@ -165,6 +167,7 @@ final class KeyboardViewController: UIInputViewController {
         commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
         container.addArrangedSubview(commands)
         installWritingActions()
+        installClipboardMenu()
         updateCoupleTool()
 
         previewLabel.numberOfLines = 2
@@ -299,6 +302,7 @@ final class KeyboardViewController: UIInputViewController {
         let selected = ReplyRecipient(rawValue: KeyboardSettings.recipientMode) ?? .automatic
         let receivers = ReplyRecipient.allCases.map { recipient -> UIAction in
             let action = UIAction(title: recipient.title) { [weak self] _ in
+                PersonaStore.activeID = ""
                 KeyboardSettings.recipientMode = recipient.rawValue
                 self?.installWritingActions()
                 let text = self?.selectedText ?? ""
@@ -313,12 +317,66 @@ final class KeyboardViewController: UIInputViewController {
             image: UIImage(systemName: "person.crop.circle"),
             children: receivers
         )
+        let personaActions: [UIAction] = PersonaStore.all.map { person in
+            let item = UIAction(title: person.name) { [weak self] _ in
+                PersonaStore.select(person.id)
+                self?.installWritingActions()
+                self?.showStatus("Hồ sơ: " + person.name)
+            }
+            item.state = PersonaStore.activeID == person.id ? .on : .off
+            return item
+        }
+        let profileMenu = UIMenu(
+            title: "Hồ sơ người nhận",
+            image: UIImage(systemName: "person.crop.rectangle.stack"),
+            children: [UIAction(title: "Tắt hồ sơ") { [weak self] _ in
+                PersonaStore.clearSelection()
+                self?.installWritingActions()
+                self?.showStatus("Đã tắt hồ sơ người nhận")
+            }] + personaActions
+        )
         toolButtons[2].menu = UIMenu(
             title: "AI · Vai xưng hô và viết lại",
-            children: [receiverMenu] + actions
+            children: [receiverMenu, profileMenu] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
+    }
+
+    private func installClipboardMenu() {
+        guard let paste = toolButtons.first else { return }
+        let save = UIAction(title: "Lưu đoạn vừa Dán",
+                            image: UIImage(systemName: "tray.and.arrow.down")) { [weak self] _ in
+            guard let self else { return }
+            guard !self.selectedText.isEmpty else {
+                self.showStatus("Nhấn Dán trước, rồi giữ nút Dán để lưu")
+                return
+            }
+            ClipboardVault.saveExplicitly(self.selectedText)
+            self.installClipboardMenu()
+            self.showStatus("Đã lưu bản sao do bạn chọn · tối đa 15 đoạn")
+        }
+        let items: [UIAction] = ClipboardVault.items.enumerated().map { index, text in
+            UIAction(title: String(text.prefix(40)), image: UIImage(systemName: "doc.text")) {
+                [weak self] _ in
+                self?.selectedText = text
+                self?.showStatus("Đã chọn đoạn \(index + 1) · Chạm AI để xử lý")
+            }
+        }
+        let history = UIMenu(title: "Các đoạn đã lưu",
+                             image: UIImage(systemName: "tray.full"),
+                             children: items)
+        let clear = UIAction(title: "Xóa tất cả đoạn đã lưu",
+                             image: UIImage(systemName: "trash"),
+                             attributes: .destructive) { [weak self] _ in
+            ClipboardVault.clear()
+            self?.installClipboardMenu()
+            self?.showStatus("Đã xóa clipboard được lưu trong ViePN")
+        }
+        paste.menu = UIMenu(title: "Clipboard cá nhân",
+                            children: [save, history, clear])
+        paste.showsMenuAsPrimaryAction = false
+        paste.accessibilityHint = "Chạm để Dán; nhấn giữ để lưu, chọn hoặc xóa clipboard."
     }
 
     private func performWritingAction(_ action: AIWritingAction) {
