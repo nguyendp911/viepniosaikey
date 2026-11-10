@@ -33,6 +33,16 @@ jobs:
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-fast-typing" \
             Sources/Shared/FastTyping.swift Scripts/verify_fast_typing.swift
           "$RUNNER_TEMP/verify-fast-typing"
+      - name: Verify reversible bilingual Telex and English input
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-bilingual" \
+            Sources/Shared/VietnameseTelex.swift \
+            Sources/Shared/SmartTyping.swift \
+            Sources/Shared/BilingualComposer.swift \
+            Sources/Shared/FastTyping.swift \
+            Scripts/verify_bilingual_composer.swift
+          "$RUNNER_TEMP/verify-bilingual"
       - name: Verify Smart Keyboard features
         run: |
           set -euo pipefail
