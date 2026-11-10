@@ -114,7 +114,8 @@ enum VietnameseTelex {
         // Other Telex double-letter shape keys still work as before.
         let previous = String(chars[chars.count - 1]).lowercased()
         let pair = previous + String(code)
-        if let replacement = shape[pair] {
+        if let replacement = shape[pair],
+           (pair == "dd" || plausibleVietnameseSyllable(chars)) {
             var result = chars
             let output = String(chars.last!).uppercased() == String(chars.last!)
                 ? Character(String(replacement).uppercased()) : replacement
