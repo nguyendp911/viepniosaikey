@@ -42,6 +42,10 @@ struct ContentView: View {
     @State private var personas = PersonaStore.all
     @State private var activePersonaID = PersonaStore.activeID
     @State private var personaName = ""
+    @State private var showContactNamePicker = false
+    @State private var autoMatchPersona = PersonaStore.automaticNameMatch
+    @State private var transcriptPreview = ""
+    @State private var transcriptMatchStatus = ""
     @State private var personaRole = "uncle"
     @State private var personaSelfAddress = "cháu"
     @State private var personaTone = "Lịch sự"
@@ -1403,9 +1407,13 @@ struct ContentView: View {
     private var personaSettingsCard: some View {
         keyboardPanel("Hồ sơ người nhận (AI Persona)", icon: "person.crop.rectangle.stack") {
             VStack(alignment: .leading, spacing: 11) {
-                Text("Tạo hồ sơ để chọn nhanh cách xưng hô. Chỉ áp dụng khi bạn chọn; không tự đọc tên người trong Zalo/Messenger.")
+                Text("Tự chọn đúng hồ sơ khi nội dung bạn Dán có dòng 'Người gửi: Tên'. iOS không cho bàn phím đọc tên cuộc trò chuyện từ Zalo, Messenger hoặc Facebook.")
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
+                Toggle("Tự khớp tên khi Dán hội thoại", isOn: $autoMatchPersona)
+                    .font(.system(size: 12))
+                    .tint(violet)
+                    .onChange(of: autoMatchPersona) { PersonaStore.automaticNameMatch = $0 }
                 HStack(spacing: 7) {
                     Text("Đang dùng")
                         .font(.system(size: 12, weight: .medium))
@@ -1432,9 +1440,27 @@ struct ContentView: View {
                     }
                 }
                 keyboardDivider()
-                TextField("Tên hồ sơ, ví dụ: Chú Tư", text: $personaName)
-                    .font(.system(size: 13))
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    TextField("Tên hồ sơ trùng danh bạ/Zalo/Facebook", text: $personaName)
+                        .font(.system(size: 13))
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        showContactNamePicker = true
+                    } label: {
+                        Image(systemName: "person.crop.circle.badge.checkmark")
+                            .font(.system(size: 19))
+                    }
+                    .accessibilityLabel("Chọn tên từ danh bạ iPhone")
+                }
+                .sheet(isPresented: $showContactNamePicker) {
+                    ContactNamePicker(
+                        onChoose: { name in
+                            personaName = name
+                            showContactNamePicker = false
+                        },
+                        onCancel: { showContactNamePicker = false }
+                    )
+                }
                 keyboardMenuRow("Vai người nhận", symbol: "person",
                                 value: $personaRole,
                                 options: ReplyRecipient.allCases.filter { $0 != .automatic }
@@ -1459,6 +1485,33 @@ struct ContentView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(violet)
                 .disabled(personaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                keyboardDivider()
+                Text("Kiểm tra nhận diện tên trong hội thoại")
+                    .font(.system(size: 12, weight: .semibold))
+                TextField("Người gửi: Nhân Mod", text: $transcriptPreview)
+                    .font(.system(size: 12))
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.words)
+                Button {
+                    if let name = PersonaStore.nameFromSharedTranscript(transcriptPreview),
+                       let matched = PersonaStore.matchingProfile(named: name) {
+                        PersonaStore.select(matched.id)
+                        activePersonaID = matched.id
+                        transcriptMatchStatus = "Đã khớp: " + matched.name
+                    } else {
+                        transcriptMatchStatus = "Không có tên người gửi được gắn nhãn hoặc không có hồ sơ trùng duy nhất."
+                    }
+                } label: {
+                    Label("Thử khớp tên", systemImage: "person.crop.circle.badge.checkmark")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.bordered)
+                if !transcriptMatchStatus.isEmpty {
+                    Text(transcriptMatchStatus)
+                        .font(.system(size: 11))
+                        .foregroundStyle(cyan)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 ForEach(personas) { item in
                     HStack(spacing: 7) {
                         Image(systemName: item.id == activePersonaID
