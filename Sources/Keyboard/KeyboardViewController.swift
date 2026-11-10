@@ -556,6 +556,8 @@ final class KeyboardViewController: UIInputViewController {
         guard let character = sender.title(for: .normal) else { return }
         tactileFeedback()
         textDocumentProxy.insertText(character)
+        recentWord = ""
+        updateCandidates()
     }
 
     @objc private func letterTapped(_ sender: UIButton) {
@@ -566,18 +568,21 @@ final class KeyboardViewController: UIInputViewController {
         if !isNumbers && typingMode == "telex" && telexEnabled,
            FastTyping.isTelexModifier(key),
            let before = textDocumentProxy.documentContextBeforeInput {
-            // Avoid reading host context for normal letters. On a Telex key,
-            // rewrite only the changed suffix rather than the entire word.
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
+            // A small offline English lexicon protects overlapping Telex keys
+            // such as car, book, for and stress. No model/API call per key.
             if !word.isEmpty,
+               !(useSmartBilingual && SmartTyping.shouldKeepLiteral(word, adding: key)),
                let converted = VietnameseTelex.transformed(word: word, key: key),
                let edit = FastTyping.edit(from: word, to: converted) {
                 for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
                 if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+                recentWord = converted
                 if isUppercase && !isShiftLocked {
                     isUppercase = false
                     updateKeys()
                 }
+                updateCandidates()
                 tactileFeedback()
                 return
             }
@@ -590,15 +595,23 @@ final class KeyboardViewController: UIInputViewController {
                let edit = FastTyping.edit(from: word, to: converted) {
                 for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
                 if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+                recentWord = converted
+                updateCandidates()
                 tactileFeedback()
                 return
             }
         }
         textDocumentProxy.insertText(key)
+        if key.first?.isLetter == true {
+            recentWord = String((recentWord + key).suffix(32))
+        } else {
+            recentWord = ""
+        }
         if isUppercase && !isShiftLocked {
             isUppercase = false
             updateKeys()
         }
+        updateCandidates()
         tactileFeedback()
     }
 
@@ -606,14 +619,26 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         tactileFeedback()
         if let context = textDocumentProxy.documentContextBeforeInput {
+            let token = String(context.reversed().prefix(while: {
+                $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_"
+            }).reversed())
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
-            if let replacement = KeyboardSettings.replacementDictionary[word.lowercased()],
-               !word.isEmpty, word.count <= 30 {
+            if let snippet = KeyboardSettings.textSnippets[token], !token.isEmpty {
+                for _ in token { textDocumentProxy.deleteBackward() }
+                textDocumentProxy.insertText(SmartTyping.expandSnippet(snippet))
+            } else if let replacement = KeyboardSettings.replacementDictionary[word.lowercased()],
+                      !word.isEmpty, word.count <= 30 {
                 for _ in word { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(replacement)
+            } else if KeyboardSettings.autoLearnWords && word.count >= 3 && word.count <= 24 {
+                let normalized = word.lowercased()
+                learnedWords[normalized, default: 0] += 1
+                KeyboardSettings.learnedWords = learnedWords
             }
         }
         textDocumentProxy.insertText(" ")
+        recentWord = ""
+        updateCandidates()
         if KeyboardSettings.autoCapitalize && !isShiftLocked {
             let before = textDocumentProxy.documentContextBeforeInput ?? ""
             let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -628,12 +653,20 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         tactileFeedback()
         textDocumentProxy.insertText("\n")
+        recentWord = ""
+        updateCandidates()
         if KeyboardSettings.autoCapitalize {
             isUppercase = true
             updateKeys()
         }
     }
-    @objc private func deleteTapped() { beginTyping(); tactileFeedback(); textDocumentProxy.deleteBackward() }
+    @objc private func deleteTapped() {
+        beginTyping()
+        tactileFeedback()
+        textDocumentProxy.deleteBackward()
+        if !recentWord.isEmpty { recentWord.removeLast() }
+        updateCandidates()
+    }
 
     @objc private func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
@@ -644,6 +677,8 @@ final class KeyboardViewController: UIInputViewController {
         let spaces = reversed.prefix(while: { $0.isWhitespace }).count
         let letters = reversed.dropFirst(spaces).prefix(while: { $0.isLetter || $0.isNumber }).count
         for _ in 0..<(spaces + max(1, letters)) { textDocumentProxy.deleteBackward() }
+        recentWord = ""
+        updateCandidates()
     }
 
     @objc private func shiftTapped() {
@@ -656,6 +691,8 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func numbersTapped() {
         tactileFeedback()
         isNumbers.toggle()
+        recentWord = ""
+        updateCandidates()
         updateKeys()
     }
 
