@@ -409,6 +409,10 @@ final class KeyboardViewController: UIInputViewController {
         guard hasFullAccess else { showStatus("Cần Full Access để dùng AI"); return }
         let source = selectedText.isEmpty
             ? (textDocumentProxy.documentContextBeforeInput ?? "") : selectedText
+        if !MessageSafety.warnings(in: source).isEmpty {
+            showStatus("Có dữ liệu nhạy cảm · Mở tab Trợ lý để ẩn rồi xử lý.")
+            return
+        }
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             showStatus("Dán hoặc soạn nội dung trước khi dùng AI")
             return
@@ -645,6 +649,15 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
+        // Sample one out of 50 touches; never store the key or input text.
+        let sample = Int.random(in: 0..<50) == 0
+        let startedAt = sample ? CACurrentMediaTime() : 0
+        defer {
+            if sample {
+                KeyboardStability.note("typing", durationMs:
+                    (CACurrentMediaTime() - startedAt) * 1000)
+            }
+        }
         beginTyping()
         let key = isUppercase && !isNumbers ? title.uppercased() : title
 
@@ -811,6 +824,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func coupleTapped() {
+        let startedAt = CACurrentMediaTime()
+        defer { KeyboardStability.note("couple", durationMs:
+            (CACurrentMediaTime() - startedAt) * 1000) }
         KeyboardSettings.coupleEnabled.toggle()
         updateCoupleTool()
         showStatus(KeyboardSettings.coupleEnabled
@@ -1024,6 +1040,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func pasteTapped() {
+        let startedAt = CACurrentMediaTime()
+        defer { KeyboardStability.note("paste", durationMs:
+            (CACurrentMediaTime() - startedAt) * 1000) }
         // Always-visible, real UIButton. Never replace it with a system control
         // that can disappear when iOS marks the pasteboard as unavailable.
         guard hasFullAccess else {
@@ -1057,6 +1076,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func offlineTapped() {
+        let startedAt = CACurrentMediaTime()
+        defer { KeyboardStability.note("offline", durationMs:
+            (CACurrentMediaTime() - startedAt) * 1000) }
         let text = requestedInput()
         guard !text.isEmpty else {
             showStatus("Dán tin nhắn cần trả lời trước")
@@ -1066,6 +1088,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func cloudTapped() {
+        let startedAt = CACurrentMediaTime()
+        defer { KeyboardStability.note("ai", durationMs:
+            (CACurrentMediaTime() - startedAt) * 1000) }
         guard !isRequestRunning else { return }
         guard hasFullAccess else {
             showStatus("Cần bật Full Access để gọi AI")
@@ -1105,6 +1130,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func phrasesTapped() {
+        let startedAt = CACurrentMediaTime()
+        defer { KeyboardStability.note("phrases", durationMs:
+            (CACurrentMediaTime() - startedAt) * 1000) }
         show(KeyboardSettings.savedPhrases.map { ReplySuggestion(tone: "Mẫu câu", text: $0) })
     }
 
