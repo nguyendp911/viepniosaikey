@@ -112,6 +112,8 @@ struct ContentView: View {
                             personaSettingsCard
                         } else if selectedPage == "keyboard" {
                             personalization
+                        } else if selectedPage == "assistant" {
+                            AdvancedAssistantView()
                         } else {
                             activationGuide
                             keyboardDiagnostics
@@ -181,6 +183,7 @@ struct ContentView: View {
             tabItem("Couple", symbol: "heart.fill", page: "couple")
             tabItem("AI & API", symbol: "sparkles", page: "ai")
             tabItem("Bàn phím", symbol: "keyboard", page: "keyboard")
+            tabItem("Trợ lý", symbol: "wand.and.stars", page: "assistant")
             tabItem("Công cụ", symbol: "square.grid.2x2", page: "tools")
         }
         .padding(.horizontal, 12)
