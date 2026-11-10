@@ -68,6 +68,56 @@ enum PersonaStore {
         KeyboardSettings.recipientMode = "auto"
     }
 
+    static var automaticNameMatch: Bool {
+        get { defaults.object(forKey: "viepnaikey.automaticNameMatch") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "viepnaikey.automaticNameMatch") }
+    }
+
+    /// The keyboard cannot see the title of a Zalo/Messenger conversation.
+    /// Only accept a sender name when the user has actually supplied it in
+    /// a labeled chat transcript. Never match names mentioned in message body.
+    static func nameFromSharedTranscript(_ text: String) -> String? {
+        let rows = text.components(separatedBy: .newlines)
+        for line in rows.prefix(5) {
+            let entry = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            let labels = ["Người gửi:", "Tên người gửi:", "Người nhận:",
+                          "Người trò chuyện:", "Sender:", "From:", "Chat with:"]
+            for label in labels where entry.lowercased().hasPrefix(label.lowercased()) {
+                let value = String(entry.dropFirst(label.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !value.isEmpty && value.count <= 80 { return value }
+            }
+        }
+        return nil
+    }
+
+    static func normalizedName(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive],
+                     locale: Locale(identifier: "vi_VN"))
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    /// Exact unique normalized match; do not choose based on partial names
+    /// such as "Nhân" when several saved contacts share that component.
+    static func matchingProfile(named name: String) -> RecipientPersona? {
+        let expected = normalizedName(name)
+        guard expected.count >= 2 else { return nil }
+        let matches = all.filter { normalizedName($0.name) == expected }
+        return matches.count == 1 ? matches.first : nil
+    }
+
+    @discardableResult
+    static func autoSelect(fromSharedTranscript text: String) -> RecipientPersona? {
+        guard automaticNameMatch,
+              let name = nameFromSharedTranscript(text),
+              let matched = matchingProfile(named: name) else { return nil }
+        select(matched.id)
+        return matched
+    }
+
+
     /// Personality is a user-provided preference, not evidence that a message
     /// actually came from that person. The user must select a profile manually.
     static var prompt: String {
