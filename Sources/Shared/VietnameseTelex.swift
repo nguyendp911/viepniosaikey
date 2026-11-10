@@ -98,6 +98,22 @@ enum VietnameseTelex {
         return nil
     }
 
+    /// Rebuild the displayed word from its original key sequence. Unlike
+    /// incremental edits this can revoke an earlier Telex conversion when the
+    /// completed word is clearly English, without losing the original keys.
+    static func composeKeys(_ raw: String) -> String {
+        var rendered = ""
+        for char in raw {
+            let key = String(char)
+            if let converted = transformed(word: rendered, key: key) {
+                rendered = converted
+            } else {
+                rendered.append(char)
+            }
+        }
+        return rendered
+    }
+
     /// Returns nil when the typed key should be inserted literally.
     static func transformed(word: String, key: String) -> String? {
         guard word.count <= 40, let letter = key.first, key.count == 1 else { return nil }
