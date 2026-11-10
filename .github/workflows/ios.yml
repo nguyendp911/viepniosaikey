@@ -44,6 +44,7 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Sources/Shared/PersonalTools.swift \
             Sources/Shared/SmartTyping.swift \
+            Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartAssistantCore.swift \
             Scripts/verify_smart_keyboard.swift
           "$RUNNER_TEMP/verify-smart"
