@@ -36,6 +36,17 @@ final class KeyboardViewController: UIInputViewController {
     private var useGlide = KeyboardSettings.glideEnabled
     private var learnedWords: [String: Int] = [:]
     private var recentWord = ""
+    // Original physical keys and displayed word are tracked separately.
+    // This allows a partial English prefix to become Vietnamese later,
+    // or a Vietnamese-looking prefix to resolve back to English.
+    private var rawComposingWord = ""
+    private var displayedComposingWord = ""
+    private var bilingualPreference: BilingualComposer.Preference = .automatic
+
+    private func resetBilingualComposition() {
+        rawComposingWord = ""
+        displayedComposingWord = ""
+    }
     private let candidateBar = UIStackView()
     private var candidateButtons: [UIButton] = []
     private var candidateWords: [String] = []
@@ -53,6 +64,9 @@ final class KeyboardViewController: UIInputViewController {
         hapticsEnabled = KeyboardSettings.hapticEnabled
         hapticsStyle = KeyboardSettings.hapticStyle
         useSmartBilingual = KeyboardSettings.smartBilingual
+        bilingualPreference = BilingualComposer.Preference(
+            rawValue: KeyboardSettings.bilingualPreference) ?? .automatic
+        resetBilingualComposition()
         useSuggestions = KeyboardSettings.predictionsEnabled
         useGlide = KeyboardSettings.glideEnabled
         learnedWords = KeyboardSettings.learnedWords
@@ -661,49 +675,66 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         let key = isUppercase && !isNumbers ? title.uppercased() : title
 
-        // A bilingual prefix can postpone a Telex vowel conversion:
-        // "too" may become "tool" (English) or "tôi" (Vietnamese).
-        // Resolve it only when the next key completes a known Vietnamese word.
         if !isNumbers && typingMode == "telex" && telexEnabled,
-           useSmartBilingual && key.lowercased() == "i",
-           let context = textDocumentProxy.documentContextBeforeInput {
-            let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
-            if let converted = SmartTyping.resolveDeferredVietnamese(word: word, adding: key),
-               let edit = FastTyping.edit(from: word, to: converted) {
-                for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
-                if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
-                recentWord = converted
-                if isUppercase && !isShiftLocked {
-                    isUppercase = false
-                    updateKeys()
+           key.count == 1, key.first?.isLetter == true {
+            // If another app edited or moved the caret, do not touch its
+            // existing text. Check the host suffix before destructive edits.
+            if rawComposingWord.isEmpty,
+               let context = textDocumentProxy.documentContextBeforeInput {
+                let existing = String(context.reversed()
+                    .prefix(while: { $0.isLetter }).reversed())
+                if !existing.isEmpty && existing.count <= 40 {
+                    rawComposingWord = existing
+                    displayedComposingWord = existing
                 }
+            }
+            let rawNext = rawComposingWord + key
+            if rawNext.count <= 40 {
+                let preference: BilingualComposer.Preference =
+                    useSmartBilingual ? bilingualPreference : .vietnamese
+                let newWord = BilingualComposer.compose(
+                    rawNext, preference: preference).rendered
+                if let edit = FastTyping.edit(from: displayedComposingWord, to: newWord) {
+                    if edit.deleteCount > 0 {
+                        let current = textDocumentProxy.documentContextBeforeInput ?? ""
+                        // Never delete text that is no longer the composing word.
+                        guard !displayedComposingWord.isEmpty,
+                              current.hasSuffix(displayedComposingWord) else {
+                            resetBilingualComposition()
+                            textDocumentProxy.insertText(key)
+                            recentWord = key
+                            updateCandidates()
+                            tactileFeedback()
+                            return
+                        }
+                        for _ in 0..<edit.deleteCount {
+                            textDocumentProxy.deleteBackward()
+                        }
+                    }
+                    if !edit.insertion.isEmpty {
+                        textDocumentProxy.insertText(edit.insertion)
+                    }
+                    rawComposingWord = rawNext
+                    displayedComposingWord = newWord
+                    recentWord = newWord
+                    if isUppercase && !isShiftLocked {
+                        isUppercase = false
+                        updateKeys()
+                    }
+                    updateCandidates()
+                    tactileFeedback()
+                    return
+                }
+                rawComposingWord = rawNext
+                displayedComposingWord = newWord
+                recentWord = newWord
                 updateCandidates()
                 tactileFeedback()
                 return
             }
-        }
-
-        if !isNumbers && typingMode == "telex" && telexEnabled,
-           FastTyping.isTelexModifier(key),
-           let before = textDocumentProxy.documentContextBeforeInput {
-            let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
-            // A small offline English lexicon protects overlapping Telex keys
-            // such as car, book, for and stress. No model/API call per key.
-            if !word.isEmpty,
-               !(useSmartBilingual && SmartTyping.shouldKeepLiteral(word, adding: key)),
-               let converted = VietnameseTelex.transformed(word: word, key: key),
-               let edit = FastTyping.edit(from: word, to: converted) {
-                for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
-                if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
-                recentWord = converted
-                if isUppercase && !isShiftLocked {
-                    isUppercase = false
-                    updateKeys()
-                }
-                updateCandidates()
-                tactileFeedback()
-                return
-            }
+            resetBilingualComposition()
+        } else {
+            resetBilingualComposition()
         }
         if isNumbers && typingMode == "vni",
            let before = textDocumentProxy.documentContextBeforeInput {
@@ -734,6 +765,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func spaceTapped() {
+        resetBilingualComposition()
         beginTyping()
         tactileFeedback()
         if let context = textDocumentProxy.documentContextBeforeInput {
@@ -768,6 +800,7 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
     @objc private func returnTapped() {
+        resetBilingualComposition()
         beginTyping()
         tactileFeedback()
         textDocumentProxy.insertText("\n")
@@ -779,6 +812,7 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
     @objc private func deleteTapped() {
+        resetBilingualComposition()
         beginTyping()
         tactileFeedback()
         textDocumentProxy.deleteBackward()
@@ -788,6 +822,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
+        resetBilingualComposition()
         beginTyping()
         tactileFeedback()
         let before = textDocumentProxy.documentContextBeforeInput ?? ""
@@ -807,6 +842,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func numbersTapped() {
+        resetBilingualComposition()
         tactileFeedback()
         isNumbers.toggle()
         recentWord = ""
@@ -841,6 +877,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func globeTapped() {
+        resetBilingualComposition()
         tactileFeedback()
         advanceToNextInputMode()
     }
@@ -938,6 +975,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func candidateTapped(_ sender: UIButton) {
+        resetBilingualComposition()
         guard candidateWords.indices.contains(sender.tag) else { return }
         replaceCurrentWord(candidateWords[sender.tag])
         tactileFeedback()
@@ -958,6 +996,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
+        if recognizer.state == .began { resetBilingualComposition() }
         let space = recognizer.view
         switch recognizer.state {
         case .began:
