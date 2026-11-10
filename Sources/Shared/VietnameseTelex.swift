@@ -25,6 +25,31 @@ enum VietnameseTelex {
         return nil
     }
 
+    // Accent keys s/f/r/x/j are also ordinary Latin letters. Interpret them
+    // as a Vietnamese tone only when the preceding characters can form a
+    // Vietnamese syllable. This protects English words such as "store",
+    // "stress", "spring", "thanks" from unwanted diacritics.
+    private static let vietnameseOnsets: Set<String> = [
+        "", "b", "c", "ch", "d", "đ", "g", "gh", "gi", "h", "k", "kh",
+        "l", "m", "n", "ng", "ngh", "nh", "p", "ph", "q", "qu",
+        "r", "s", "t", "th", "tr", "v", "x"
+    ]
+
+    private static let vietnameseCodas: Set<String> = [
+        "", "c", "ch", "m", "n", "ng", "nh", "p", "t"
+    ]
+
+    private static func plausibleVietnameseSyllable(_ chars: [Character]) -> Bool {
+        guard let firstVowel = chars.firstIndex(where: { base($0) != nil }),
+              let lastVowel = chars.lastIndex(where: { base($0) != nil }) else {
+            return false
+        }
+        let onset = String(chars[..<firstVowel]).lowercased()
+        let coda = lastVowel + 1 < chars.count
+            ? String(chars[(lastVowel + 1)...]).lowercased() : ""
+        return vietnameseOnsets.contains(onset) && vietnameseCodas.contains(coda)
+    }
+
     /// Change the shape while preserving any tone already applied.
     private static func restyle(_ original: Character, as newBase: Character) -> Character {
         let lower = Character(String(original).lowercased())
@@ -114,7 +139,8 @@ enum VietnameseTelex {
             }
         }
 
-        guard let targetTone = toneIndex[code] else { return nil }
+        guard let targetTone = toneIndex[code],
+              plausibleVietnameseSyllable(chars) else { return nil }
         let indices = chars.indices.filter { base(chars[$0]) != nil }
         guard !indices.isEmpty else { return nil }
 
