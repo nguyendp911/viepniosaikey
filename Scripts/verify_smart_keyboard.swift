@@ -10,6 +10,15 @@ struct VerifySmartKeyboard {
         assert(SmartTyping.shouldKeepLiteral("st", adding: "o"), "English prefix protection")
         assert(SmartTyping.shouldKeepLiteral("ca", adding: "r"), "car stays English")
         assert(SmartTyping.shouldKeepLiteral("bo", adding: "o"), "book prevents oo shape")
+        assert(SmartTyping.shouldKeepLiteral("to", adding: "o"), "English tool prefix is initially protected")
+        assert(SmartTyping.resolveDeferredVietnamese(word: "too", adding: "i") == "tôi",
+               "tooi resolves to tôi despite English prefix")
+        assert(SmartTyping.resolveDeferredVietnamese(word: "Too", adding: "i") == "Tôi",
+               "Tooi preserves initial capital letter")
+        assert(SmartTyping.resolveDeferredVietnamese(word: "too", adding: "l") == nil,
+               "tool stays an English word")
+        assert(SmartTyping.resolveDeferredVietnamese(word: "sto", adding: "r") == nil,
+               "store prefix not converted into Vietnamese")
         assert(!SmartTyping.shouldKeepLiteral("thuong", adding: "w"), "Vietnamese end W is not blocked")
         assert(SmartTyping.predictions(prefix: "sto").contains("store"), "offline English suggestions")
         assert(SmartTyping.predictions(prefix: "thư").contains("thương"), "offline Vietnamese suggestions")
