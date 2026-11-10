@@ -417,26 +417,93 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Symbol + label typography is controlled through UIKit button configuration.
     /// This keeps the icon inside the actual tappable button (no overlay hit testing).
+    // A consistent restrained palette keeps the toolbar readable on every
+    // keyboard theme. Only the AI action receives a strong accent fill.
+    private var chromeIsDark: Bool {
+        switch currentTheme {
+        case "midnight", "graphite", "forest", "aurora": return true
+        case "system", "": return traitCollection.userInterfaceStyle == .dark
+        default: return false
+        }
+    }
+
+    private var chromeInk: UIColor {
+        chromeIsDark ? UIColor(white: 0.96, alpha: 1)
+                     : UIColor(red: 0.15, green: 0.22, blue: 0.26, alpha: 1)
+    }
+
+    private var chromeSurface: UIColor {
+        chromeIsDark ? UIColor(red: 0.23, green: 0.31, blue: 0.32, alpha: 1)
+                     : UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1)
+    }
+
+    private var chromeStroke: UIColor {
+        chromeIsDark ? UIColor.white.withAlphaComponent(0.10)
+                     : UIColor.black.withAlphaComponent(0.08)
+    }
+
+    private var chromePrimary: UIColor {
+        UIColor(red: 0.34, green: 0.37, blue: 0.80, alpha: 1)
+    }
+
     private func configureSymbolButton(_ button: UIButton, title: String, symbol: String,
-                                       foreground: UIColor, background: UIColor) {
+                                       foreground: UIColor, background: UIColor,
+                                       fontSize: CGFloat = 11.5, iconSize: CGFloat = 13,
+                                       padding: CGFloat = 4) {
         var config = UIButton.Configuration.plain()
         config.title = title
-        config.image = UIImage(systemName: symbol,
-                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
-                    ?? UIImage(systemName: "circle.fill")
+        config.image = UIImage(
+            systemName: symbol,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold)
+        )
         config.imagePlacement = .leading
         config.imagePadding = 5
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
+        config.contentInsets = NSDirectionalEdgeInsets(
+            top: 5, leading: padding, bottom: 5, trailing: padding
+        )
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
         config.cornerStyle = .medium
+        config.titleLineBreakMode = .byTruncatingTail
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var result = incoming
-            result.font = .systemFont(ofSize: 11, weight: .semibold)
-            return result
+            var attributes = incoming
+            attributes.font = .systemFont(ofSize: fontSize, weight: .semibold)
+            return attributes
         }
         button.configuration = config
+        button.layer.cornerRadius = 12
+        button.layer.cornerCurve = .continuous
+        button.layer.borderWidth = 0.75
+        button.layer.borderColor = chromeStroke.cgColor
+        button.layer.shadowOpacity = 0
+        button.clipsToBounds = true
         button.accessibilityLabel = title
+    }
+
+    private func styleToolbar() {
+        let names = ["Dán", "Couple", "AI", "Offline", "Mẫu"]
+        let symbols = ["doc.on.clipboard", KeyboardSettings.coupleEnabled ? "heart.fill" : "heart",
+                       "sparkles", "wifi.slash", "text.quote"]
+        for (index, button) in toolButtons.enumerated() where index < names.count {
+            let foreground: UIColor
+            let background: UIColor
+            switch index {
+            case 1 where KeyboardSettings.coupleEnabled:
+                foreground = chromeIsDark ? UIColor(red: 1, green: 0.79, blue: 0.87, alpha: 1)
+                                          : UIColor(red: 0.60, green: 0.20, blue: 0.41, alpha: 1)
+                background = chromeIsDark ? UIColor(red: 0.36, green: 0.24, blue: 0.34, alpha: 1)
+                                          : UIColor(red: 0.97, green: 0.88, blue: 0.92, alpha: 1)
+            case 2:
+                foreground = .white
+                background = chromePrimary
+            default:
+                foreground = chromeInk
+                background = chromeSurface
+            }
+            configureSymbolButton(button, title: names[index], symbol: symbols[index],
+                                  foreground: foreground, background: background)
+            if index == 2 { button.layer.borderWidth = 0 }
+        }
     }
 
     private func configureIconOnly(_ button: UIButton, symbol: String, size: CGFloat = 19) {
@@ -566,16 +633,15 @@ final class KeyboardViewController: UIInputViewController {
                 button.tintColor = primary
             }
         }
-        // Do not overwrite the colored Couple and AI buttons or the Paste selector.
-        for index in [3, 4] where index < toolButtons.count {
-            if var config = toolButtons[index].configuration {
-                config.background.backgroundColor = keyColor
-                config.baseForegroundColor = primary
-                toolButtons[index].configuration = config
-            }
+        styleToolbar()
+        previewLabel.backgroundColor = chromeSurface
+        previewLabel.textColor = chromeInk
+        previewLabel.layer.borderColor = chromeStroke.cgColor
+        for button in candidateButtons {
+            button.backgroundColor = chromeSurface
+            button.setTitleColor(chromeInk, for: .normal)
         }
-        previewLabel.backgroundColor = keyColor
-        previewLabel.textColor = primary
+        if !lastSuggestions.isEmpty { updateToneStyles() }
         statusLabel.textColor = primary
     }
 
@@ -782,22 +848,11 @@ final class KeyboardViewController: UIInputViewController {
 
     private func updateCoupleTool() {
         guard toolButtons.count > 1 else { return }
+        styleToolbar()
         let button = toolButtons[1]
-        let active = KeyboardSettings.coupleEnabled
-        if var config = button.configuration {
-            config.title = "Couple"
-            config.image = UIImage(systemName: active ? "heart.fill" : "heart",
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
-            config.baseForegroundColor = active ? .white :
-                UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1)
-            config.background.backgroundColor = active
-                ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
-                : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
-            button.configuration = config
-        }
-        button.accessibilityLabel = active
+        button.accessibilityLabel = KeyboardSettings.coupleEnabled
             ? "AI Couple: " + CoupleStyleCatalog.active.title : "Bật AI Couple"
-        button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn một trong các phong cách."
+        button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn phong cách."
         installCoupleStyleMenu()
     }
 
