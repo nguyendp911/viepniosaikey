@@ -17,6 +17,7 @@ jobs:
             Sources/Shared/CoupleStyleCatalog.swift \
             Sources/Shared/CoupleReplyGuide.swift \
             Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_conversation_context.swift
           "$RUNNER_TEMP/verify-context"
