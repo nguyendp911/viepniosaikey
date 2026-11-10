@@ -1018,8 +1018,12 @@ final class KeyboardViewController: UIInputViewController {
         selectedText = String(text.prefix(3000))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
+        let matchedPersona = PersonaStore.autoSelect(fromSharedTranscript: selectedText)
+        if matchedPersona != nil { installWritingActions() }
         let context = ConversationContextResolver.resolve(selectedText)
-        showStatus("✓ Người nhận: " + context.displayName + " · Nhấn AI (giữ AI để đổi)")
+        let matchLabel = matchedPersona.map { "✓ Đã khớp: " + $0.name } ??
+            ("Người nhận: " + context.displayName)
+        showStatus(matchLabel + " · Nhấn AI")
     }
 
     private func requestedInput() -> String {
