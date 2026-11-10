@@ -50,6 +50,7 @@ enum OpenAIService {
         FIRST determine who is speaking, who receives the reply and the relationship, THEN compose.
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
+        \(ConversationMemory.prompt())
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         These relationship rules override romantic Couple styles or generic anh/em examples.
         Return only JSON: {"replies":[{"tone":"Dịu dàng","text":"..."},{"tone":"Tự nhiên","text":"..."},{"tone":"Quan tâm","text":"..."}]}.
