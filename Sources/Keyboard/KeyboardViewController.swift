@@ -1,23 +1,12 @@
 import UIKit
 import AudioToolbox
 
-/// Compact preview with real internal padding; do not prepend spaces/emoji to text.
-private final class KeyboardPreviewLabel: UILabel {
-    override func drawText(in rect: CGRect) {
-        super.drawText(in: rect.insetBy(dx: 12, dy: 5))
-    }
-    override var intrinsicContentSize: CGSize {
-        let size = super.intrinsicContentSize
-        return CGSize(width: size.width + 24, height: size.height + 10)
-    }
-}
-
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
 final class KeyboardViewController: UIInputViewController {
     private let container = UIStackView()
     private let statusLabel = UILabel()
-    private let previewLabel = KeyboardPreviewLabel()
+    private let previewLabel = UILabel()
     private var selectedText = ""
     private var isUppercase = KeyboardSettings.autoCapitalize
     private var isNumbers = false
@@ -69,7 +58,7 @@ final class KeyboardViewController: UIInputViewController {
         learnedWords = KeyboardSettings.learnedWords
     }
     private var currentTheme: String = ""
-    // Consistent solid material replaces the previous oversized multicolor gradient.
+    private let aiGradient = CAGradientLayer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -94,6 +83,11 @@ final class KeyboardViewController: UIInputViewController {
         installWritingActions()
         installClipboardMenu()
         updateCandidates()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
     }
 
     private func buildKeyboard() {
@@ -137,36 +131,56 @@ final class KeyboardViewController: UIInputViewController {
         commands.alignment = .fill
         let tools: [(String, String, Selector)] = [
             ("Dán", "doc.on.clipboard", #selector(pasteTapped)),
-            ("Couple", "heart", #selector(coupleTapped)),
+            ("Couple", "heart.fill", #selector(coupleTapped)),
             ("AI", "sparkles", #selector(cloudTapped)),
             ("Offline", "wifi.slash", #selector(offlineTapped)),
             ("Mẫu", "text.quote", #selector(phrasesTapped))
         ]
         for (index, spec) in tools.enumerated() {
             let button = UIButton(type: .system)
+            let foreground: UIColor = index == 0 ? aiColor :
+                (index == 1 ? UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1) :
+                    (index == 2 ? .white : UIColor(red: 0.19, green: 0.29, blue: 0.32, alpha: 1)))
+            let background: UIColor = index == 0 ? .white :
+                (index == 1 ? UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1) :
+                    (index == 2 ? aiColor : UIColor(red: 0.89, green: 0.94, blue: 0.94, alpha: 1)))
             configureSymbolButton(button, title: spec.0, symbol: spec.1,
-                                  foreground: .label, background: .secondarySystemBackground)
-            button.tag = index
+                                  foreground: foreground, background: background)
             button.addTarget(self, action: spec.2, for: .touchUpInside)
+            button.layer.shadowColor = UIColor.black.cgColor
+            button.layer.shadowOpacity = 0.08
+            button.layer.shadowRadius = 2
+            button.layer.shadowOffset = CGSize(width: 0, height: 1)
+            if index == 2 {
+                aiGradient.colors = [
+                    UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
+                    UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
+                ]
+                aiGradient.startPoint = CGPoint(x: 0, y: 0)
+                aiGradient.endPoint = CGPoint(x: 1, y: 1)
+                aiGradient.cornerRadius = 11
+                button.layer.insertSublayer(aiGradient, at: 0)
+            }
             toolButtons.append(button)
             commands.addArrangedSubview(button)
         }
-        commands.heightAnchor.constraint(equalToConstant: 39).isActive = true
+        commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
         container.addArrangedSubview(commands)
         installWritingActions()
         installClipboardMenu()
         updateCoupleTool()
 
         previewLabel.numberOfLines = 2
-        previewLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
+        previewLabel.backgroundColor = .secondarySystemBackground
         previewLabel.layer.cornerRadius = 12
-        previewLabel.layer.cornerCurve = .continuous
         previewLabel.layer.borderWidth = 1
+        previewLabel.layer.borderColor = UIColor.separator.withAlphaComponent(0.4).cgColor
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
-        previewLabel.heightAnchor.constraint(equalToConstant: 43).isActive = true
+        previewLabel.heightAnchor.constraint(equalToConstant: 45).isActive = true
         container.addArrangedSubview(previewLabel)
 
         candidateBar.axis = .horizontal
@@ -417,93 +431,26 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Symbol + label typography is controlled through UIKit button configuration.
     /// This keeps the icon inside the actual tappable button (no overlay hit testing).
-    // A consistent restrained palette keeps the toolbar readable on every
-    // keyboard theme. Only the AI action receives a strong accent fill.
-    private var chromeIsDark: Bool {
-        switch currentTheme {
-        case "midnight", "graphite", "forest", "aurora": return true
-        case "system", "": return traitCollection.userInterfaceStyle == .dark
-        default: return false
-        }
-    }
-
-    private var chromeInk: UIColor {
-        chromeIsDark ? UIColor(white: 0.96, alpha: 1)
-                     : UIColor(red: 0.15, green: 0.22, blue: 0.26, alpha: 1)
-    }
-
-    private var chromeSurface: UIColor {
-        chromeIsDark ? UIColor(red: 0.23, green: 0.31, blue: 0.32, alpha: 1)
-                     : UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1)
-    }
-
-    private var chromeStroke: UIColor {
-        chromeIsDark ? UIColor.white.withAlphaComponent(0.10)
-                     : UIColor.black.withAlphaComponent(0.08)
-    }
-
-    private var chromePrimary: UIColor {
-        UIColor(red: 0.34, green: 0.37, blue: 0.80, alpha: 1)
-    }
-
     private func configureSymbolButton(_ button: UIButton, title: String, symbol: String,
-                                       foreground: UIColor, background: UIColor,
-                                       fontSize: CGFloat = 11.5, iconSize: CGFloat = 13,
-                                       padding: CGFloat = 4) {
+                                       foreground: UIColor, background: UIColor) {
         var config = UIButton.Configuration.plain()
         config.title = title
-        config.image = UIImage(
-            systemName: symbol,
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold)
-        )
+        config.image = UIImage(systemName: symbol,
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+                    ?? UIImage(systemName: "circle.fill")
         config.imagePlacement = .leading
         config.imagePadding = 5
-        config.contentInsets = NSDirectionalEdgeInsets(
-            top: 5, leading: padding, bottom: 5, trailing: padding
-        )
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
         config.cornerStyle = .medium
-        config.titleLineBreakMode = .byTruncatingTail
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var attributes = incoming
-            attributes.font = .systemFont(ofSize: fontSize, weight: .semibold)
-            return attributes
+            var result = incoming
+            result.font = .systemFont(ofSize: 11, weight: .semibold)
+            return result
         }
         button.configuration = config
-        button.layer.cornerRadius = 12
-        button.layer.cornerCurve = .continuous
-        button.layer.borderWidth = 0.75
-        button.layer.borderColor = chromeStroke.cgColor
-        button.layer.shadowOpacity = 0
-        button.clipsToBounds = true
         button.accessibilityLabel = title
-    }
-
-    private func styleToolbar() {
-        let names = ["Dán", "Couple", "AI", "Offline", "Mẫu"]
-        let symbols = ["doc.on.clipboard", KeyboardSettings.coupleEnabled ? "heart.fill" : "heart",
-                       "sparkles", "wifi.slash", "text.quote"]
-        for (index, button) in toolButtons.enumerated() where index < names.count {
-            let foreground: UIColor
-            let background: UIColor
-            switch index {
-            case 1 where KeyboardSettings.coupleEnabled:
-                foreground = chromeIsDark ? UIColor(red: 1, green: 0.79, blue: 0.87, alpha: 1)
-                                          : UIColor(red: 0.60, green: 0.20, blue: 0.41, alpha: 1)
-                background = chromeIsDark ? UIColor(red: 0.36, green: 0.24, blue: 0.34, alpha: 1)
-                                          : UIColor(red: 0.97, green: 0.88, blue: 0.92, alpha: 1)
-            case 2:
-                foreground = .white
-                background = chromePrimary
-            default:
-                foreground = chromeInk
-                background = chromeSurface
-            }
-            configureSymbolButton(button, title: names[index], symbol: symbols[index],
-                                  foreground: foreground, background: background)
-            if index == 2 { button.layer.borderWidth = 0 }
-        }
     }
 
     private func configureIconOnly(_ button: UIButton, symbol: String, size: CGFloat = 19) {
@@ -633,15 +580,16 @@ final class KeyboardViewController: UIInputViewController {
                 button.tintColor = primary
             }
         }
-        styleToolbar()
-        previewLabel.backgroundColor = chromeSurface
-        previewLabel.textColor = chromeInk
-        previewLabel.layer.borderColor = chromeStroke.cgColor
-        for button in candidateButtons {
-            button.backgroundColor = chromeSurface
-            button.setTitleColor(chromeInk, for: .normal)
+        // Do not overwrite the colored Couple and AI buttons or the Paste selector.
+        for index in [3, 4] where index < toolButtons.count {
+            if var config = toolButtons[index].configuration {
+                config.background.backgroundColor = keyColor
+                config.baseForegroundColor = primary
+                toolButtons[index].configuration = config
+            }
         }
-        if !lastSuggestions.isEmpty { updateToneStyles() }
+        previewLabel.backgroundColor = keyColor
+        previewLabel.textColor = primary
         statusLabel.textColor = primary
     }
 
@@ -848,11 +796,22 @@ final class KeyboardViewController: UIInputViewController {
 
     private func updateCoupleTool() {
         guard toolButtons.count > 1 else { return }
-        styleToolbar()
         let button = toolButtons[1]
-        button.accessibilityLabel = KeyboardSettings.coupleEnabled
+        let active = KeyboardSettings.coupleEnabled
+        if var config = button.configuration {
+            config.title = "Couple"
+            config.image = UIImage(systemName: active ? "heart.fill" : "heart",
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+            config.baseForegroundColor = active ? .white :
+                UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1)
+            config.background.backgroundColor = active
+                ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
+                : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
+            button.configuration = config
+        }
+        button.accessibilityLabel = active
             ? "AI Couple: " + CoupleStyleCatalog.active.title : "Bật AI Couple"
-        button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn phong cách."
+        button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn một trong các phong cách."
         installCoupleStyleMenu()
     }
 
@@ -1019,7 +978,7 @@ final class KeyboardViewController: UIInputViewController {
         heightConstraint?.constant = base +
             (candidateBar.isHidden ? 0 : 36) +
             (statusLabel.isHidden ? 0 : 22) +
-            (suggestionContainer == nil ? 0 : 119)
+            (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()
     }
 
@@ -1152,86 +1111,72 @@ final class KeyboardViewController: UIInputViewController {
 
         let panel = UIStackView()
         panel.axis = .vertical
-        panel.spacing = 7
+        panel.spacing = 5
         panel.distribution = .fill
         panel.backgroundColor = .clear
 
-        // All suggestions are compact chips. For saved phrases we display
-        // "Mẫu 1 / 2 / 3" rather than three indistinguishable "Mẫu câu" buttons.
         let tones = UIStackView()
         tones.axis = .horizontal
-        tones.alignment = .fill
-        tones.spacing = 6
-        tones.distribution = .fill
+        tones.spacing = 4
+        tones.distribution = .fillEqually
         toneButtons.removeAll()
+
         for (index, item) in lastSuggestions.enumerated() {
-            let duplicate = lastSuggestions.filter { $0.tone == item.tone }.count > 1
-            let shortTitle = item.tone == "Mẫu câu" ? "Mẫu" : item.tone
-            let label = duplicate ? "\(shortTitle) \(index + 1)" : shortTitle
-            let button = UIButton(type: .system)
-            configureSymbolButton(button, title: label,
-                                  symbol: coupleSymbol(item.tone, index: index),
-                                  foreground: chromeInk, background: chromeSurface,
-                                  fontSize: 11.5, iconSize: 11.5, padding: 5)
+            let duplicated = lastSuggestions.filter { $0.tone == item.tone }.count > 1
+            let displayTone = item.tone == "Mẫu câu" ? "Mẫu" : item.tone
+            let title = duplicated ? "\(displayTone) \(index + 1)" : displayTone
+            let button = keyButton(title, action: #selector(selectSuggestion(_:)))
+            let toneSymbol = coupleSymbol(item.tone, index: index)
+            button.setImage(UIImage(systemName: toneSymbol,
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
+                            for: .normal)
+            button.tintColor = aiColor
+            button.semanticContentAttribute = .forceLeftToRight
+            // Use default UIKit image spacing (no deprecated edge insets).
             button.tag = index
-            button.addTarget(self, action: #selector(selectSuggestion(_:)), for: .touchUpInside)
-            button.accessibilityLabel = "Chọn câu trả lời \(label)"
-            button.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            if let first = toneButtons.first {
-                button.widthAnchor.constraint(equalTo: first.widthAnchor).isActive = true
-            }
+            button.layer.cornerRadius = 12
+            button.titleLabel?.font = .systemFont(ofSize: 11, weight: .medium)
+            button.accessibilityLabel = "Chọn câu trả lời \(item.tone)"
             toneButtons.append(button)
             tones.addArrangedSubview(button)
         }
-
-        let close = UIButton(type: .system)
-        var closeConfig = UIButton.Configuration.plain()
-        closeConfig.image = UIImage(
-            systemName: "xmark",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        )
-        closeConfig.contentInsets = NSDirectionalEdgeInsets(
-            top: 7, leading: 7, bottom: 7, trailing: 7
-        )
-        closeConfig.baseForegroundColor = chromeInk
-        closeConfig.background.backgroundColor = chromeSurface
-        closeConfig.cornerStyle = .medium
-        close.configuration = closeConfig
-        close.layer.cornerRadius = 11
-        close.layer.cornerCurve = .continuous
-        close.layer.borderWidth = 0.75
-        close.layer.borderColor = chromeStroke.cgColor
-        close.clipsToBounds = true
-        close.accessibilityLabel = "Đóng gợi ý"
-        close.addTarget(self, action: #selector(dismissSuggestions), for: .touchUpInside)
-        close.widthAnchor.constraint(equalToConstant: 34).isActive = true
+        let close = keyButton("×", action: #selector(dismissSuggestions))
+        close.titleLabel?.font = .systemFont(ofSize: 20, weight: .medium)
+        close.backgroundColor = UIColor.secondarySystemBackground
+        close.widthAnchor.constraint(equalToConstant: 33).isActive = true
+        tones.distribution = .fill
+        for button in toneButtons { button.setContentHuggingPriority(.defaultLow, for: .horizontal) }
         tones.addArrangedSubview(close)
-        tones.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        tones.heightAnchor.constraint(equalToConstant: 33).isActive = true
         panel.addArrangedSubview(tones)
 
-        // Restrained secondary actions; only "Chèn" has a primary fill.
-        let actions = UIStackView()
-        actions.axis = .horizontal
-        actions.spacing = 6
-        actions.distribution = .fillEqually
-        let specs: [(String, String, Selector)] = [
-            ("Sao chép", "doc.on.doc", #selector(copySuggestion)),
-            ("Lưu", "bookmark", #selector(saveSuggestion)),
-            ("Thay", "arrow.triangle.2.circlepath", #selector(replaceDraft)),
-            ("Chèn", "plus", #selector(insertSuggestion))
-        ]
-        for (index, spec) in specs.enumerated() {
-            let button = UIButton(type: .system)
-            configureSymbolButton(button, title: spec.0, symbol: spec.1,
-                                  foreground: index == 3 ? .white : chromeInk,
-                                  background: index == 3 ? chromePrimary : chromeSurface,
-                                  fontSize: 11, iconSize: 12, padding: 3)
-            if index == 3 { button.layer.borderWidth = 0 }
-            button.addTarget(self, action: spec.2, for: .touchUpInside)
-            actions.addArrangedSubview(button)
+        let actions = makeRow([
+            ("Sao chép", #selector(copySuggestion)),
+            ("Lưu", #selector(saveSuggestion)),
+            ("Thay", #selector(replaceDraft)),
+            ("Chèn", #selector(insertSuggestion))
+        ], height: 34)
+        if let row = actions as? UIStackView {
+            for (index, item) in row.arrangedSubviews.enumerated() {
+                guard let button = item as? UIButton else { continue }
+                button.layer.cornerRadius = 12
+                button.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
+                let icons = ["doc.on.doc", "bookmark", "arrow.triangle.2.circlepath", "plus"]
+                button.setImage(UIImage(systemName: icons[index],
+                                        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
+                                for: .normal)
+                button.tintColor = .label
+                if index == 3 {
+                    button.backgroundColor = aiColor
+                    button.setTitleColor(.white, for: .normal)
+                    button.tintColor = .white
+                } else {
+                    button.backgroundColor = UIColor.secondarySystemBackground
+                    button.setTitleColor(.label, for: .normal)
+                    button.tintColor = .secondaryLabel
+                }
+            }
         }
-        actions.heightAnchor.constraint(equalToConstant: 36).isActive = true
         panel.addArrangedSubview(actions)
 
         suggestionContainer = panel
@@ -1243,22 +1188,15 @@ final class KeyboardViewController: UIInputViewController {
 
     private func updatePreview() {
         guard lastSuggestions.indices.contains(chosenIndex) else { return }
-        // InsetLabel handles real padding, avoiding a large emoji badge and
-        // preventing text from touching the edges of the preview surface.
-        previewLabel.text = lastSuggestions[chosenIndex].text
+        previewLabel.text = "  " + lastSuggestions[chosenIndex].text
         previewLabel.isHidden = false
     }
 
     private func updateToneStyles() {
         for (index, button) in toneButtons.enumerated() {
-            guard var config = button.configuration else { continue }
-            let selected = index == chosenIndex
-            config.baseForegroundColor = selected ? .white : chromeInk
-            config.background.backgroundColor = selected ? chromePrimary : chromeSurface
-            button.configuration = config
-            button.layer.borderColor = selected
-                ? UIColor.clear.cgColor : chromeStroke.cgColor
-            button.layer.borderWidth = selected ? 0 : 0.75
+            let chosen = index == chosenIndex
+            button.backgroundColor = chosen ? aiColor.withAlphaComponent(0.82) : .secondarySystemBackground
+            button.setTitleColor(chosen ? .white : .label, for: .normal)
         }
     }
 
