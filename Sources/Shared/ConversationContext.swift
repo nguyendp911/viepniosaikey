@@ -153,6 +153,11 @@ enum ConversationContextResolver {
     }
 
     static func resolve(_ incoming: String) -> ResolvedReplyContext {
+        if let persona = PersonaStore.active,
+           let role = ReplyRecipient(rawValue: persona.recipient) {
+            return ResolvedReplyContext(recipient: role, isExplicit: true,
+                                        evidence: "Hồ sơ người nhận: " + persona.name)
+        }
         let chosen = ReplyRecipient(rawValue: KeyboardSettings.recipientMode) ?? .automatic
         if chosen != .automatic {
             return ResolvedReplyContext(recipient: chosen, isExplicit: true, evidence: "Lựa chọn của người dùng")
