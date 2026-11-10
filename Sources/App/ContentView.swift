@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
     @State private var hapticStyle = KeyboardSettings.hapticStyle
     @State private var smartBilingual = KeyboardSettings.smartBilingual
+    @State private var bilingualPreference = KeyboardSettings.bilingualPreference
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
@@ -932,6 +933,17 @@ struct ContentView: View {
                 keyboardToggleRow("Tự phân biệt Việt – Anh", symbol: "globe",
                                   isOn: $smartBilingual)
                     .onChange(of: smartBilingual) { KeyboardSettings.smartBilingual = $0 }
+                keyboardMenuRow("Ưu tiên ngôn ngữ", symbol: "character.bubble",
+                                value: $bilingualPreference,
+                                options: [("auto", "Tự động"),
+                                          ("vi", "Ưu tiên tiếng Việt"),
+                                          ("en", "Chỉ tiếng Anh")])
+                    .onChange(of: bilingualPreference) {
+                        KeyboardSettings.bilingualPreference = $0
+                    }
+                Text("Tự động nhận diện theo cả từ; nếu hai ngôn ngữ trùng nhau, bạn có thể chọn ưu tiên tiếng Việt hoặc chỉ tiếng Anh.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
                 keyboardToggleRow("Gợi ý ba từ offline", symbol: "text.word.spacing",
                                   isOn: $predictionsEnabled)
