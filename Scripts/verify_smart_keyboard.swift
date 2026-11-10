@@ -23,6 +23,19 @@ struct VerifySmartKeyboard {
         PersonaStore.add(name: "Chú Tư", role: "uncle",
                          selfAddress: "cháu", tone: "lịch sự")
         assert(PersonaStore.active?.name == "Chú Tư", "manual persona stored")
+        PersonaStore.automaticNameMatch = true
+        assert(PersonaStore.matchingProfile(named: "CHÚ TƯ")?.name == "Chú Tư",
+               "case-insensitive unique matching")
+        assert(PersonaStore.nameFromSharedTranscript("Người gửi: Chú Tư\nChú về chưa?") == "Chú Tư",
+               "sender labeled transcript parsing")
+        assert(PersonaStore.nameFromSharedTranscript("Chú Tư đang đi công tác") == nil,
+               "never match names merely mentioned in message body")
+        assert(PersonaStore.autoSelect(fromSharedTranscript: "From: Chú Tư\nHello")?.name == "Chú Tư",
+               "auto selects uniquely matched sender")
+        PersonaStore.automaticNameMatch = false
+        assert(PersonaStore.autoSelect(fromSharedTranscript: "From: Chú Tư") == nil,
+               "automatic name matching respects opt-out")
+        PersonaStore.automaticNameMatch = true
         assert(ConversationContextResolver.resolve("Lát về nhé").recipient == .uncle,
                "manual persona priority on ambiguous message")
         PersonaStore.clearSelection()
