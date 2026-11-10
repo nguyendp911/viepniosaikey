@@ -335,9 +335,34 @@ final class KeyboardViewController: UIInputViewController {
                 self?.showStatus("Đã tắt hồ sơ người nhận")
             }] + personaActions
         )
+        let importDraft = UIAction(
+            title: "Lấy bản nháp từ ứng dụng ViePN",
+            image: UIImage(systemName: "square.and.arrow.down")
+        ) { [weak self] _ in
+            let draft = ShareDraft.current
+            guard !draft.isEmpty else {
+                self?.showStatus("Chưa có bản nháp · Mở tab Trợ lý để tạo.")
+                return
+            }
+            self?.selectedText = draft
+            self?.showStatus("Đã nhận bản nháp · Nhấn AI để tạo câu trả lời")
+        }
+        let privacyAction = UIAction(
+            title: "Ẩn dữ liệu nhạy cảm rồi hỏi AI",
+            image: UIImage(systemName: "hand.raised.slash")
+        ) { [weak self] _ in
+            guard let self else { return }
+            let text = self.requestedInput()
+            guard !text.isEmpty else {
+                self.showStatus("Chưa có văn bản để xử lý.")
+                return
+            }
+            self.selectedText = MessageSafety.redacted(text)
+            self.cloudTapped()
+        }
         toolButtons[2].menu = UIMenu(
             title: "AI · Vai xưng hô và viết lại",
-            children: [receiverMenu, profileMenu] + actions
+            children: [receiverMenu, profileMenu, importDraft, privacyAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
@@ -1049,6 +1074,10 @@ final class KeyboardViewController: UIInputViewController {
         let source = requestedInput().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty else {
             showStatus("Chưa có tin nhắn để phân tích · Chạm Dán")
+            return
+        }
+        if !MessageSafety.warnings(in: source).isEmpty {
+            showStatus("Có dữ liệu nhạy cảm · Giữ nút AI → Ẩn dữ liệu rồi hỏi AI")
             return
         }
         isRequestRunning = true
