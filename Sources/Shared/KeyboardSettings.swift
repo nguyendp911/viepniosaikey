@@ -92,6 +92,15 @@ enum KeyboardSettings {
         set { defaults.set(newValue, forKey: prefix + "telexEnabled") }
     }
     // Local-first typing controls. All are opt-in and stored in App Group.
+    /// Automatic VN/EN, explicit Vietnamese Telex, or literal English.
+    static var bilingualPreference: String {
+        get { defaults.string(forKey: prefix + "bilingualPreference") ?? "auto" }
+        set {
+            defaults.set(["auto", "vi", "en"].contains(newValue) ? newValue : "auto",
+                         forKey: prefix + "bilingualPreference")
+        }
+    }
+
     static var smartBilingual: Bool {
         get { defaults.object(forKey: prefix + "smartBilingual") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "smartBilingual") }
