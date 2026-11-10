@@ -32,6 +32,19 @@ jobs:
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-fast-typing" \
             Sources/Shared/FastTyping.swift Scripts/verify_fast_typing.swift
           "$RUNNER_TEMP/verify-fast-typing"
+      - name: Verify Smart Keyboard features
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-smart" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/SmartTyping.swift \
+            Scripts/verify_smart_keyboard.swift
+          "$RUNNER_TEMP/verify-smart"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
