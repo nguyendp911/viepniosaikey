@@ -25,6 +25,10 @@ targets:
         # Modern iPhone viewport needs a launch screen; without one iOS can
         # letterbox the app into a legacy-sized area with black top/bottom bands.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "ViePN thu âm khi bạn bấm ghi âm để chuyển giọng nói thành văn bản."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "ViePN nhận dạng giọng nói khi bạn chọn chức năng nói thành văn bản."
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "ViePN thêm lịch hẹn khi bạn xác nhận trong ứng dụng."
+        INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription: "ViePN chỉ ghi sự kiện lịch hẹn mà bạn xác nhận."
         CODE_SIGN_ENTITLEMENTS: Config/App.entitlements
         PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE_NAME)
     dependencies:
