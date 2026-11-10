@@ -1400,6 +1400,152 @@ struct ContentView: View {
         }
     }
 
+    private var personaSettingsCard: some View {
+        keyboardPanel("Hồ sơ người nhận (AI Persona)", icon: "person.crop.rectangle.stack") {
+            VStack(alignment: .leading, spacing: 11) {
+                Text("Tạo hồ sơ để chọn nhanh cách xưng hô. Chỉ áp dụng khi bạn chọn; không tự đọc tên người trong Zalo/Messenger.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 7) {
+                    Text("Đang dùng")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                    Menu {
+                        Button("Tự nhận diện") {
+                            PersonaStore.clearSelection()
+                            activePersonaID = ""
+                            recipientMode = "auto"
+                        }
+                        ForEach(personas) { item in
+                            Button(item.name) {
+                                PersonaStore.select(item.id)
+                                activePersonaID = item.id
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(personas.first(where: { $0.id == activePersonaID })?.name ?? "Tự nhận diện")
+                                .foregroundStyle(cyan)
+                            Image(systemName: "chevron.down").foregroundStyle(muted)
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                keyboardDivider()
+                TextField("Tên hồ sơ, ví dụ: Chú Tư", text: $personaName)
+                    .font(.system(size: 13))
+                    .textFieldStyle(.roundedBorder)
+                keyboardMenuRow("Vai người nhận", symbol: "person",
+                                value: $personaRole,
+                                options: ReplyRecipient.allCases.filter { $0 != .automatic }
+                                    .map { ($0.rawValue, $0.title) })
+                HStack(spacing: 8) {
+                    TextField("Tự xưng: cháu", text: $personaSelfAddress)
+                    TextField("Giọng: Lịch sự", text: $personaTone)
+                }
+                .font(.system(size: 12))
+                .textFieldStyle(.roundedBorder)
+                Button {
+                    PersonaStore.add(name: personaName, role: personaRole,
+                                     selfAddress: personaSelfAddress, tone: personaTone)
+                    personas = PersonaStore.all
+                    activePersonaID = PersonaStore.activeID
+                    personaName = ""
+                } label: {
+                    Label("Thêm & chọn hồ sơ", systemImage: "plus.circle.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(violet)
+                .disabled(personaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                ForEach(personas) { item in
+                    HStack(spacing: 7) {
+                        Image(systemName: item.id == activePersonaID
+                              ? "checkmark.circle.fill" : "person.crop.circle")
+                            .foregroundStyle(item.id == activePersonaID ? cyan : muted)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name).font(.system(size: 12, weight: .semibold))
+                            Text((ReplyRecipient(rawValue: item.recipient)?.title ?? "") +
+                                 " · " + item.selfAddress + " · " + item.tone)
+                                .font(.system(size: 10)).foregroundStyle(muted)
+                        }
+                        Spacer()
+                        Button {
+                            PersonaStore.select(item.id)
+                            activePersonaID = item.id
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(cyan)
+                        }
+                        .accessibilityLabel("Chọn hồ sơ " + item.name)
+                        Button {
+                            personas.removeAll { $0.id == item.id }
+                            PersonaStore.all = personas
+                            if activePersonaID == item.id {
+                                PersonaStore.clearSelection()
+                                activePersonaID = ""
+                            }
+                        } label: {
+                            Image(systemName: "trash").foregroundStyle(.red.opacity(0.8))
+                        }
+                        .accessibilityLabel("Xóa hồ sơ " + item.name)
+                    }
+                }
+            }
+        }
+    }
+
+    private var clipboardSettingsCard: some View {
+        keyboardPanel("Clipboard chủ động", icon: "doc.on.clipboard") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Trên bàn phím, chạm Dán để lấy nội dung cho AI; nhấn giữ Dán → Lưu đoạn vừa Dán để lưu. ViePN không theo dõi clipboard tự động.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Text("Đã lưu: \(savedClipboard.count)/15")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                    Button {
+                        savedClipboard = ClipboardVault.items
+                    } label: { Label("Làm mới", systemImage: "arrow.clockwise") }
+                        .font(.system(size: 11))
+                    Button(role: .destructive) {
+                        ClipboardVault.clear()
+                        savedClipboard = []
+                    } label: { Label("Xóa hết", systemImage: "trash") }
+                        .font(.system(size: 11))
+                }
+                ForEach(savedClipboard.indices, id: \.self) { index in
+                    HStack(spacing: 8) {
+                        Text(savedClipboard[index])
+                            .font(.system(size: 11))
+                            .lineLimit(2)
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = savedClipboard[index]
+                        } label: { Image(systemName: "doc.on.doc") }
+                            .accessibilityLabel("Sao chép đoạn " + String(index + 1))
+                        Button {
+                            var items = ClipboardVault.items
+                            if items.indices.contains(index) {
+                                items.remove(at: index)
+                                ClipboardVault.items = items
+                                savedClipboard = items
+                            }
+                        } label: { Image(systemName: "trash").foregroundStyle(.red.opacity(0.8)) }
+                            .accessibilityLabel("Xóa đoạn " + String(index + 1))
+                    }
+                }
+                Text("Lưu trong App Group trên thiết bị, chưa mã hóa bằng Keychain. Không lưu mật khẩu, OTP hoặc dữ liệu nhạy cảm.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var privacyInfo: some View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: "hand.raised.fill")
