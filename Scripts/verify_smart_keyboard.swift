@@ -50,6 +50,29 @@ struct VerifySmartKeyboard {
         assert(ClipboardVault.items.count == 1, "clipboard deduplication")
         ClipboardVault.clear()
         assert(ClipboardVault.items.isEmpty, "clipboard clearing")
+        assert(MessageSafety.warnings(in: "OTP: 123456").count > 0,
+               "privacy warning for OTP")
+        assert(!MessageSafety.redacted("password: abc123").contains("abc123"),
+               "privacy strips explicit passwords")
+        assert(MessageSafety.warnings(in: "Chào chú nhé").isEmpty,
+               "harmless messages are not blocked")
+        assert(!ToneInspector.suggestions(for: "Sao chưa làm?").isEmpty,
+               "tone check flags possible harsh wording")
+        PersonaStore.add(name: "Chú Tư", role: "uncle",
+                         selfAddress: "cháu", tone: "Lịch sự")
+        ConversationMemory.save("Gọi người nhận là chú.", for: PersonaStore.activeID)
+        assert(ConversationMemory.forActivePersona().count == 1,
+               "user-approved per-contact memory")
+        assert(ConversationMemory.prompt().contains("Gọi người nhận là chú."),
+               "AI receives only selected-contact notes")
+        ConversationMemory.notes = []
+        PersonaStore.clearSelection()
+        PersonaStore.all = []
+        KeyboardStability.clear()
+        KeyboardStability.note("paste", durationMs: 8)
+        assert(KeyboardStability.report().contains("paste: 1 lần"),
+               "local performance counters contain no text")
+        KeyboardStability.clear()
         KeyboardSettings.learnedWords = [:]
         KeyboardSettings.textSnippets = [";date":"{date}", ";time":"{time}"]
     }
