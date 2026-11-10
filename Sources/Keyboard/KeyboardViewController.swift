@@ -1,12 +1,23 @@
 import UIKit
 import AudioToolbox
 
+/// Compact preview with real internal padding; do not prepend spaces/emoji to text.
+private final class KeyboardPreviewLabel: UILabel {
+    override func drawText(in rect: CGRect) {
+        super.drawText(in: rect.insetBy(dx: 12, dy: 5))
+    }
+    override var intrinsicContentSize: CGSize {
+        let size = super.intrinsicContentSize
+        return CGSize(width: size.width + 24, height: size.height + 10)
+    }
+}
+
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
 final class KeyboardViewController: UIInputViewController {
     private let container = UIStackView()
     private let statusLabel = UILabel()
-    private let previewLabel = UILabel()
+    private let previewLabel = KeyboardPreviewLabel()
     private var selectedText = ""
     private var isUppercase = KeyboardSettings.autoCapitalize
     private var isNumbers = false
@@ -58,7 +69,7 @@ final class KeyboardViewController: UIInputViewController {
         learnedWords = KeyboardSettings.learnedWords
     }
     private var currentTheme: String = ""
-    private let aiGradient = CAGradientLayer()
+    // Consistent solid material replaces the previous oversized multicolor gradient.
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -83,11 +94,6 @@ final class KeyboardViewController: UIInputViewController {
         installWritingActions()
         installClipboardMenu()
         updateCandidates()
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
     }
 
     private func buildKeyboard() {
@@ -126,61 +132,41 @@ final class KeyboardViewController: UIInputViewController {
         // Keep a real always-visible UIButton for Paste; do not use UIPasteControl here.
         let commands = UIStackView()
         commands.axis = .horizontal
-        commands.spacing = 5
+        commands.spacing = 6
         commands.distribution = .fillEqually
         commands.alignment = .fill
         let tools: [(String, String, Selector)] = [
             ("Dán", "doc.on.clipboard", #selector(pasteTapped)),
-            ("Couple", "heart.fill", #selector(coupleTapped)),
+            ("Couple", "heart", #selector(coupleTapped)),
             ("AI", "sparkles", #selector(cloudTapped)),
             ("Offline", "wifi.slash", #selector(offlineTapped)),
             ("Mẫu", "text.quote", #selector(phrasesTapped))
         ]
         for (index, spec) in tools.enumerated() {
             let button = UIButton(type: .system)
-            let foreground: UIColor = index == 0 ? aiColor :
-                (index == 1 ? UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1) :
-                    (index == 2 ? .white : UIColor(red: 0.19, green: 0.29, blue: 0.32, alpha: 1)))
-            let background: UIColor = index == 0 ? .white :
-                (index == 1 ? UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1) :
-                    (index == 2 ? aiColor : UIColor(red: 0.89, green: 0.94, blue: 0.94, alpha: 1)))
             configureSymbolButton(button, title: spec.0, symbol: spec.1,
-                                  foreground: foreground, background: background)
+                                  foreground: .label, background: .secondarySystemBackground)
+            button.tag = index
             button.addTarget(self, action: spec.2, for: .touchUpInside)
-            button.layer.shadowColor = UIColor.black.cgColor
-            button.layer.shadowOpacity = 0.08
-            button.layer.shadowRadius = 2
-            button.layer.shadowOffset = CGSize(width: 0, height: 1)
-            if index == 2 {
-                aiGradient.colors = [
-                    UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
-                    UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
-                ]
-                aiGradient.startPoint = CGPoint(x: 0, y: 0)
-                aiGradient.endPoint = CGPoint(x: 1, y: 1)
-                aiGradient.cornerRadius = 11
-                button.layer.insertSublayer(aiGradient, at: 0)
-            }
             toolButtons.append(button)
             commands.addArrangedSubview(button)
         }
-        commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
+        commands.heightAnchor.constraint(equalToConstant: 39).isActive = true
         container.addArrangedSubview(commands)
         installWritingActions()
         installClipboardMenu()
         updateCoupleTool()
 
         previewLabel.numberOfLines = 2
-        previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        previewLabel.font = .systemFont(ofSize: 13, weight: .medium)
         previewLabel.textColor = .label
         previewLabel.textAlignment = .left
-        previewLabel.backgroundColor = .secondarySystemBackground
-        previewLabel.layer.cornerRadius = 15
+        previewLabel.layer.cornerRadius = 12
+        previewLabel.layer.cornerCurve = .continuous
         previewLabel.layer.borderWidth = 1
-        previewLabel.layer.borderColor = aiColor.withAlphaComponent(0.35).cgColor
         previewLabel.clipsToBounds = true
         previewLabel.isHidden = true
-        previewLabel.heightAnchor.constraint(equalToConstant: 45).isActive = true
+        previewLabel.heightAnchor.constraint(equalToConstant: 43).isActive = true
         container.addArrangedSubview(previewLabel)
 
         candidateBar.axis = .horizontal
