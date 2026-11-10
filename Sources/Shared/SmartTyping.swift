@@ -78,6 +78,32 @@ enum SmartTyping {
         return englishSet.contains(combined) || englishPrefixes.contains(combined)
     }
 
+    /// Restore a Vietnamese Telex composition that was deferred because the
+    /// intermediate letters overlap an English word prefix. For example:
+    /// "too" is a prefix of English "tool", so the bilingual guard keeps it
+    /// literal. When the next key is "i", the completed "tooi" unambiguously
+    /// matches the Vietnamese dictionary entry "tôi".
+    ///
+    /// This only rewrites a whole word when the completed result is in the
+    /// offline Vietnamese lexicon. "tool" consequently remains "tool".
+    static func resolveDeferredVietnamese(word: String, adding key: String) -> String? {
+        guard key.count == 1, key.first?.isLetter == true,
+              word.count >= 3, word.count <= 32 else { return nil }
+        let lower = word.lowercased()
+        guard lower.hasSuffix("oo") || lower.hasSuffix("aa") || lower.hasSuffix("ee") else {
+            return nil
+        }
+        let stem = String(word.dropLast())
+        guard let transformed = VietnameseTelex.transformed(
+            word: stem, key: String(word.last!)
+        ) else { return nil }
+        let candidate = transformed + key
+        guard vietnameseWords.contains(where: { $0.lowercased() == candidate.lowercased() }) else {
+            return nil
+        }
+        return candidate
+    }
+
     static func predictions(prefix raw: String, learned: [String: Int] = [:],
                             limit: Int = 3) -> [String] {
         let prefix = raw.lowercased()
