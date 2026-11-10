@@ -68,6 +68,20 @@ enum SmartTyping {
         })
     }()
 
+    private static let vietnameseSet: Set<String> = Set(vietnameseWords.map { $0.lowercased() })
+
+    static func isEnglishWord(_ word: String) -> Bool {
+        englishSet.contains(word.lowercased())
+    }
+
+    static func isEnglishPrefix(_ word: String) -> Bool {
+        englishPrefixes.contains(word.lowercased())
+    }
+
+    static func isVietnameseWord(_ word: String) -> Bool {
+        vietnameseSet.contains(word.lowercased())
+    }
+
     /// Suppress Telex when the currently typed Latin sequence is a known
     /// English word/prefix. User can turn this off when typing Vietnamese.
     static func shouldKeepLiteral(_ word: String, adding key: String) -> Bool {
