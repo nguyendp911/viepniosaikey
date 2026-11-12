@@ -37,6 +37,9 @@ final class KeyboardViewController: UIInputViewController {
     private var learnedWords: [String: Int] = [:]
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
+    // Set only after this keyboard inserts a word boundary. The next letter
+    // can start a new composition without asking the host for its text context.
+    private var knownWordBoundary = false
     // Original physical keys and displayed word are tracked separately.
     // This allows a partial English prefix to become Vietnamese later,
     // or a Vietnamese-looking prefix to resolve back to English.
@@ -80,6 +83,7 @@ final class KeyboardViewController: UIInputViewController {
         bilingualPreference = BilingualComposer.Preference(
             rawValue: KeyboardSettings.bilingualPreference) ?? .automatic
         resetBilingualComposition()
+        knownWordBoundary = false
         useSuggestions = KeyboardSettings.predictionsEnabled
         useGlide = KeyboardSettings.glideEnabled
         learnedWords = KeyboardSettings.learnedWords
@@ -104,6 +108,10 @@ final class KeyboardViewController: UIInputViewController {
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         if currentTheme != KeyboardSettings.theme { applyTheme() }
+        // The host may switch fields or move its insertion point. Never
+        // reuse a cached composition across a host input-context change.
+        resetBilingualComposition()
+        knownWordBoundary = false
         // Avoid erasing the reply when the host app changes text focus.
     }
 
@@ -680,6 +688,7 @@ final class KeyboardViewController: UIInputViewController {
         tactileFeedback()
         resetBilingualComposition()
         textDocumentProxy.insertText(character)
+        knownWordBoundary = true
         recentWord = ""
         updateCandidates()
     }
@@ -704,7 +713,7 @@ final class KeyboardViewController: UIInputViewController {
            key.count == 1, key.first?.isLetter == true {
             // If another app edited or moved the caret, do not touch its
             // existing text. Check the host suffix before destructive edits.
-            if rawComposingWord.isEmpty,
+            if rawComposingWord.isEmpty, !knownWordBoundary,
                let context = textDocumentProxy.documentContextBeforeInput {
                 let existing = String(context.reversed()
                     .prefix(while: { $0.isLetter }).reversed())
@@ -714,6 +723,7 @@ final class KeyboardViewController: UIInputViewController {
                     telexCandidateWord = existing
                 }
             }
+            knownWordBoundary = false
             let rawNext = rawComposingWord + key
             if rawNext.count <= 40 {
                 let preference: BilingualComposer.Preference =
@@ -795,6 +805,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         textDocumentProxy.insertText(key)
+        knownWordBoundary = false
         if key.first?.isLetter == true {
             recentWord = String((recentWord + key).suffix(32))
         } else {
@@ -831,6 +842,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         textDocumentProxy.insertText(" ")
+        knownWordBoundary = true
         recentWord = ""
         updateCandidates()
         if autocapitalizeEnabled && !isShiftLocked {
@@ -848,6 +860,7 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         tactileFeedback()
         textDocumentProxy.insertText("\n")
+        knownWordBoundary = true
         recentWord = ""
         updateCandidates()
         if KeyboardSettings.autoCapitalize {
@@ -857,6 +870,7 @@ final class KeyboardViewController: UIInputViewController {
     }
     @objc private func deleteTapped() {
         resetBilingualComposition()
+        knownWordBoundary = false
         beginTyping()
         tactileFeedback()
         textDocumentProxy.deleteBackward()
@@ -867,6 +881,7 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
         resetBilingualComposition()
+        knownWordBoundary = false
         beginTyping()
         tactileFeedback()
         let before = textDocumentProxy.documentContextBeforeInput ?? ""
@@ -887,6 +902,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func numbersTapped() {
         resetBilingualComposition()
+        knownWordBoundary = false
         tactileFeedback()
         isNumbers.toggle()
         recentWord = ""
@@ -922,6 +938,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func globeTapped() {
         resetBilingualComposition()
+        knownWordBoundary = false
         tactileFeedback()
         advanceToNextInputMode()
     }
