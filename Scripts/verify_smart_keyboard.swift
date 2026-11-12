@@ -166,6 +166,8 @@ struct VerifySmartKeyboard {
                "OCR combined with online status recovers the full name")
         assert(PersonaStore.normalizedScreenshotTitle("Chú Tư · Đang hoạt động")
                    == "chu tu", "Vietnamese activity status is stripped safely")
+        assert(PersonaStore.normalizedScreenshotTitle("Đức Anh · Đang hoạt động")
+                   == "đuc anh", "recipient name beginning with Đ stays intact")
         let alternativeHeaders = [
             PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.15, midY: 0.70)
         ]
