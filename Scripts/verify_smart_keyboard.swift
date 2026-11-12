@@ -162,6 +162,10 @@ struct VerifySmartKeyboard {
         PersonaStore.automaticNameMatch = true
         assert(PersonaStore.matchingProfile(named: "CHÚ TƯ")?.name == "Chú Tư",
                "case-insensitive unique matching")
+        assert(PersonaStore.normalizedScreenshotTitle("Chú Tư Online") == "chu tu",
+               "OCR combined with online status recovers the full name")
+        assert(PersonaStore.normalizedScreenshotTitle("Chú Tư · Đang hoạt động")
+                   == "chu tu", "Vietnamese activity status is stripped safely")
         let alternativeHeaders = [
             PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.15, midY: 0.70)
         ]
