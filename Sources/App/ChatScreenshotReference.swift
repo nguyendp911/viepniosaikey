@@ -130,6 +130,21 @@ enum ChatScreenshotReference {
         return data.count < 300_000 ? data : nil
     }
 
+    /// Manual fallback: user chooses a vertical position of the chat title
+    /// from a screenshot provided through PhotosPicker. Only a narrow band is
+    /// returned; the complete screenshot is never persisted.
+    static func manualHeaderCrop(_ data: Data, topFraction: Double) -> Data? {
+        guard let image = uprightImage(data), let cgImage = image.cgImage else {
+            return nil
+        }
+        let top = max(0.035, min(0.34, topFraction))
+        let bandHeight = 0.06
+        let visionBox = CGRect(x: 0.06,
+                               y: 1 - top - bandHeight,
+                               width: 0.88, height: bandHeight)
+        return pngCrop(visionBox, image: cgImage)
+    }
+
     /// Expose candidate title lines for explicit correction when OCR cannot
     /// confidently identify the header. No screenshot or OCR is uploaded.
     static func scan(_ data: Data, preferredName: String = "") async throws -> ScanResult {
