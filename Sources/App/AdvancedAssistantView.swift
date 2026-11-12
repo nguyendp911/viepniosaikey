@@ -20,6 +20,9 @@ struct AdvancedAssistantView: View {
     @State private var transcriptDraft = ""
     @State private var savedChatTurns = ConversationHistory.turns(for: PersonaStore.activeID)
     @State private var chatPreview = ""
+    @State private var generatedChatSuggestions: [ReplySuggestion] = []
+    @State private var evidenceExplanation = ""
+    @State private var showExplanation = false
     @State private var openingNote = ""
     @State private var remindersTitle = ""
     @State private var reminderDate = Date().addingTimeInterval(3600)
@@ -215,6 +218,43 @@ struct AdvancedAssistantView: View {
                     }
                     .font(.caption)
                 }
+                if let person = PersonaStore.active {
+                    let personTopics = ConversationIntelligence.topics(for: person.id)
+                    HStack(spacing: 10) {
+                        Label(String(savedChatTurns.filter { $0.speaker == .me }.count)
+                              + " đã gửi", systemImage: "arrow.up.message")
+                        Label(String(savedChatTurns.filter { $0.speaker == .other }.count)
+                              + " đã nhận", systemImage: "arrow.down.message")
+                    }
+                    .font(.caption2).foregroundStyle(.secondary)
+                    if !personTopics.isEmpty {
+                        Text("Chủ đề trao đổi được nhận diện offline:")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            ForEach(personTopics, id: \.name) { topic in
+                                Text(topic.name + " · " + String(topic.count))
+                                    .font(.caption2)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(.white.opacity(0.08),
+                                                in: Capsule())
+                            }
+                        }
+                    }
+                    if let recent = ConversationIntelligence.evidence(
+                        for: person.id, query: openingNote, openingToday: true, limit: 2).last {
+                        Button {
+                            remindersTitle = "Hỏi thăm " + person.name + ": "
+                                + String(recent.quote.prefix(60))
+                            feedback = "Đã điền nội dung lời nhắc. Chọn ngày giờ rồi bấm Thêm vào Lịch."
+                        } label: {
+                            Label("Tạo nhắc hỏi thăm từ hội thoại",
+                                  systemImage: "calendar.badge.plus")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
                 TextField("Ghi chú tùy chọn: Hôm nay muốn hỏi chuyện gì?", text: $openingNote)
                     .textFieldStyle(.roundedBorder)
                 HStack {
@@ -234,17 +274,67 @@ struct AdvancedAssistantView: View {
                 }
                 Text("AI chỉ nhận tối đa 14 lượt hội thoại gần đây khi bạn nhấn gợi ý và bật AI online. Không tự gửi tin nhắn. Hãy kiểm tra câu gợi ý trước khi chèn.")
                     .font(.caption2).foregroundStyle(.secondary)
+                if !generatedChatSuggestions.isEmpty {
+                    Text("Ba phương án — chọn đúng một câu để chỉnh sửa hoặc dùng")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    ForEach(Array(generatedChatSuggestions.enumerated()), id: \.offset) {
+                        index, suggestion in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Mẫu " + String(index + 1) + " · " + suggestion.tone)
+                                .font(.caption2).foregroundStyle(.cyan)
+                            Text(suggestion.text)
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack {
+                                Button("Chọn câu này") {
+                                    chatPreview = suggestion.text
+                                }
+                                Button {
+                                    UIPasteboard.general.string = suggestion.text
+                                    feedback = "Đã sao chép riêng mẫu "
+                                        + String(index + 1) + "."
+                                } label: {
+                                    Label("Sao chép", systemImage: "doc.on.doc")
+                                }
+                            }
+                            .font(.caption).buttonStyle(.bordered)
+                        }
+                        .padding(10)
+                        .background(.white.opacity(0.07),
+                                    in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    Button {
+                        showExplanation.toggle()
+                    } label: {
+                        Label("Vì sao AI đưa ra những gợi ý này?",
+                              systemImage: "text.book.closed")
+                    }
+                    .buttonStyle(.bordered)
+                    if showExplanation {
+                        Text("Đoạn hội thoại đã lưu được chọn làm căn cứ (không khẳng định đây là lý do duy nhất mô hình chọn từng từ):")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Text(evidenceExplanation)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(9)
+                            .background(.white.opacity(0.07),
+                                        in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
                 if !chatPreview.isEmpty {
+                    Text("Bản nháp đã chọn — có thể sửa trước khi chèn")
+                        .font(.caption2).foregroundStyle(.secondary)
                     TextEditor(text: $chatPreview)
-                        .frame(height: 125)
+                        .frame(height: 105)
                         .scrollContentBackground(.hidden)
                         .padding(7)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                        .background(.white.opacity(0.07),
+                                    in: RoundedRectangle(cornerRadius: 12))
                     Button {
                         ShareDraft.save(chatPreview)
-                        feedback = "Đã chuyển bản nháp sang ViePN. Mở bàn phím và chọn Lấy bản nháp."
+                        feedback = "Đã lưu câu đã chọn để đưa sang bàn phím."
                     } label: {
-                        Label("Đưa gợi ý sang bàn phím", systemImage: "keyboard")
+                        Label("Đưa câu đã chọn sang bàn phím", systemImage: "keyboard")
                     }
                     .buttonStyle(.bordered)
                 }
@@ -360,9 +450,12 @@ struct AdvancedAssistantView: View {
         do {
             let suggestions = try await AIService.reply(
                 to: incoming, openingToday: openingToday)
-            chatPreview = suggestions.enumerated().map {
-                "Mẫu \($0.offset + 1): " + $0.element.text
-            }.joined(separator: "\n\n")
+            generatedChatSuggestions = suggestions
+            chatPreview = suggestions.first?.text ?? ""
+            showExplanation = false
+            evidenceExplanation = ConversationIntelligence.explanation(
+                for: PersonaStore.activeID, query: incoming,
+                openingToday: openingToday)
             feedback = "Đã tạo " + String(suggestions.count)
                 + " gợi ý. Chọn hoặc chỉnh lại trước khi sử dụng."
         } catch {
