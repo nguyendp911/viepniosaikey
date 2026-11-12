@@ -5,6 +5,7 @@ import Speech
 import AVFoundation
 import EventKit
 import UIKit
+import LocalAuthentication
 
 /// Photo OCR and speech recognition must run in the containing app; third-party
 /// keyboard extensions cannot inspect other apps' conversations or use microphone.
@@ -24,6 +25,8 @@ struct AdvancedAssistantView: View {
     @State private var evidenceExplanation = ""
     @State private var showExplanation = false
     @State private var openingNote = ""
+    @State private var historyLockEnabled = KeyboardSettings.historyScreenLockEnabled
+    @State private var historyUnlocked = false
     @State private var remindersTitle = ""
     @State private var reminderDate = Date().addingTimeInterval(3600)
     @State private var savedMemories = ConversationMemory.forActivePersona()
@@ -128,6 +131,19 @@ struct AdvancedAssistantView: View {
                 }
             }
 
+            section("Bảo vệ dữ liệu hội thoại", icon: "lock.shield") {
+                Toggle("Yêu cầu Face ID hoặc mật mã khi xem lịch sử",
+                       isOn: $historyLockEnabled)
+                    .font(.caption)
+                    .tint(.cyan)
+                    .onChange(of: historyLockEnabled) { enabled in
+                        KeyboardSettings.historyScreenLockEnabled = enabled
+                        historyUnlocked = !enabled
+                    }
+                Text("Lịch sử trên iOS dùng tệp Data Protection trong App Group. Khóa màn hình này chỉ chặn giao diện trong ứng dụng; không phải mã hóa đầu-cuối hay khóa toàn bộ bàn phím.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            if !historyLockEnabled || historyUnlocked {
             section("Trí nhớ người nhận", icon: "brain.head.profile") {
                 Text("Chỉ lưu ghi chú khi bạn bấm Lưu. Gắn với hồ sơ người nhận đang chọn; có thể xóa bất cứ lúc nào.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -340,6 +356,19 @@ struct AdvancedAssistantView: View {
                 }
             }
 
+            } else {
+                section("Hội thoại đã khóa", icon: "lock.fill") {
+                    Text("Mở khóa bằng Face ID hoặc mật mã thiết bị để xem ghi chú và lịch sử.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button {
+                        unlockChatHistory()
+                    } label: {
+                        Label("Mở khóa lịch sử", systemImage: "faceid")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+
             section("Lịch hẹn & lời nhắc", icon: "calendar.badge.plus") {
                 Text("Đề xuất tác vụ từ văn bản đã nhận. Bạn xác nhận tiêu đề và giờ trước khi lưu vào Lịch iPhone.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -380,6 +409,7 @@ struct AdvancedAssistantView: View {
             }
         }
         .foregroundStyle(.white)
+        .onDisappear { historyUnlocked = false }
     }
 
     private func section<Content: View>(_ heading: String, icon: String,
@@ -426,6 +456,29 @@ struct AdvancedAssistantView: View {
                                           : "Đã nhận dạng chữ trên máy. Hãy kiểm tra thứ tự người gửi trước khi xử lý."
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
+        }
+    }
+
+    private func unlockChatHistory() {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            feedback = "Chưa thiết lập Face ID hoặc mật mã thiết bị."
+            return
+        }
+        context.evaluatePolicy(.deviceOwnerAuthentication,
+            localizedReason: "Mở khóa lịch sử trò chuyện ViePN") { success, _ in
+            DispatchQueue.main.async {
+                if success {
+                    historyUnlocked = true
+                    savedChatTurns = ConversationHistory.turns(
+                        for: PersonaStore.activeID)
+                    savedMemories = ConversationMemory.forActivePersona()
+                    feedback = "Đã mở khóa hội thoại."
+                } else {
+                    feedback = "Chưa xác thực. Lịch sử vẫn được khóa."
+                }
+            }
         }
     }
 
