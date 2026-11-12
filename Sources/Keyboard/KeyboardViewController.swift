@@ -37,6 +37,9 @@ final class KeyboardViewController: UIInputViewController {
     private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
     private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     private var lastWordReplacement: (original: String, corrected: String)?
+    // A swipe auto-inserts a trailing space. Keep its alternatives selectable
+    // until the next physical key press, without editing arbitrary host text.
+    private var pendingGlideWord: String?
     private var learnedWords: [String: Int] = [:]
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
@@ -65,6 +68,7 @@ final class KeyboardViewController: UIInputViewController {
         rawComposingWord = ""
         displayedComposingWord = ""
         telexCandidateWord = ""
+        pendingGlideWord = nil
     }
     private let candidateBar = UIStackView()
     private var candidateButtons: [UIButton] = []
@@ -1172,9 +1176,31 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func candidateTapped(_ sender: UIButton) {
-        resetBilingualComposition()
         guard candidateWords.indices.contains(sender.tag) else { return }
-        replaceCurrentWord(candidateWords[sender.tag])
+        let chosen = candidateWords[sender.tag]
+        if let committed = pendingGlideWord {
+            // An explicitly chosen alternate can replace the word created by
+            // the previous swipe, including its trailing space. Only touch
+            // the host field when the exact suffix is still present.
+            let current = textDocumentProxy.documentContextBeforeInput ?? ""
+            if current.hasSuffix(committed + " ") {
+                for _ in 0..<(committed.count + 1) {
+                    textDocumentProxy.deleteBackward()
+                }
+                textDocumentProxy.insertText(chosen + " ")
+                resetBilingualComposition()
+                knownWordBoundary = true
+                recentWord = ""
+                updateCandidates()
+                tactileFeedback()
+                return
+            }
+            resetBilingualComposition()
+            renderCandidates([])
+            return
+        }
+        resetBilingualComposition()
+        replaceCurrentWord(chosen)
         tactileFeedback()
     }
 
@@ -1425,15 +1451,23 @@ final class KeyboardViewController: UIInputViewController {
                         .prefix(while: { $0.isLetter }).reversed())
                     let initial = String(trace.prefix(1))
                     if current.lowercased() == initial,
-                       suggestions[0].lowercased().hasPrefix(initial) {
+                       SmartTyping.glideStartsWithPhysicalKey(
+                           suggestions[0], key: initial) {
                         // touchDown already inserted the first letter.
                         // Replace just that letter with the recognized word.
                         self.replaceCurrentWord(suggestions[0])
                         self.textDocumentProxy.insertText(" ")
                         self.knownWordBoundary = true
                         self.resetBilingualComposition()
+                        self.pendingGlideWord = suggestions[0]
                         self.recentWord = ""
-                        self.updateCandidates()
+                        if self.useSuggestions {
+                            // Keep accented alternatives visible after swipe:
+                            // e.g. bàn, bạn, bán share the same QWERTY path.
+                            self.updateCandidates(suggestions)
+                        } else {
+                            self.updateCandidates()
+                        }
                     } else {
                         // Never overwrite an existing draft or a changed caret.
                         // Offer alternatives only; the user can tap to accept.
