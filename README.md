@@ -52,6 +52,18 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 - **Ưu tiên tiếng Việt**: `or` → `ỏ`; thêm `r` lần nữa (`orr`) → `or`.
 - Phím xóa lùi theo chuỗi phím đã gõ, kể cả khi một phím đã biến đổi nhiều ký tự.
 
+## Nhận diện người nhận từ ảnh chụp Zalo, Messenger
+
+Trong **Trợ lý → Ảnh chụp hội thoại**, chọn một ảnh chụp do bạn chủ động cung cấp. ViePN dùng **Apple Vision OCR offline trên iPhone** và chỉ xét chữ ở vùng tiêu đề điều hướng phía trên màn hình để tìm tên người đang trò chuyện.
+
+- Khi có **một hồ sơ trùng chính xác duy nhất**, hiện nút **Chọn hồ sơ**. Chỉ sau khi bạn bấm xác nhận mới đổi hồ sơ đang sử dụng.
+- Khi có **nhiều hồ sơ trùng tên**, hiện tất cả để người dùng chọn thủ công. Không chọn theo tên xuất hiện trong nội dung tin nhắn, tên không đầy đủ hoặc dự đoán mơ hồ.
+- Nếu ảnh bị cắt mất tiêu đề hoặc ứng dụng có bố cục khác, ViePN không khẳng định nhận diện thành công; bạn có thể chọn hồ sơ thủ công ở mục AI & API.
+- Sau khi xác nhận, bộ gõ sử dụng đúng cách xưng hô và lịch sử được lưu riêng cho hồ sơ đó. Có thể lưu tên hồ sơ trùng với tên hiển thị trên Zalo/Messenger để nhận diện dễ hơn.
+- Ảnh và OCR **không được gửi tới nhà cung cấp AI chỉ để xác định tên**. Chức năng AI tạo câu trả lời vẫn có điều kiện đồng ý riêng.
+
+**Giới hạn của iOS:** Bàn phím tùy chỉnh không được tự đọc tiêu đề, danh sách chat, tên người dùng hay màn hình của Zalo hoặc Messenger khi đang gõ. Do đó nhận diện tên hoàn toàn tự động không cần thao tác/chia sẻ là không được đảm bảo bằng API công khai. Không cần và không khuyến nghị inject, jailbreak hay trích xuất dữ liệu riêng của ứng dụng khác.
+
 ## Hội thoại cá nhân theo từng người
 
 1. Trong ứng dụng chính, tạo hoặc chọn một **Hồ sơ người nhận** ở trang **AI & API**.
