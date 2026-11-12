@@ -696,10 +696,20 @@ struct AdvancedAssistantView: View {
                 observations.map(\.text).joined(separator: "\n").prefix(3000))
             screenshotMatch = PersonaStore.matchScreenshotTitle(observations)
             if let match = screenshotMatch {
-                screenshotMatchStatus = "Đã phát hiện tên trên ảnh. Vui lòng xác nhận hồ sơ."
-                // Never silently switch a persona based on OCR alone. Chat
-                // screenshots can be cropped, edited or contain group titles.
-                feedback = "Đã đọc ảnh và nhận diện tên. Chọn hồ sơ đúng bên trên."
+                if PersonaStore.automaticNameMatch,
+                   let uniquePerson = match.uniqueMatch {
+                    // Explicit user opt-in + OCR from an explicitly selected
+                    // screenshot + unique full title match: no repeat choice.
+                    selectScreenshotPersona(uniquePerson)
+                    screenshotMatchStatus = "Tự khớp từ tiêu đề ảnh: "
+                        + uniquePerson.name + " · Có thể đổi hồ sơ trong AI & API."
+                    feedback = "Đã nhận diện và chuyển hồ sơ theo lựa chọn tự khớp tên."
+                } else {
+                    screenshotMatchStatus = "Đã phát hiện tên trên ảnh. Vui lòng xác nhận hồ sơ."
+                    feedback = match.matches.count > 1
+                        ? "Có nhiều hồ sơ trùng tên, hãy chọn đúng người bên trên."
+                        : "Đã nhận diện tên. Chọn hồ sơ đúng bên trên."
+                }
             } else {
                 screenshotMatchStatus = "Không xác định được tên ở tiêu đề. Có thể chọn hồ sơ thủ công."
                 feedback = observations.isEmpty
