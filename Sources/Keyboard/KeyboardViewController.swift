@@ -880,7 +880,8 @@ final class KeyboardViewController: UIInputViewController {
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
             if let snippet = cachedSnippets[token], !token.isEmpty {
                 for _ in token { textDocumentProxy.deleteBackward() }
-                textDocumentProxy.insertText(SmartTyping.expandSnippet(snippet))
+                textDocumentProxy.insertText(SmartTyping.expandSnippet(
+                    snippet, recipient: PersonaStore.active?.name))
             } else if let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
                 for _ in word { textDocumentProxy.deleteBackward() }
