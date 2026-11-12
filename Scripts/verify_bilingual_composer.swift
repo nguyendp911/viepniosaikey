@@ -95,7 +95,9 @@ struct VerifyBilingualComposer {
                 } else {
                     // Same behavior as the literal-touch fallback in the UI.
                     displayed += key
-                    candidate = nextCandidate + key
+                    // A literal display does not change the independent
+                    // Telex candidate a second time.
+                    candidate = nextCandidate
                 }
                 guard !displayed.isEmpty else {
                     fatalError("Lost a key when typing \\(pressed)")
