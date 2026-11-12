@@ -200,7 +200,7 @@ struct VerifySmartKeyboard {
                && PersonaStore.matchScreenshotTitle(headerBoxes)?.uniqueMatch == nil,
                "ambiguous duplicate OCR header never silently chooses a person")
         PersonaStore.all = PersonaStore.all.filter { $0.id == oldPersona }
-        PersonaStore.add(name: "Cô Lan", role: "aunt",
+        PersonaStore.add(name: "Cô Lan", role: "uncle",
                          selfAddress: "cháu", tone: "Lịch sự")
         let personA = PersonaStore.matchScreenshotTitle([
             PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.88)
