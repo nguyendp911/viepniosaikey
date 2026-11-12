@@ -56,6 +56,22 @@ struct VerifySmartKeyboard {
                "zero-limit predictions return nothing")
 
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
+        assert(SmartTyping.glideCandidates(trace: "helo", learned: ["hello": 9])
+                   .contains("hello"), "personalized swipe word")
+        assert(SmartTyping.nearbyKeyCorrections("storw").contains("store"),
+               "near-key typo suggestions for store")
+        assert(SmartTyping.nearbyKeyCorrections("hellp").contains("hello"),
+               "near-key typo suggestions for hello")
+        assert(SmartTyping.predictions(prefix: "storw").contains("store"),
+               "typo correction available as a suggestion only")
+        assert(SmartTyping.nearbyKeyCorrections("or").isEmpty,
+               "short bilingual tokens must not be guessed")
+        assert(SmartTyping.nearbyKeyCorrections("thương").isEmpty,
+               "Vietnamese diacritics must not trigger English guesses")
+        assert(SmartTyping.expandSnippet("Chào {recipient}", recipient: "Chú Tư")
+                   == "Chào Chú Tư", "explicit recipient snippet")
+        assert(SmartTyping.expandSnippet("Chào {recipient}") == "Chào {recipient}",
+               "recipient is not guessed when no profile selected")
         let expanded = SmartTyping.expandSnippet("Hôm nay {date}, giờ {time}")
         assert(!expanded.contains("{date}") && !expanded.contains("{time}"),
                "user-triggered snippet variables")
@@ -115,6 +131,12 @@ struct VerifySmartKeyboard {
                "local performance counters contain no text")
         KeyboardStability.clear()
         KeyboardSettings.learnedWords = [:]
+        KeyboardSettings.writingSamples = ["Xin chào, cảm ơn bạn."]
+        assert(KeyboardSettings.personalStylePrompt.contains("cảm ơn"),
+               "explicit style examples included for AI")
+        KeyboardSettings.writingSamples = []
+        assert(KeyboardSettings.personalStylePrompt.isEmpty,
+               "deleted style examples no longer enter AI context")
         KeyboardSettings.textSnippets = [";date":"{date}", ";time":"{time}"]
     }
 }
