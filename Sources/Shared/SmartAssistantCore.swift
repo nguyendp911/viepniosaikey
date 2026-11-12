@@ -13,18 +13,59 @@ enum ConversationMemory {
     private static let key = "viepnaikey.conversationNotes.v1"
     private static var defaults: UserDefaults { KeyboardSettings.defaults }
 
+    #if os(iOS)
+    private static var protectedURL: URL? {
+        FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: KeyboardSettings.groupID)?
+            .appendingPathComponent("conversation-notes-v2.json")
+    }
+    #endif
+
     static var notes: [ConversationNote] {
         get {
-            guard let raw = defaults.data(forKey: key),
-                  let items = try? JSONDecoder().decode([ConversationNote].self, from: raw)
+            #if os(iOS)
+            if let url = protectedURL {
+                if FileManager.default.fileExists(atPath: url.path) {
+                    guard let bytes = try? Data(contentsOf: url),
+                          let saved = try? JSONDecoder().decode(
+                            [ConversationNote].self, from: bytes)
+                    else { return [] }
+                    return saved
+                }
+                if let bytes = defaults.data(forKey: key),
+                   let saved = try? JSONDecoder().decode(
+                    [ConversationNote].self, from: bytes) {
+                    notes = saved
+                    return saved
+                }
+                return []
+            }
+            #endif
+            guard let bytes = defaults.data(forKey: key),
+                  let saved = try? JSONDecoder().decode(
+                    [ConversationNote].self, from: bytes)
             else { return [] }
-            return items
+            return saved
         }
         set {
             let clipped = Array(newValue.prefix(100))
-            if let raw = try? JSONEncoder().encode(clipped) {
-                defaults.set(raw, forKey: key)
+            guard let bytes = try? JSONEncoder().encode(clipped) else { return }
+            #if os(iOS)
+            if let url = protectedURL {
+                do {
+                    try bytes.write(to: url, options: .atomic)
+                    try FileManager.default.setAttributes([
+                        .protectionKey:
+                            FileProtectionType.completeUntilFirstUserAuthentication
+                    ], ofItemAtPath: url.path)
+                    defaults.removeObject(forKey: key)
+                } catch {
+                    // Do not downgrade back to unprotected preferences.
+                }
+                return
             }
+            #endif
+            defaults.set(bytes, forKey: key)
         }
     }
 
