@@ -42,6 +42,8 @@ final class KeyboardViewController: UIInputViewController {
     // until the next physical key press, without editing arbitrary host text.
     private var pendingGlideWord: String?
     private var learnedWords: [String: Int] = [:]
+    private var learnedWordFlushWork: DispatchWorkItem?
+    private var learnedWordDirty = false
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -154,6 +156,34 @@ final class KeyboardViewController: UIInputViewController {
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.
         // Destructive rewrites are independently guarded by host suffix checks.
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        // Persist at the end of a typing session, not on every space key.
+        flushLearnedWords()
+        candidateUpdateWork?.cancel()
+        candidateGeneration &+= 1
+        glideResultGeneration &+= 1
+        super.viewWillDisappear(animated)
+    }
+
+    private func scheduleLearnedWordsFlush() {
+        learnedWordDirty = true
+        learnedWordFlushWork?.cancel()
+        let job = DispatchWorkItem { [weak self] in
+            self?.flushLearnedWords()
+        }
+        learnedWordFlushWork = job
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .seconds(3), execute: job)
+    }
+
+    private func flushLearnedWords() {
+        learnedWordFlushWork?.cancel()
+        learnedWordFlushWork = nil
+        guard learnedWordDirty else { return }
+        learnedWordDirty = false
+        KeyboardSettings.learnedWords = learnedWords
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -1127,7 +1157,7 @@ final class KeyboardViewController: UIInputViewController {
             } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
                 let normalized = word.lowercased()
                 learnedWords[normalized, default: 0] += 1
-                KeyboardSettings.learnedWords = learnedWords
+                scheduleLearnedWordsFlush()
             }
         }
         textDocumentProxy.insertText(" ")
@@ -1171,11 +1201,9 @@ final class KeyboardViewController: UIInputViewController {
                 // A multi-character rewrite is only safe if the host still
                 // ends with the exact word this keyboard previously inserted.
                 // Plain single-character backspace keeps the native fast path.
-                let plainDelete = edit.deleteCount == 1 && edit.insertion.isEmpty
-                let safe = plainDelete || (
-                    !displayedComposingWord.isEmpty
+                let safe = !displayedComposingWord.isEmpty
                     && (textDocumentProxy.documentContextBeforeInput ?? "")
-                        .hasSuffix(displayedComposingWord))
+                        .hasSuffix(displayedComposingWord)
                 if safe {
                     for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
                     if !edit.insertion.isEmpty {
@@ -1486,7 +1514,7 @@ final class KeyboardViewController: UIInputViewController {
             && fullGlideOptions.count > results.count
         if results == candidateWords,
            candidateScroll.isHidden == shouldHide,
-           candidateExpandButton?.isHidden == !needsExpand { return }
+           (candidateExpandButton?.isHidden ?? true) == !needsExpand { return }
 
         candidateWords = results
         if candidateScroll.isHidden != shouldHide {
