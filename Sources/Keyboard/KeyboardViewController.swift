@@ -37,6 +37,7 @@ final class KeyboardViewController: UIInputViewController {
     private var useGlide = KeyboardSettings.glideEnabled
     private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
     private var performanceMode = KeyboardSettings.performanceMode
+    private var keypressEffect = KeyboardSettings.keypressEffect
     private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     private var lastWordReplacement: (original: String, corrected: String)?
     // A swipe auto-inserts a trailing space. Keep its alternatives selectable
@@ -124,6 +125,7 @@ final class KeyboardViewController: UIInputViewController {
         typingMode = KeyboardSettings.typingMode
         telexEnabled = KeyboardSettings.telexEnabled
         performanceMode = KeyboardSettings.performanceMode
+        keypressEffect = performanceMode ? "off" : KeyboardSettings.keypressEffect
         hapticsEnabled = KeyboardSettings.hapticEnabled && !performanceMode
         hapticsStyle = KeyboardSettings.hapticStyle
         useSmartBilingual = KeyboardSettings.smartBilingual
@@ -944,6 +946,36 @@ final class KeyboardViewController: UIInputViewController {
             keyColor = UIColor(red: 0.14, green: 0.32, blue: 0.38, alpha: 1)
             primary = .white
             modifier = UIColor(red: 0.22, green: 0.45, blue: 0.47, alpha: 1)
+        case "amoled":
+            canvas = .black
+            keyColor = UIColor(white: 0.09, alpha: 1)
+            primary = .white
+            modifier = UIColor(white: 0.19, alpha: 1)
+        case "neon":
+            canvas = UIColor(red: 0.035, green: 0.045, blue: 0.10, alpha: 1)
+            keyColor = UIColor(red: 0.12, green: 0.13, blue: 0.24, alpha: 1)
+            primary = UIColor(red: 0.49, green: 0.99, blue: 0.94, alpha: 1)
+            modifier = UIColor(red: 0.20, green: 0.19, blue: 0.36, alpha: 1)
+        case "cyberpunk":
+            canvas = UIColor(red: 0.13, green: 0.055, blue: 0.18, alpha: 1)
+            keyColor = UIColor(red: 0.25, green: 0.10, blue: 0.30, alpha: 1)
+            primary = UIColor(red: 0.99, green: 0.92, blue: 0.39, alpha: 1)
+            modifier = UIColor(red: 0.39, green: 0.16, blue: 0.40, alpha: 1)
+        case "coffee":
+            canvas = UIColor(red: 0.26, green: 0.19, blue: 0.16, alpha: 1)
+            keyColor = UIColor(red: 0.39, green: 0.28, blue: 0.22, alpha: 1)
+            primary = UIColor(red: 1, green: 0.94, blue: 0.83, alpha: 1)
+            modifier = UIColor(red: 0.49, green: 0.36, blue: 0.29, alpha: 1)
+        case "ice":
+            canvas = UIColor(red: 0.82, green: 0.92, blue: 0.98, alpha: 1)
+            keyColor = UIColor(red: 0.98, green: 1, blue: 1, alpha: 1)
+            primary = UIColor(red: 0.10, green: 0.24, blue: 0.40, alpha: 1)
+            modifier = UIColor(red: 0.63, green: 0.79, blue: 0.89, alpha: 1)
+        case "gold":
+            canvas = UIColor(red: 0.14, green: 0.12, blue: 0.10, alpha: 1)
+            keyColor = UIColor(red: 0.25, green: 0.22, blue: 0.17, alpha: 1)
+            primary = UIColor(red: 0.98, green: 0.87, blue: 0.57, alpha: 1)
+            modifier = UIColor(red: 0.39, green: 0.32, blue: 0.23, alpha: 1)
         default:
             canvas = UIColor { trait in
                 trait.userInterfaceStyle == .dark
@@ -990,6 +1022,45 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.textColor = primary
     }
 
+    /// Key animations use a single Core Animation object on the existing
+    /// key layer. No overlays, Auto Layout changes, timers or image assets.
+    private func animateKeypress(_ key: UIButton) {
+        guard !performanceMode, keypressEffect != "off",
+              !UIAccessibility.isReduceMotionEnabled else { return }
+        let layer = key.layer
+        let animation: CAAnimation
+        switch keypressEffect {
+        case "pop":
+            let pulse = CABasicAnimation(keyPath: "transform.scale")
+            pulse.fromValue = 0.91
+            pulse.toValue = 1
+            pulse.duration = 0.13
+            animation = pulse
+        case "bounce":
+            let bounce = CAKeyframeAnimation(keyPath: "transform.scale")
+            bounce.values = [1, 0.90, 1.06, 1]
+            bounce.keyTimes = [0, 0.22, 0.62, 1]
+            bounce.duration = 0.21
+            animation = bounce
+        case "glow":
+            let glow = CABasicAnimation(keyPath: "shadowOpacity")
+            glow.fromValue = 0.80
+            glow.toValue = layer.shadowOpacity
+            glow.duration = 0.18
+            animation = glow
+        case "flash":
+            let flash = CABasicAnimation(keyPath: "opacity")
+            flash.fromValue = 0.57
+            flash.toValue = 1
+            flash.duration = 0.16
+            animation = flash
+        default:
+            return
+        }
+        animation.isRemovedOnCompletion = true
+        layer.add(animation, forKey: "viepn.keypress")
+    }
+
     private func tactileFeedback() {
         guard hapticsEnabled else { return }
         if hapticsStyle == "vibrate" {
@@ -1019,6 +1090,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
+        animateKeypress(sender)
         // Sample every 50th touch without invoking a random-number generator
         // on the input latency-critical path.
         typingTouchCount &+= 1
