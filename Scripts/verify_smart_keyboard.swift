@@ -162,6 +162,11 @@ struct VerifySmartKeyboard {
         PersonaStore.automaticNameMatch = true
         assert(PersonaStore.matchingProfile(named: "CHÚ TƯ")?.name == "Chú Tư",
                "case-insensitive unique matching")
+        let alternativeHeaders = [
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.15, midY: 0.70)
+        ]
+        assert(PersonaStore.matchScreenshotTitle(alternativeHeaders)?.uniqueMatch != nil,
+               "left-aligned navigation title should be found")
         let headerBoxes = [
             PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.88),
             PersonaStore.ScreenshotTextBox(text: "Bạn khỏe không?", midX: 0.5, midY: 0.52)
