@@ -17,12 +17,23 @@ enum VietnameseTelex {
         "aw":"ă", "ow":"ơ", "uw":"ư"
     ]
 
-    private static func base(_ value: Character) -> Character? {
-        let lower = Character(String(value).lowercased())
-        for (vowel, sequence) in vowels where sequence.contains(lower) {
-            return vowel
+    // The previous base() scanned 12 vowel tables and allocated a String on
+    // every character for every key. Build a single immutable map instead.
+    private static let vowelBase: [Character: Character] = {
+        var result: [Character: Character] = [:]
+        for (vowel, forms) in vowels {
+            for character in forms {
+                result[character] = vowel
+                if let upper = String(character).uppercased().first {
+                    result[upper] = vowel
+                }
+            }
         }
-        return nil
+        return result
+    }()
+
+    private static func base(_ value: Character) -> Character? {
+        vowelBase[value]
     }
 
     // Accent keys s/f/r/x/j are also ordinary Latin letters. Interpret them
