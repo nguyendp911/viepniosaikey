@@ -33,6 +33,9 @@ struct ContentView: View {
     @State private var bilingualPreference = KeyboardSettings.bilingualPreference
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
+    @State private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
+    @State private var writingSamples = KeyboardSettings.writingSamples
+    @State private var newWritingSample = ""
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
@@ -139,6 +142,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             favorites = KeyboardSettings.favoriteReplies
             phrases = KeyboardSettings.savedPhrases
+            writingSamples = KeyboardSettings.writingSamples
             coupleEnabled = KeyboardSettings.coupleEnabled
             coupleStage = KeyboardSettings.coupleStage
             coupleStyle = KeyboardSettings.coupleStyle
@@ -728,6 +732,7 @@ struct ContentView: View {
             keyboardInputCard
             keyboardPreferencesCard
             smartTypingCard
+            personalWritingCard
             keyboardThemesCard
             keyboardShortcutsCard
             snippetsCard
@@ -953,6 +958,16 @@ struct ContentView: View {
                                   symbol: "hand.draw", isOn: $glideEnabled)
                     .onChange(of: glideEnabled) { KeyboardSettings.glideEnabled = $0 }
                 keyboardDivider()
+                keyboardToggleRow("Vùng chạm phím rộng hơn",
+                                  symbol: "hand.point.up.left.fill",
+                                  isOn: $adaptiveTouchEnabled)
+                    .onChange(of: adaptiveTouchEnabled) {
+                        KeyboardSettings.adaptiveTouchEnabled = $0
+                    }
+                Text("Chỉ mở rộng vùng chạm trong khe giữa các phím; không tự thay chữ hay ghi lại tọa độ ngón tay.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
                 keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
                                   symbol: "book.closed", isOn: $autoLearnWords)
                     .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
@@ -993,10 +1008,87 @@ struct ContentView: View {
         }
     }
 
+    private var personalWritingCard: some View {
+        keyboardPanel("Phong cách viết cá nhân", icon: "pencil.and.scribble") {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Dán một câu mẫu do bạn tự chọn. AI sẽ học giọng điệu từ những câu đã lưu khi bạn chủ động yêu cầu viết lại hoặc gợi ý trả lời.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextEditor(text: $newWritingSample)
+                    .frame(height: 76)
+                    .scrollContentBackground(.hidden)
+                    .font(.system(size: 12))
+                    .padding(7)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 11))
+                    .accessibilityLabel("Ví dụ phong cách viết do bạn tự nhập")
+                HStack {
+                    Text("Lưu tối đa 8 ví dụ · 350 ký tự / ví dụ")
+                        .font(.system(size: 10))
+                        .foregroundStyle(muted)
+                    Spacer()
+                    Button {
+                        let value = String(newWritingSample
+                            .trimmingCharacters(in: .whitespacesAndNewlines).prefix(350))
+                        guard !value.isEmpty, writingSamples.count < 8,
+                              MessageSafety.warnings(in: value).isEmpty else { return }
+                        writingSamples.append(value)
+                        KeyboardSettings.writingSamples = writingSamples
+                        newWritingSample = ""
+                    } label: {
+                        Label("Lưu mẫu", systemImage: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(violet)
+                    .disabled(newWritingSample.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || writingSamples.count >= 8
+                              || !MessageSafety.warnings(in: newWritingSample).isEmpty)
+                }
+                ForEach(Array(writingSamples.enumerated()), id: \.offset) { index, sample in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(String(format: "%02d", index + 1))
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(cyan)
+                        Text(sample)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
+                        Spacer(minLength: 0)
+                        Button {
+                            writingSamples.remove(at: index)
+                            KeyboardSettings.writingSamples = writingSamples
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.red)
+                        }
+                        .accessibilityLabel("Xóa ví dụ phong cách \(index + 1)")
+                    }
+                    .padding(8)
+                    .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 10))
+                }
+                if !writingSamples.isEmpty {
+                    Button(role: .destructive) {
+                        writingSamples = []
+                        KeyboardSettings.writingSamples = []
+                    } label: {
+                        Label("Xóa toàn bộ phong cách cá nhân", systemImage: "trash")
+                            .font(.system(size: 11))
+                    }
+                }
+                Text("Ví dụ lưu trong App Group trên thiết bị, chưa mã hóa. Khi bật AI online và nhấn yêu cầu AI, các mẫu này có thể được gửi cho nhà cung cấp AI. Không lưu thông tin nhạy cảm.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var snippetsCard: some View {
         keyboardPanel("Mẫu gõ nhanh", icon: "text.insert") {
             VStack(spacing: 10) {
-                Text("Gõ ;date hoặc ;time rồi nhấn dấu cách. Tạo mẫu khác với {date} và {time} để tự điền ngày giờ.")
+                Text("Gõ ;date, ;time hoặc ;ten rồi nhấn dấu cách. Hỗ trợ {date}, {time}, {recipient} (tên hồ sơ người nhận đã chọn).")
                     .font(.system(size: 11)).foregroundStyle(muted)
                 HStack(spacing: 6) {
                     TextField(";phimtat", text: $newSnippetKey)
