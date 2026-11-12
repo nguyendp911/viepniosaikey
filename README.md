@@ -61,6 +61,14 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 - Tên Zalo và tên tự đặt trong hồ sơ có thể khác nhau, vì phần so khớp dựa trên tên đã đọc trong ảnh mẫu.
 - **Không thể nhận ảnh màn hình chỉ vì người dùng chuyển sang một cuộc chat khác trong Zalo**: iOS không cấp quyền đọc màn hình ứng dụng khác cho keyboard extension. Tính năng tự động chạy *sau khi ảnh được cung cấp*, không tự quan sát màn hình nền. Ảnh của người khác phải được chia sẻ có chủ đích và tuân thủ quyền riêng tư.
 
+### Nếu ảnh chụp đầy đủ nhưng OCR vẫn không đọc được tên
+
+Trong **AI & API → Hồ sơ người nhận**, chọn ảnh từ Thư viện. Bản mới sẽ:
+1. Tự xoay ảnh về đúng hướng và chạy OCR trên toàn ảnh **lẫn một lần riêng ở 30% phía trên** để tìm tiêu đề chữ nhỏ.
+2. Hiện ảnh xem trước vùng đầu ảnh và danh sách các dòng OCR tìm thấy. Chạm đúng dòng tên để dùng vùng chữ đó làm mẫu.
+3. Nếu vẫn không đọc được, nhập **Tên hồ sơ**, kéo thanh **Vị trí từ mép trên** cho đến khi phần ảnh xem trước chứa đúng tên, rồi bấm **Dùng vùng ảnh này làm mẫu**. Xem kỹ vùng cắt trước khi lưu.
+4. Chỉ **vùng ảnh cắt** được lưu sau khi xác nhận, không lưu cả ảnh chụp màn hình. Đừng chọn vùng có tin nhắn riêng tư. Không tự động đọc màn hình Zalo đang hoạt động.
+
 ## Sửa lỗi không nhận ra tên trong ảnh đầy đủ
 
 - OCR tiêu đề nay hỗ trợ tên nằm **lệch trái/phải** hoặc **thấp hơn** trên các giao diện Zalo/Messenger khác nhau; không còn buộc tên ở giữa 23–77% chiều ngang.
