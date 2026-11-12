@@ -76,6 +76,16 @@ Trong **AI & API → Hồ sơ người nhận**, chọn ảnh từ Thư viện. 
 - Ở **AI & API → Hồ sơ người nhận**, sau khi chọn ảnh, bạn có thể **sửa tên OCR đã đọc** trước khi gắn ảnh mẫu. Hãy xem vùng ảnh cắt có đúng tên không. Không lưu ảnh chứa nội dung trò chuyện khi bạn chưa kiểm tra.
 - Ảnh không có tiêu đề nhìn thấy, OCR không đọc được chữ, hoặc ảnh quá mờ vẫn có thể không khớp. Khi đó dùng hồ sơ thủ công hoặc ảnh khác. OCR không thể tự nhìn màn hình Zalo đang mở; bạn phải chủ động chọn ảnh.
 
+## Sửa lỗi mọi ảnh đều được gán cho một hồ sơ
+
+Bản sửa chuyển từ cách lấy ảnh có điểm tương đồng cao nhất sang **so khớp tiêu đề đối chiếu đồng thời tất cả hồ sơ**:
+
+- Không chọn hồ sơ đầu tiên chỉ vì mẫu ảnh có giao diện giống Zalo/Messenger. Chữ tên cụ thể trong vùng tiêu đề mới đủ điều kiện tự chọn hồ sơ.
+- Khi OCR phát hiện nhiều tên khớp các hồ sơ khác nhau trong vùng tiêu đề, yêu cầu xác nhận thay vì chọn tên xuất hiện đầu tiên.
+- Kết quả Vision Feature Print chỉ giúp sắp xếp tối đa 3 hồ sơ có thể phù hợp để **người dùng xác nhận thủ công**; không khẳng định danh tính hay tự chọn từ đặc trưng hình ảnh.
+- Mỗi ảnh mới chọn trong **Trợ lý** làm trống hồ sơ cũ ngay trước khi nhận diện. Không lấy lịch sử của người trước nếu ảnh mới chưa được nhận diện.
+- Bỏ các kết quả OCR cũ trả về chậm khi người dùng đã chọn một ảnh khác. Khi chọn đúng hồ sơ, lịch sử và lời gợi ý được làm mới theo người đó.
+
 ## AI nhận diện người nhận bằng ảnh mẫu đã lưu
 
 **Đã triển khai trong ứng dụng ViePN chính → Trợ lý → Ảnh chụp hội thoại:**
