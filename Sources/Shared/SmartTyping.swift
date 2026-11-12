@@ -221,7 +221,13 @@ enum SmartTyping {
         let trace = collapseRepeats(raw.lowercased())
         guard trace.count >= 2, trace.count <= 65, limit > 0,
               trace.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
-        let dictionary = englishWords + vietnameseWords + Array(learned.keys)
+        // English-only mode must never insert an accented Vietnamese word.
+        // Learned plain ASCII words are still eligible in that mode.
+        let dictionary = language == "en"
+            ? englishWords + learned.keys.filter {
+                $0.allSatisfy({ $0.isASCII && $0.isLetter })
+            }
+            : englishWords + vietnameseWords + Array(learned.keys)
 
         // Two-character swipes require an exact unaccented match, so "or"
         // remains English but "co" can propose "có" and "cô".
@@ -259,6 +265,13 @@ enum SmartTyping {
         return rankedGlideWords(matches.filter { $0.distance == closest }.map(\.word),
                                 trace: trace, learned: learned,
                                 language: language, limit: limit)
+    }
+
+    /// A Vietnamese word may begin with đ while the physical QWERTY swipe
+    /// starts on d. Validate against the accent-free key spelling.
+    static func glideStartsWithPhysicalKey(_ word: String, key: String) -> Bool {
+        guard let first = glideSpelling(word)?.first else { return false }
+        return String(first) == key.lowercased()
     }
 
     private static func glideSpelling(_ word: String) -> String? {
