@@ -96,21 +96,29 @@ enum ChatScreenshotReference {
             request.usesLanguageCorrection = true
             try VNImageRequestHandler(cgImage: cgImage).perform([request])
             let header = (request.results ?? []).compactMap {
-                observation -> (String, Double, Double)? in
+                observation -> (String, CGRect)? in
                 guard let text = observation.topCandidates(1).first?.string else {
                     return nil
                 }
-                return (text, Double(observation.boundingBox.midX),
-                        Double(observation.boundingBox.midY))
-            }.filter { $0.2 >= 0.77 && $0.2 <= 0.96
-                && $0.1 >= 0.23 && $0.1 <= 0.77 }
-            guard let title = header.first?.0.trimmingCharacters(
-                in: .whitespacesAndNewlines),
-                  title.count >= 2 && title.count <= 60 else { return nil }
-            // Keep just the app's top conversation header; not message text.
-            let crop = CGRect(x: 0, y: CGFloat(cgImage.height) * 0.055,
-                              width: CGFloat(cgImage.width),
-                              height: CGFloat(cgImage.height) * 0.185).integral
+                return (text, observation.boundingBox)
+            }.filter { $0.1.midY >= 0.77 && $0.1.midY <= 0.96
+                && $0.1.midX >= 0.23 && $0.1.midX <= 0.77 }
+                .sorted { abs($0.1.midY - 0.88) < abs($1.1.midY - 0.88) }
+            guard let first = header.first else { return nil }
+            let title = first.0.trimmingCharacters(
+                in: .whitespacesAndNewlines)
+            guard title.count >= 2 && title.count <= 60 else { return nil }
+            // Crop ONLY the OCR title glyph area plus a small margin, not
+            // a whole navigation band that might include actual chat lines.
+            let nameBox = first.1
+            let minX = max(0, nameBox.minX - 0.035)
+            let maxX = min(1, nameBox.maxX + 0.035)
+            let minY = max(0, 1 - nameBox.maxY - 0.018)
+            let maxY = min(1, 1 - nameBox.minY + 0.018)
+            let crop = CGRect(x: minX * CGFloat(cgImage.width),
+                              y: minY * CGFloat(cgImage.height),
+                              width: (maxX - minX) * CGFloat(cgImage.width),
+                              height: (maxY - minY) * CGFloat(cgImage.height)).integral
             guard let cropped = cgImage.cropping(to: crop) else { return nil }
             let aspect = CGFloat(cropped.height) / CGFloat(cropped.width)
             let target = CGSize(width: 480, height: 480 * aspect)
