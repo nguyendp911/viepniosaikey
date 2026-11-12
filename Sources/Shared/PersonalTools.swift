@@ -129,6 +129,24 @@ enum PersonaStore {
     /// UI layouts vary by iPhone, app version and screenshot crop. Prefer
     /// the upper navigation band, but never treat a message-body match as
     /// proof of identity. Candidates can be reviewed by the user.
+    /// Vision occasionally merges the chat title with the online indicator.
+    /// Strip only known status suffixes, never arbitrary portions of a name.
+    static func normalizedScreenshotTitle(_ value: String) -> String {
+        let normalized = normalizedName(value)
+        let statuses = ["dang hoat dong", "vua truy cap", "hoat dong",
+                        "online", "active now", "truy cap gan day"]
+        for suffix in statuses {
+            for delimiter in [" · ", " • ", " - ", "  ", "\n"] {
+                let ending = delimiter + suffix
+                if normalized.hasSuffix(ending) {
+                    return String(normalized.dropLast(ending.count))
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+        }
+        return normalized
+    }
+
     static func headerCandidates(_ boxes: [ScreenshotTextBox]) -> [ScreenshotTextBox] {
         boxes.filter {
             $0.midY >= 0.66 && $0.midY <= 0.967
@@ -165,7 +183,7 @@ enum PersonaStore {
         for box in headerCandidates(boxes) {
             let title = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
             let matches = all.filter {
-                normalizedName($0.name) == normalizedName(title)
+                normalizedName($0.name) == normalizedScreenshotTitle(title)
             }
             if !matches.isEmpty {
                 return ScreenshotMatch(recognizedTitle: title, matches: matches)
