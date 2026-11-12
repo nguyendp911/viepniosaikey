@@ -116,6 +116,27 @@ enum KeyboardSettings {
         set { defaults.set(newValue, forKey: prefix + "glideEnabled") }
     }
     // Optional touch-area expansion into the gap between neighboring keys.
+    // Only the emoji chosen from the idle keyboard strip are counted.
+    // Do not scan messages, clipboard or text typed in other apps.
+    static var frequentlyUsedEmoji: [String: Int] {
+        get {
+            defaults.dictionary(forKey: prefix + "frequentlyUsedEmoji") as? [String: Int] ?? [:]
+        }
+        set {
+            let bounded = newValue.sorted { $0.value > $1.value }.prefix(32)
+            defaults.set(Dictionary(uniqueKeysWithValues: bounded.map {
+                (String($0.key.prefix(12)), min(10000, max(0, $0.value)))
+            }), forKey: prefix + "frequentlyUsedEmoji")
+        }
+    }
+
+    static func recordEmojiSelection(_ emoji: String) {
+        guard !emoji.isEmpty, emoji.count <= 8 else { return }
+        var counts = frequentlyUsedEmoji
+        counts[emoji] = min(10000, (counts[emoji] ?? 0) + 1)
+        frequentlyUsedEmoji = counts
+    }
+
     static var glideTrailEnabled: Bool {
         get { defaults.object(forKey: prefix + "glideTrailEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "glideTrailEnabled") }
