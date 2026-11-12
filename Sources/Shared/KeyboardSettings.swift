@@ -126,6 +126,29 @@ enum KeyboardSettings {
         set { defaults.set(newValue, forKey: prefix + "adaptiveTouchEnabled") }
     }
 
+    /// Private local counts for explicitly accepted swipe candidates. No raw
+    /// swipe path or touch coordinates are stored or uploaded.
+    static var glideLearningEnabled: Bool {
+        get { defaults.object(forKey: prefix + "glideLearningEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "glideLearningEnabled") }
+    }
+    static var glideUsageCounts: [String: Int] {
+        get { defaults.dictionary(forKey: prefix + "glideUsageCounts") as? [String: Int] ?? [:] }
+        set {
+            let bounded = newValue.sorted { $0.value > $1.value }.prefix(600)
+            defaults.set(Dictionary(uniqueKeysWithValues: bounded.map {
+                (String($0.key.prefix(90)), min(10000, max(0, $0.value)))
+            }), forKey: prefix + "glideUsageCounts")
+        }
+    }
+    static func recordGlideChoice(_ word: String) {
+        guard glideLearningEnabled else { return }
+        let key = SmartTyping.glideUsageKey(word)
+        var counts = glideUsageCounts
+        counts[key] = min(10000, (counts[key] ?? 0) + 1)
+        glideUsageCounts = counts
+    }
+
     static var autoLearnWords: Bool {
         get { defaults.bool(forKey: prefix + "autoLearnWords") }
         set { defaults.set(newValue, forKey: prefix + "autoLearnWords") }
