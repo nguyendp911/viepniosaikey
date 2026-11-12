@@ -142,8 +142,19 @@ enum KeyboardSettings {
                            forKey: prefix + "oneHandMode") }
     }
     static var textSnippets: [String: String] {
-        get { defaults.dictionary(forKey: prefix + "textSnippets") as? [String: String]
-                  ?? [";date": "{date}", ";time": "{time}"] }
+        get {
+            var result = defaults.dictionary(forKey: prefix + "textSnippets")
+                as? [String: String] ?? [";date": "{date}", ";time": "{time}"]
+            // Add the shortcut only once; user deletion is respected later.
+            if !defaults.bool(forKey: prefix + "recipientSnippetMigrationV1") {
+                defaults.set(true, forKey: prefix + "recipientSnippetMigrationV1")
+                if result[";ten"] == nil {
+                    result[";ten"] = "{recipient}"
+                    defaults.set(result, forKey: prefix + "textSnippets")
+                }
+            }
+            return result
+        }
         set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(70))
                          .map { (String($0.key.prefix(30)), String($0.value.prefix(500))) }),
                        forKey: prefix + "textSnippets") }
