@@ -212,41 +212,92 @@ enum SmartTyping {
 
     /// A small local glide recognizer. The traced key sequence is compressed
     /// and scored against the dictionary; it is deliberately never sent to AI.
+    /// Rank both English and Vietnamese candidates against the same physical
+    /// QWERTY gesture. Diacritics are not separate keys: compare against an
+    /// accent-free *stroke spelling*, then retain the actual accented word.
+    /// 'language' is an explicit keyboard preference ("auto", "vi", "en").
     static func glideCandidates(trace raw: String, learned: [String: Int] = [:],
-                                limit: Int = 3) -> [String] {
+                                language: String = "auto", limit: Int = 3) -> [String] {
         let trace = collapseRepeats(raw.lowercased())
-        guard trace.count >= 2, trace.count <= 30, limit > 0,
+        guard trace.count >= 2, trace.count <= 65, limit > 0,
               trace.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
         let dictionary = englishWords + vietnameseWords + Array(learned.keys)
-        // Two-key swipes are ambiguous; accept only exact dictionary hits.
-        if trace.count == 2 {
-            var seen = Set<String>()
-            return Array(dictionary.filter {
-                $0.lowercased() == trace && seen.insert($0).inserted
-            }.prefix(limit))
+
+        // Two-character swipes require an exact unaccented match, so "or"
+        // remains English but "co" can propose "có" and "cô".
+        struct Match {
+            let word: String
+            let distance: Int
         }
-        let threshold = max(2, trace.count / 2)
-        let matches = dictionary.compactMap { word -> (String, Int)? in
-            let letters = collapseRepeats(word.lowercased())
-            guard abs(letters.count - trace.count) <= threshold,
-                  letters.first == trace.first, letters.last == trace.last else { return nil }
-            let distance = editDistance(Array(letters), Array(trace))
-            guard distance <= threshold else { return nil }
-            return (word, distance)
+        var matches: [Match] = []
+        let threshold = trace.count == 2 ? 0 : max(2, trace.count / 2)
+        for word in dictionary {
+            guard let spelling = glideSpelling(word), !spelling.isEmpty,
+                  spelling.first == trace.first,
+                  spelling.last == trace.last,
+                  abs(spelling.count - trace.count) <= threshold else { continue }
+            let distance = editDistance(Array(spelling), Array(trace))
+            if distance <= threshold {
+                matches.append(Match(word: word, distance: distance))
+            }
+        }
+
+        let closest = matches.map(\.distance).min()
+        // Prefer exact spelling matches over fuzzy guesses. For a dense trace
+        // passing through many unintended keys, use the geometric model.
+        if closest == 0 || (closest != nil && closest! <= 1) {
+            let nearest = matches.filter { $0.distance == closest! }
+            return rankedGlideWords(nearest.map(\.word), trace: trace,
+                                    learned: learned, language: language, limit: limit)
+        }
+
+        let geometric = geometryGlideCandidates(
+            trace: trace, dictionary: dictionary,
+            learned: learned, language: language, limit: limit)
+        if !geometric.isEmpty { return geometric }
+        guard let closest else { return [] }
+        return rankedGlideWords(matches.filter { $0.distance == closest }.map(\.word),
+                                trace: trace, learned: learned,
+                                language: language, limit: limit)
+    }
+
+    private static func glideSpelling(_ word: String) -> String? {
+        let plain = word.lowercased()
+            .folding(options: [.diacriticInsensitive], locale: Locale(identifier: "vi_VN"))
+            .replacingOccurrences(of: "đ", with: "d")
+        guard !plain.isEmpty,
+              plain.allSatisfy({ $0.isASCII && $0.isLetter }) else { return nil }
+        return collapseRepeats(plain)
+    }
+
+    private static func rankedGlideWords(
+        _ words: [String], trace: String, learned: [String: Int],
+        language: String, limit: Int
+    ) -> [String] {
+        // Known Latin English words win only when the *whole trace* matches
+        // them in automatic mode. Otherwise Vietnamese is preferred; users
+        // can override this using the language preference.
+        func languageRank(_ word: String) -> Int {
+            let vi = vietnameseSet.contains(word.lowercased())
+            let en = englishSet.contains(word.lowercased())
+            switch language {
+            case "vi": return vi ? 0 : 2
+            case "en": return en ? 0 : 2
+            default:
+                if en && glideSpelling(word) == trace { return 0 }
+                return vi ? 1 : 2
+            }
         }
         var seen = Set<String>()
-        let direct = Array(matches.sorted {
-            if $0.1 != $1.1 { return $0.1 < $1.1 }
-            let a = learned[$0.0] ?? 0, b = learned[$1.0] ?? 0
-            if a != b { return a > b }
-            return abs($0.0.count - trace.count) < abs($1.0.count - trace.count)
-        }.compactMap { seen.insert($0.0).inserted ? $0.0 : nil }.prefix(limit))
-        if !direct.isEmpty { return direct }
-        // A real finger crosses intervening keys between intended letters.
-        // Edit distance on the raw visited-key string fails there. Compare
-        // the geometry of the traced path with dictionary word strokes.
-        return geometryGlideCandidates(trace: trace, dictionary: dictionary,
-                                       learned: learned, limit: limit)
+        return Array(words.sorted {
+            let a = languageRank($0), b = languageRank($1)
+            if a != b { return a < b }
+            let fa = learned[$0] ?? 0, fb = learned[$1] ?? 0
+            if fa != fb { return fa > fb }
+            // Preserve the dictionary order for equally plausible tones:
+            // common Vietnamese variants remain available for manual choice.
+            return false
+        }.filter { seen.insert($0).inserted }.prefix(limit))
     }
 
     private static let qwertyCenters: [Character: (Double, Double)] = {
@@ -262,10 +313,7 @@ enum SmartTyping {
     }()
 
     private static func strokePoints(_ text: String) -> [(Double, Double)]? {
-        let plain = collapseRepeats(
-            text.lowercased()
-                .folding(options: [.diacriticInsensitive], locale: Locale(identifier: "vi_VN"))
-                .replacingOccurrences(of: "đ", with: "d"))
+        guard let plain = glideSpelling(text) else { return nil }
         var points: [(Double, Double)] = []
         for key in plain {
             guard let position = qwertyCenters[key] else { return nil }
@@ -306,7 +354,7 @@ enum SmartTyping {
 
     private static func geometryGlideCandidates(
         trace: String, dictionary: [String], learned: [String: Int],
-        limit: Int
+        language: String, limit: Int
     ) -> [String] {
         guard let points = strokePoints(trace) else { return [] }
         let observed = resampleStroke(points)
@@ -314,14 +362,10 @@ enum SmartTyping {
         let last = trace.last
         var scores: [(word: String, cost: Double)] = []
         for word in dictionary {
-            guard let wordPoints = strokePoints(word),
-                  let firstLetter = word.lowercased()
-                    .folding(options: [.diacriticInsensitive],
-                             locale: Locale(identifier: "vi_VN")).first,
-                  let lastLetter = word.lowercased()
-                    .folding(options: [.diacriticInsensitive],
-                             locale: Locale(identifier: "vi_VN")).last,
-                  firstLetter == first, lastLetter == last else { continue }
+            guard let wordSpelling = glideSpelling(word),
+                  wordSpelling.first == first,
+                  wordSpelling.last == last,
+                  let wordPoints = strokePoints(word) else { continue }
             let ideal = resampleStroke(wordPoints)
             var squared: Double = 0
             for (a, b) in zip(observed, ideal) {
@@ -332,13 +376,18 @@ enum SmartTyping {
             let rms = sqrt(squared / Double(observed.count))
             if rms < 1.25 { scores.append((word, rms)) }
         }
-        var seen = Set<String>()
-        return Array(scores.sorted {
+        let ordered = scores.sorted {
             if abs($0.cost - $1.cost) > 0.12 { return $0.cost < $1.cost }
             let a = learned[$0.word] ?? 0, b = learned[$1.word] ?? 0
             if a != b { return a > b }
             return $0.cost < $1.cost
-        }.compactMap { seen.insert($0.word).inserted ? $0.word : nil }.prefix(limit))
+        }
+        guard let best = ordered.first?.cost else { return [] }
+        // Prefer words with a similar path, then let the explicit language
+        // preference order accented alternatives sharing the same stroke.
+        return rankedGlideWords(
+            ordered.filter { $0.cost <= best + 0.20 }.map(\.word),
+            trace: trace, learned: learned, language: language, limit: limit)
     }
 
     private static func collapseRepeats(_ input: String) -> String {
