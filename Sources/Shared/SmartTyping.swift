@@ -70,6 +70,19 @@ enum SmartTyping {
 
     private static let vietnameseSet: Set<String> = Set(vietnameseWords.map { $0.lowercased() })
 
+    // Group built-in words by their first two characters once. The hot
+    // prediction path only visits a small bucket instead of both dictionaries
+    // for every keystroke. Dictionary contents stay entirely on-device.
+    private static let predictionBuckets: [String: [String]] = {
+        var result: [String: [String]] = [:]
+        for word in englishWords + vietnameseWords where word.count >= 2 {
+            result[String(word.prefix(2)), default: []].append(word)
+        }
+        return result
+    }()
+
+
+
     static func isEnglishWord(_ word: String) -> Bool {
         englishSet.contains(word.lowercased())
     }
@@ -121,16 +134,14 @@ enum SmartTyping {
     static func predictions(prefix raw: String, learned: [String: Int] = [:],
                             limit: Int = 3) -> [String] {
         let prefix = raw.lowercased()
-        guard prefix.count >= 2, prefix.count <= 24 else { return [] }
+        guard prefix.count >= 2, prefix.count <= 24, limit > 0 else { return [] }
         var seen = Set<String>()
         var candidates: [String] = []
         for word in learned.keys where word.lowercased().hasPrefix(prefix) {
             if seen.insert(word).inserted { candidates.append(word) }
         }
-        for word in englishWords where word.hasPrefix(prefix) {
-            if seen.insert(word).inserted { candidates.append(word) }
-        }
-        for word in vietnameseWords where word.hasPrefix(prefix) {
+        let bucket = predictionBuckets[String(prefix.prefix(2))] ?? []
+        for word in bucket where word.hasPrefix(prefix) {
             if seen.insert(word).inserted { candidates.append(word) }
         }
         // Plain `<` instead of localizedStandardCompare: the locale-aware
