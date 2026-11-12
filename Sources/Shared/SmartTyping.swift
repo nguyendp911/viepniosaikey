@@ -229,6 +229,15 @@ enum SmartTyping {
         _ = VietnameseTelex.composeKeys("tooi")
     }
 
+    /// Reject incidental tiny finger movements on a normal key tap.
+    /// Pan recognizers can begin after very little movement; treating two
+    /// neighboring key hits as a word previously caused accidental inserts.
+    static func isIntentionalGlide(trace: String, travelPoints: Double,
+                                   keyHeight: Double) -> Bool {
+        trace.count >= 2 && trace.count <= 140
+            && travelPoints >= max(22, keyHeight * 0.85)
+    }
+
     /// A small local glide recognizer. The traced key sequence is compressed
     /// and scored against the dictionary; it is deliberately never sent to AI.
     /// Rank both English and Vietnamese candidates against the same physical
