@@ -67,6 +67,17 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 
 ViePN không tự đọc hay theo dõi Zalo, Messenger hoặc bất kỳ ứng dụng khác. Lịch sử chỉ được lưu **khi bạn bấm Lưu**, tách theo hồ sơ đang chọn và có chức năng **Xóa toàn bộ lịch sử người này**. Khi bạn chủ động dùng AI online, tối đa 14 lượt gần nhất được gửi cho nhà cung cấp AI đã cấu hình, cùng ghi chú và hồ sơ liên quan. Dữ liệu lịch sử đang lưu trong App Group UserDefaults **chưa mã hóa chuyên dụng**; không lưu bí mật hoặc cuộc trò chuyện nhạy cảm. Các tin nhắn đã lưu là dữ liệu tham chiếu cho AI trong lần suy luận, **không phải huấn luyện trọng số mô hình**. Ứng dụng không tự lên lịch gửi tin nhắn.
 
+### Thanh ngữ cảnh trong khoảng trống bên dưới 5 nút công cụ
+
+ViePN có một **vùng gợi ý cố định, không làm thay đổi vị trí hàng phím**:
+
+- **Khi chưa gõ hoặc vừa kết thúc một từ:** hiển thị các emoji được sử dụng thường xuyên và các câu mở đầu hội thoại để bạn tùy ý chèn. Emoji được xếp hạng theo số lượt bạn **chủ động chọn** từ thanh này, không phân tích văn bản trong các ứng dụng khác.
+- **Khi bắt đầu gõ:** chuyển ngay sang gợi ý từ theo tiền tố trong tiếng Việt–Anh; hiển thị từ đang gõ trước trong lúc kết quả tính toán offline đang được chuẩn bị.
+- **Khi vuốt:** thay bằng các từ nhận diện được, các biến thể dấu tiếng Việt và nút **Tất cả** nếu lịch sử lựa chọn đã rút gọn danh sách.
+- **Khi chèn khoảng trắng / xuống dòng để kết thúc từ:** tự quay lại emoji và các câu gợi chuyện.
+- Có thể cuộn ngang qua các emoji, mẫu lời nhắn và gợi ý từ. Bấm một chip để chèn nội dung; bàn phím không tự gửi tin nhắn.
+- Câu gợi chuyện ở trạng thái chờ là **mẫu offline** có thể dùng tên hồ sơ đã được bạn chọn, không phải câu do AI tự suy luận từ tin nhắn chưa được người dùng chia sẻ. AI lịch sử hội thoại vẫn chỉ chạy khi bạn chủ động yêu cầu.
+
 ## Quyền riêng tư và giới hạn iOS
 
 - Không tự đọc Zalo, Messenger, Facebook, danh bạ, email hoặc hội thoại ứng dụng khác. Thông tin người nhận phải do người dùng chọn hoặc tự cung cấp qua nội dung dán.
