@@ -56,6 +56,14 @@ struct VerifySmartKeyboard {
                "zero-limit predictions return nothing")
 
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
+        assert(SmartTyping.glideCandidates(trace: "or") == ["or"],
+               "two-letter English swipe inserts exact word")
+        assert(SmartTyping.glideCandidates(trace: "oh").isEmpty,
+               "two-letter swipe does not invent words")
+        assert(SmartTyping.glideCandidates(trace: "hel o").isEmpty,
+               "invalid traced words are not accepted as literal candidates")
+        assert(SmartTyping.glideCandidates(trace: "bokk").contains("book"),
+               "swipe recognizer tolerates one traced-key error")
         assert(SmartTyping.glideCandidates(trace: "helo", learned: ["hello": 9])
                    .contains("hello"), "personalized swipe word")
         assert(SmartTyping.nearbyKeyCorrections("storw").contains("store"),
