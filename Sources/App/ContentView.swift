@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import AudioToolbox
+import PhotosUI
 
 /// Compact native settings screen for the ViePN AI Keyboard host application.
 /// This view intentionally has no NavigationStack or large navigation title:
@@ -49,6 +50,10 @@ struct ContentView: View {
     @State private var activePersonaID = PersonaStore.activeID
     @State private var personaName = ""
     @State private var showContactNamePicker = false
+    @State private var personaScreenshotPicker: PhotosPickerItem?
+    @State private var pendingHeaderTitle = ""
+    @State private var pendingHeaderPNG: Data?
+    @State private var screenshotReferenceStatus = ""
     @State private var autoMatchPersona = PersonaStore.automaticNameMatch
     @State private var transcriptPreview = ""
     @State private var transcriptMatchStatus = ""
@@ -1544,6 +1549,27 @@ struct ContentView: View {
         }
     }
 
+    @MainActor
+    private func recognizePersonaScreenshot(_ picker: PhotosPickerItem) async {
+        screenshotReferenceStatus = "Đang đọc tiêu đề ảnh trên iPhone..."
+        pendingHeaderPNG = nil
+        do {
+            guard let image = try await picker.loadTransferable(type: Data.self),
+                  let reference = try await ChatScreenshotReference.extract(from: image)
+            else {
+                screenshotReferenceStatus =
+                    "Không thấy tên ở tiêu đề. Hãy chụp đầy đủ thanh tên người đang trò chuyện."
+                return
+            }
+            pendingHeaderTitle = reference.title
+            pendingHeaderPNG = reference.png
+            screenshotReferenceStatus = "Đã đọc tên: " + reference.title
+                + ". Hãy kiểm tra đúng người trước khi lưu."
+        } catch {
+            screenshotReferenceStatus = "Không đọc được ảnh: " + error.localizedDescription
+        }
+    }
+
     private var personaSettingsCard: some View {
         keyboardPanel("Hồ sơ người nhận (AI Persona)", icon: "person.crop.rectangle.stack") {
             VStack(alignment: .leading, spacing: 11) {
@@ -1601,6 +1627,51 @@ struct ContentView: View {
                         onCancel: { showContactNamePicker = false }
                     )
                 }
+                PhotosPicker(selection: $personaScreenshotPicker, matching: .images) {
+                    Label("Kèm ảnh chụp màn hình Zalo / Messenger",
+                          systemImage: "photo.badge.plus")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .onChange(of: personaScreenshotPicker) { image in
+                    guard let image else { return }
+                    Task { await recognizePersonaScreenshot(image) }
+                }
+                if let png = pendingHeaderPNG, let preview = UIImage(data: png) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Image(uiImage: preview)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 300)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        Text("Ảnh mẫu nhận diện: " + pendingHeaderTitle)
+                            .font(.system(size: 11)).foregroundStyle(cyan)
+                        Text("ViePN chỉ lưu vùng tiêu đề của ảnh, không lưu nội dung tin nhắn.")
+                            .font(.system(size: 10)).foregroundStyle(muted)
+                        if !activePersonaID.isEmpty {
+                            Button {
+                                if ChatScreenshotReference.save(
+                                    personaID: activePersonaID,
+                                    title: pendingHeaderTitle, headerPNG: png) {
+                                    screenshotReferenceStatus =
+                                        "Đã gắn ảnh mẫu với hồ sơ đang chọn."
+                                    pendingHeaderPNG = nil
+                                } else {
+                                    screenshotReferenceStatus =
+                                        "Không lưu được ảnh mẫu; kiểm tra App Group."
+                                }
+                            } label: {
+                                Label("Gắn ảnh cho hồ sơ đang chọn",
+                                      systemImage: "person.crop.circle.badge.checkmark")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+                if !screenshotReferenceStatus.isEmpty {
+                    Text(screenshotReferenceStatus)
+                        .font(.system(size: 11)).foregroundStyle(cyan)
+                }
                 keyboardMenuRow("Vai người nhận", symbol: "person",
                                 value: $personaRole,
                                 options: ReplyRecipient.allCases.filter { $0 != .automatic }
@@ -1612,10 +1683,22 @@ struct ContentView: View {
                 .font(.system(size: 12))
                 .textFieldStyle(.roundedBorder)
                 Button {
+                    let previousID = PersonaStore.activeID
                     PersonaStore.add(name: personaName, role: personaRole,
                                      selfAddress: personaSelfAddress, tone: personaTone)
                     personas = PersonaStore.all
                     activePersonaID = PersonaStore.activeID
+                    if activePersonaID != previousID,
+                       let png = pendingHeaderPNG {
+                        screenshotReferenceStatus = ChatScreenshotReference.save(
+                            personaID: activePersonaID,
+                            title: pendingHeaderTitle, headerPNG: png)
+                            ? "Đã tạo hồ sơ kèm ảnh tiêu đề tham chiếu."
+                            : "Đã tạo hồ sơ, nhưng chưa lưu được ảnh mẫu."
+                        if screenshotReferenceStatus.hasPrefix("Đã tạo hồ sơ kèm") {
+                            pendingHeaderPNG = nil
+                        }
+                    }
                     personaName = ""
                 } label: {
                     Label("Thêm & chọn hồ sơ", systemImage: "plus.circle.fill")
@@ -1683,7 +1766,8 @@ struct ContentView: View {
                             guard ConversationHistory.turns(for: item.id).isEmpty,
                                   !ConversationMemory.notes.contains(where: {
                                       $0.personaID == item.id
-                                  }) else {
+                                  }),
+                                  ChatScreenshotReference.remove(personaID: item.id) else {
                                 apiFeedback = "Không thể xóa lịch sử của hồ sơ này. Hãy mở khóa thiết bị và thử lại."
                                 return
                             }
