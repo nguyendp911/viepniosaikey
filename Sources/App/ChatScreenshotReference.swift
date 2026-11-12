@@ -144,29 +144,48 @@ enum ChatScreenshotReference {
             request.minimumTextHeight = 0.004
             try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
             let observations = request.results ?? []
-            let expected = PersonaStore.normalizedName(preferredName)
-            let sorted = observations
-                .filter { $0.boundingBox.midY >= 0.54
-                    && $0.boundingBox.midY <= 0.975 }
-                .sorted { a, b in
-                    if abs(a.boundingBox.midY - b.boundingBox.midY) > 0.015 {
-                        return a.boundingBox.midY > b.boundingBox.midY
-                    }
-                    return abs(a.boundingBox.midX - 0.5)
-                        < abs(b.boundingBox.midX - 0.5)
-                }
             var entries: [(title: String, box: CGRect)] = []
             var seen = Set<String>()
-            for observation in sorted {
-                for hypothesis in observation.topCandidates(3) {
-                    let text = hypothesis.string.trimmingCharacters(
-                        in: .whitespacesAndNewlines)
-                    guard PersonaStore.isPlausibleHeaderTitle(text) else { continue }
-                    let key = PersonaStore.normalizedScreenshotTitle(text)
-                    guard seen.insert(key).inserted else { continue }
-                    entries.append((title: text, box: observation.boundingBox))
+            func appendText(_ text: String, _ box: CGRect) {
+                let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard PersonaStore.isPlausibleHeaderTitle(value),
+                      box.midY >= 0.54, box.midY <= 0.975 else { return }
+                let key = PersonaStore.normalizedScreenshotTitle(value)
+                guard seen.insert(key).inserted else { return }
+                entries.append((title: value, box: box))
+            }
+            for observation in observations {
+                for candidate in observation.topCandidates(3) {
+                    appendText(candidate.string, observation.boundingBox)
                 }
             }
+            // Re-run OCR on just the top quarter of the screenshot.
+            // In a full Zalo screenshot, the small navigation title may be
+            // missed when Vision gives precedence to large chat bubbles.
+            let headerFraction: CGFloat = 0.30
+            let topRect = CGRect(
+                x: 0, y: 0, width: CGFloat(cgImage.width),
+                height: CGFloat(cgImage.height) * headerFraction).integral
+            if let topImage = cgImage.cropping(to: topRect) {
+                let headerRequest = VNRecognizeTextRequest()
+                headerRequest.recognitionLevel = .accurate
+                headerRequest.recognitionLanguages = ["vi-VN", "en-US"]
+                headerRequest.usesLanguageCorrection = false
+                headerRequest.minimumTextHeight = 0.005
+                try VNImageRequestHandler(cgImage: topImage, options: [:])
+                    .perform([headerRequest])
+                for observation in headerRequest.results ?? [] {
+                    let b = observation.boundingBox
+                    let mapped = CGRect(
+                        x: b.minX,
+                        y: 1 - headerFraction + b.minY * headerFraction,
+                        width: b.width, height: b.height * headerFraction)
+                    for candidate in observation.topCandidates(3) {
+                        appendText(candidate.string, mapped)
+                    }
+                }
+            }
+            let expected = PersonaStore.normalizedName(preferredName)
             entries.sort { lhs, rhs in
                 let lm = !expected.isEmpty
                     && PersonaStore.normalizedScreenshotTitle(lhs.title) == expected
@@ -185,7 +204,7 @@ enum ChatScreenshotReference {
             // that may contain private message contents.
             let band = CGRect(x: 0, y: 0, width: 1, height: 0.23)
             return ScanResult(candidates: candidates,
-                              totalOCRLines: observations.count,
+                              totalOCRLines: observations.count + entries.count,
                               headerPreviewPNG: pngCrop(bandToVisionBox(band),
                                                         image: cgImage))
         }.value
