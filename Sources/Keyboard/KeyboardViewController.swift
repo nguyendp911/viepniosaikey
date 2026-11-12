@@ -1254,22 +1254,34 @@ final class KeyboardViewController: UIInputViewController {
         case .ended:
             captureGlidePoint(point)
             guard glideIsActive, glidePath.count >= 3 else { return }
-            let suggestions = SmartTyping.glideCandidates(trace: glidePath)
-            if !suggestions.isEmpty {
-                // A swipe beginning on a character can have inserted that
-                // initial character via touchDown. Only auto-replace a
-                // one-character word, never overwrite an existing draft.
-                let before = textDocumentProxy.documentContextBeforeInput ?? ""
-                let current = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
-                if current.count == 1, suggestions[0].lowercased().hasPrefix(current.lowercased()) {
-                    replaceCurrentWord(suggestions[0])
-                } else {
-                    updateCandidates(suggestions)
-                }
-            }
+            let trace = glidePath
+            let personalWords = learnedWords
+            let generation = candidateGeneration
+            let touchCount = typingTouchCount
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
+            // Edit-distance scoring must not block the main touch thread.
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let suggestions = SmartTyping.glideCandidates(
+                    trace: trace, learned: personalWords)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, !suggestions.isEmpty,
+                          self.candidateGeneration == generation,
+                          self.typingTouchCount == touchCount else { return }
+                    // Only replace the one-character trace starting point,
+                    // and only if the host still has the expected prefix.
+                    let before = self.textDocumentProxy.documentContextBeforeInput ?? ""
+                    let current = String(before.reversed()
+                        .prefix(while: { $0.isLetter }).reversed())
+                    if current.count == 1,
+                       suggestions[0].lowercased().hasPrefix(current.lowercased()) {
+                        self.replaceCurrentWord(suggestions[0])
+                    } else {
+                        self.updateCandidates(suggestions)
+                    }
+                }
+            }
         default:
             glidePath = ""
             glideLastKey = ""
