@@ -825,6 +825,10 @@ final class KeyboardViewController: UIInputViewController {
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.7
         button.addTarget(self, action: action, for: .touchUpInside)
+        // All regular keys share the same optional tap effect (letters,
+        // punctuation, space, delete and return) without extra subviews.
+        button.addTarget(self, action: #selector(keypressAnimationTapped(_:)),
+                         for: .touchDown)
         return button
     }
 
@@ -1024,6 +1028,10 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Key animations use a single Core Animation object on the existing
     /// key layer. No overlays, Auto Layout changes, timers or image assets.
+    @objc private func keypressAnimationTapped(_ sender: UIButton) {
+        animateKeypress(sender)
+    }
+
     private func animateKeypress(_ key: UIButton) {
         guard !performanceMode, keypressEffect != "off",
               !UIAccessibility.isReduceMotionEnabled else { return }
@@ -1090,7 +1098,6 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
-        animateKeypress(sender)
         // Sample every 50th touch without invoking a random-number generator
         // on the input latency-critical path.
         typingTouchCount &+= 1
