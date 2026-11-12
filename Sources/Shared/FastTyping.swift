@@ -14,7 +14,7 @@ enum FastTyping {
     /// to the host app without retrieving its full input context.
     static func isTelexModifier(_ key: String) -> Bool {
         guard key.count == 1, let letter = key.lowercased().first else { return false }
-        return "a e o d w s f r x j z".filter { !$0.isWhitespace }.contains(letter)
+        return "aeodwsfrxjz".contains(letter)
     }
 
     /// For old="thuong", new="thương", keep "th", delete only "uong",
