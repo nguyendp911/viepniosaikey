@@ -468,6 +468,7 @@ enum ConversationLens {
                              "ngày mai", "thứ hai", "thứ ba", "thứ tư",
                              "thứ năm", "thứ sáu", "thứ bảy", "chủ nhật",
                              "deadline", "tomorrow", "meeting"]
+        guard limit > 0 else { return [] }
         for source in lines {
             let line = source.trimmingCharacters(in: .whitespacesAndNewlines)
             guard line.count >= 6, line.count <= 240 else { continue }
@@ -475,7 +476,9 @@ enum ConversationLens {
             guard seen.insert(folded).inserted else { continue }
             if line.contains("?") || line.contains("？") {
                 results.append(Finding(kind: .question, text: line))
-            } else if reminderWords.contains(where: { folded.contains($0) }) {
+            } else if reminderWords.contains(where: {
+                folded.contains(ConversationIntelligence.normalized($0))
+            }) {
                 results.append(Finding(kind: .followUp, text: line))
             }
             if results.count >= max(0, min(limit, 12)) { break }
