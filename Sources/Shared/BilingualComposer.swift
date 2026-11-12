@@ -60,6 +60,15 @@ enum BilingualComposer {
         return Decision(rendered: vi, language: vi == raw ? "literal" : "vi")
     }
 
+    /// Restore the word as it looked before the latest physical key.
+    /// Replaying the short raw token is intentional: deleting a Telex shape
+    /// or tone key can change multiple previously rendered characters.
+    static func removingLastKey(from raw: String,
+                                preference: Preference = .automatic) -> Decision {
+        guard !raw.isEmpty else { return Decision(rendered: "", language: "literal") }
+        return compose(String(raw.dropLast()), preference: preference)
+    }
+
     static func append(_ raw: String, key: String,
                        preference: Preference = .automatic) -> Decision {
         compose(raw + key, preference: preference)
