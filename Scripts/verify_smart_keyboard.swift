@@ -58,6 +58,29 @@ struct VerifySmartKeyboard {
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
         assert(SmartTyping.glideCandidates(trace: "or") == ["or"],
                "two-letter English swipe inserts exact word")
+        assert(SmartTyping.glideCandidates(trace: "or", language: "en") == ["or"],
+               "English-only swipe keeps English")
+        assert(SmartTyping.glideCandidates(trace: "chao", language: "vi").contains("chào"),
+               "Vietnamese swipe restores tone in chào")
+        assert(SmartTyping.glideCandidates(trace: "toi", language: "auto").contains("tôi"),
+               "automatic swipe recognizes tôi without a Telex modifier")
+        assert(SmartTyping.glideCandidates(trace: "thuong", language: "vi").contains("thương"),
+               "Vietnamese swipe restores shaped vowel in thương")
+        assert(SmartTyping.glideCandidates(trace: "ban", language: "vi").contains("bạn"),
+               "Vietnamese swipe offers bạn")
+        assert(SmartTyping.glideCandidates(trace: "ban", language: "vi").contains("bàn"),
+               "Vietnamese swipe offers tone alternatives bàn")
+        assert(SmartTyping.glideCandidates(trace: "co", language: "vi").contains("có"),
+               "two-key Vietnamese swipe restores accent")
+        assert(SmartTyping.glideCandidates(trace: "chao", language: "en").allSatisfy({
+                   $0.unicodeScalars.allSatisfy({ $0.isASCII })
+               }), "English-only mode never returns accented words")
+        assert(SmartTyping.glideStartsWithPhysicalKey("được", key: "d"),
+               "physical D gesture can insert Vietnamese Đ")
+        assert(SmartTyping.glideStartsWithPhysicalKey("bạn", key: "b"),
+               "Vietnamese tones do not invalidate physical initial key")
+        assert(!SmartTyping.glideStartsWithPhysicalKey("tôi", key: "b"),
+               "initial-key safety check prevents unrelated replacement")
         assert(SmartTyping.glideCandidates(trace: "oh").isEmpty,
                "two-letter swipe does not invent words")
         assert(SmartTyping.glideCandidates(trace: "hel o").isEmpty,
