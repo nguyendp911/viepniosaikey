@@ -190,6 +190,15 @@ Sau khi cài, mở **Cài đặt iOS → Cài đặt chung → Bàn phím → C�
 - **Vuốt mượt hơn:** Đường vuốt theo hình dạng từ điển tiếng Việt–Anh được tính sẵn và tái sử dụng để giảm công việc CPU khi nhận diện lần sau.
 - **Giới hạn kiểm chứng:** Các tính năng cần được thử với IPA đã ký trên iPhone. CI thành công chỉ chứng minh các kiểm thử và biên dịch trên môi trường GitHub; không bảo đảm tốc độ, quyền chia sẻ hay cảm giác vuốt trên máy thật.
 
+## Tối ưu gõ lâu, chống lag và tránh loạn chữ
+
+- **Thanh gợi ý ít cấp phát:** Tái sử dụng các nút gợi ý thay vì hủy/tạo `UIButton` và constraint mỗi lần gõ. Hạn chế giật khi gõ liên tục.
+- **Dự đoán riêng:** Gom các yêu cầu dự đoán trong một hàng đợi nền, chỉ tính sau khoảng nghỉ gõ ngắn; trả về kết quả cũ sẽ bị bỏ qua.
+- **Không ghi từ điển lên ổ sau mỗi dấu cách:** Từ mới được gom lại và ghi theo đợt; khi bàn phím đóng sẽ lưu phần còn lại.
+- **Bảo vệ con trỏ:** Trước khi xóa/sửa một tổ hợp Telex, bàn phím kiểm tra đoạn chữ thực tế trước con trỏ có khớp nội dung mình đang xử lý hay không. Nếu không, dùng xóa phím mặc định để tránh xóa nhầm.
+- **Vuốt có ngưỡng:** Cú chạm trượt nhẹ trên phím không còn được coi là một từ vuốt; đồng thời giảm số lần hit-test phím, giới hạn số lần vẽ vệt sáng mỗi khung hình và dùng hàng đợi nền riêng cho vuốt.
+- **Tình trạng xác minh:** CI kiểm thử biên dịch; cảm giác gõ lâu trên iPhone thực tế vẫn cần được kiểm tra vì UIKit, bàn phím host (Zalo/Messenger) và thiết bị có thể khác môi trường build.
+
 ## GitHub Actions / IPA
 
 Mỗi push lên `main` chạy kiểm thử Swift và build iOS qua workflow [iOS Build](.github/workflows/ios.yml). Vào Actions → run mới nhất → Artifacts để tải sản phẩm nếu job tạo artifact. Workflow có đường ký Ad Hoc thủ công theo môi trường và secrets `ios-signing`; IPA chưa ký không thể cài trực tiếp.
