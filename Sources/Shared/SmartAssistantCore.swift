@@ -195,7 +195,10 @@ enum ConversationHistory {
                 createdAt: now.addingTimeInterval(Double(index) * 0.001)))
         }
         all = old
-        return unique.count
+        let storedIDs = Set(all.filter { $0.personaID == personaID }.map(\.id))
+        // An iOS protected-container write can fail (e.g. locked/unavailable).
+        // Return zero unless the new turns really made it to persistent store.
+        return old.suffix(unique.count).filter { storedIDs.contains($0.id) }.count
     }
 
     static func clear(for personaID: String) {
