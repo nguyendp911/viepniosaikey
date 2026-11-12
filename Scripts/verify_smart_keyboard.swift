@@ -220,6 +220,24 @@ struct VerifySmartKeyboard {
                "AI sees only saved conversation of the selected profile")
         assert(ConversationHistory.prompt(for: "missing-persona-id").isEmpty,
                "unknown contact cannot access another contact history")
+        let topicList = ConversationIntelligence.topics(for: historyID)
+        assert(topicList.contains(where: { $0.name == "Công việc" }),
+               "offline topic detection recognizes work without cloud AI")
+        let matching = ConversationIntelligence.evidence(
+            for: historyID, query: "bận làm công việc", limit: 3)
+        assert(matching.contains(where: { $0.speaker == .other
+            && $0.quote.contains("Hôm nay bận lắm") }),
+            "relevance retrieval includes the right speaker and quote")
+        assert(ConversationIntelligence.evidence(
+            for: "missing-persona-id", query: "công việc").isEmpty,
+            "relevance retrieval cannot cross contact profiles")
+        assert(ConversationIntelligence.prompt(for: historyID, query: "bận")
+                   .contains("OTHER: Hôm nay bận lắm"),
+               "cloud prompt includes grounded retrieved evidence")
+        assert(ConversationIntelligence.explanation(
+            for: historyID, query: "bận", openingToday: true)
+                   .contains("Người ấy: Hôm nay bận lắm"),
+               "user-visible why-explanation quotes real source messages")
         ConversationHistory.clear(for: historyID)
         assert(ConversationHistory.turns(for: historyID).isEmpty,
                "conversation deletion removes scoped history")
