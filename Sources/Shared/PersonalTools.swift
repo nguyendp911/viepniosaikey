@@ -126,27 +126,47 @@ enum PersonaStore {
         }
     }
 
-    static func matchScreenshotTitle(_ boxes: [ScreenshotTextBox]) -> ScreenshotMatch? {
-        // At the top of a screenshot, the name normally occupies the center
-        // navigation title area. Exclude status bars, app menus and messages.
-        let navigationTitles = boxes.filter {
-            $0.midY >= 0.77 && $0.midY <= 0.96
-                && $0.midX >= 0.23 && $0.midX <= 0.77
+    /// UI layouts vary by iPhone, app version and screenshot crop. Prefer
+    /// the upper navigation band, but never treat a message-body match as
+    /// proof of identity. Candidates can be reviewed by the user.
+    static func headerCandidates(_ boxes: [ScreenshotTextBox]) -> [ScreenshotTextBox] {
+        boxes.filter {
+            $0.midY >= 0.66 && $0.midY <= 0.967
+                && $0.midX >= 0.075 && $0.midX <= 0.925
+                && isPlausibleHeaderTitle($0.text)
+        }.sorted {
+            // Higher titles take priority; names may be left-aligned in Zalo.
+            if abs($0.midY - $1.midY) > 0.015 { return $0.midY > $1.midY }
+            return abs($0.midX - 0.5) < abs($1.midX - 0.5)
         }
+    }
+
+    static func isPlausibleHeaderTitle(_ input: String) -> Bool {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let folded = normalizedName(value)
         let ignored: Set<String> = [
             "zalo", "messenger", "facebook", "tin nhan", "cuoc tro chuyen",
             "chat", "tim kiem", "search", "online", "hoat dong",
-            "goi dien", "tro ve", "them", "chinh sua", "nhom"
+            "goi dien", "tro ve", "them", "chinh sua", "nhom",
+            "ket noi", "vua truy cap", "vua moi", "dang hoat dong",
+            "video", "anh", "cuoc goi", "call", "menu", "back"
         ]
-        // Never use substring or fuzzy matching: ambiguous names should
-        // produce a candidate for user confirmation, not auto-selection.
-        for box in navigationTitles {
+        guard value.count >= 2 && value.count <= 60,
+              !ignored.contains(folded),
+              !value.contains(":"),
+              value.rangeOfCharacter(from: .letters) != nil,
+              !(value.count > 22 && value.contains("?")) else { return false }
+        return true
+    }
+
+    static func matchScreenshotTitle(_ boxes: [ScreenshotTextBox]) -> ScreenshotMatch? {
+        // Compare only top-of-screen candidates against full names. A
+        // distinctive name outside the old center-only region now works.
+        for box in headerCandidates(boxes) {
             let title = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let normalized = normalizedName(title)
-            guard title.count >= 2, title.count <= 50,
-                  !ignored.contains(normalized),
-                  !normalized.contains(":") else { continue }
-            let matches = all.filter { normalizedName($0.name) == normalized }
+            let matches = all.filter {
+                normalizedName($0.name) == normalizedName(title)
+            }
             if !matches.isEmpty {
                 return ScreenshotMatch(recognizedTitle: title, matches: matches)
             }
