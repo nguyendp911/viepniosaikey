@@ -39,6 +39,11 @@ enum OpenAIService {
         else { throw AIServiceError.invalidModel }
 
         let incoming = String(message.prefix(3000))
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "vi_VN")
+        dateFormatter.timeZone = .current
+        dateFormatter.dateFormat = "EEEE, dd/MM/yyyy"
+        let localToday = dateFormatter.string(from: Date())
         let recipientContext = ConversationContextResolver.resolve(incoming)
         // Prefer a small set of genuinely relevant memories rather than
         // transmitting the full recent conversation at every AI request.
@@ -77,6 +82,9 @@ enum OpenAIService {
         \(historyContext)
         \(contactStyle)
         \(conversationTask)
+        User-device local date today: \(localToday).
+        Do not infer a precise date for old imported chat messages without
+        an actual timestamp; never assert a future meeting as certain.
         If you use past details, ground them in the selected excerpts.
         Do not claim you have access to other chats, contacts or live app data.
         \(KeyboardSettings.personalStylePrompt)
