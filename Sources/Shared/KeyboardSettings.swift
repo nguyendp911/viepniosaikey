@@ -119,6 +119,13 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "smartBilingual") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "smartBilingual") }
     }
+    /// Lightweight typing mode avoids costly optional effects while keeping
+    /// the underlying Telex/VNI engine and key layout unchanged.
+    static var performanceMode: Bool {
+        get { defaults.bool(forKey: prefix + "performanceMode") }
+        set { defaults.set(newValue, forKey: prefix + "performanceMode") }
+    }
+
     static var predictionsEnabled: Bool {
         get { defaults.object(forKey: prefix + "predictionsEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "predictionsEnabled") }
