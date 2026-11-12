@@ -61,6 +61,13 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 - Tên Zalo và tên tự đặt trong hồ sơ có thể khác nhau, vì phần so khớp dựa trên tên đã đọc trong ảnh mẫu.
 - **Không thể nhận ảnh màn hình chỉ vì người dùng chuyển sang một cuộc chat khác trong Zalo**: iOS không cấp quyền đọc màn hình ứng dụng khác cho keyboard extension. Tính năng tự động chạy *sau khi ảnh được cung cấp*, không tự quan sát màn hình nền. Ảnh của người khác phải được chia sẻ có chủ đích và tuân thủ quyền riêng tư.
 
+## Sửa lỗi không nhận ra tên trong ảnh đầy đủ
+
+- OCR tiêu đề nay hỗ trợ tên nằm **lệch trái/phải** hoặc **thấp hơn** trên các giao diện Zalo/Messenger khác nhau; không còn buộc tên ở giữa 23–77% chiều ngang.
+- Apple Vision xét nhiều ứng viên OCR và ưu tiên tên hồ sơ bạn vừa nhập; có xử lý trường hợp `Tên · Đang hoạt động` hoặc `Tên Online` bị ghép thành một dòng.
+- Ở **AI & API → Hồ sơ người nhận**, sau khi chọn ảnh, bạn có thể **sửa tên OCR đã đọc** trước khi gắn ảnh mẫu. Hãy xem vùng ảnh cắt có đúng tên không. Không lưu ảnh chứa nội dung trò chuyện khi bạn chưa kiểm tra.
+- Ảnh không có tiêu đề nhìn thấy, OCR không đọc được chữ, hoặc ảnh quá mờ vẫn có thể không khớp. Khi đó dùng hồ sơ thủ công hoặc ảnh khác. OCR không thể tự nhìn màn hình Zalo đang mở; bạn phải chủ động chọn ảnh.
+
 ## Nhận diện người nhận từ ảnh chụp Zalo, Messenger
 
 Trong **Trợ lý → Ảnh chụp hội thoại**, chọn một ảnh chụp do bạn chủ động cung cấp. ViePN dùng **Apple Vision OCR offline trên iPhone** và chỉ xét chữ ở vùng tiêu đề điều hướng phía trên màn hình để tìm tên người đang trò chuyện.
