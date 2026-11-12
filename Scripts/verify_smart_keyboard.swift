@@ -196,7 +196,9 @@ struct VerifySmartKeyboard {
                "tone check flags possible harsh wording")
         PersonaStore.add(name: "Chú Tư", role: "uncle",
                          selfAddress: "cháu", tone: "Lịch sự")
-        ConversationMemory.save("Gọi người nhận là chú.", for: PersonaStore.activeID)
+        assert(ConversationMemory.saveVerified(
+            "Gọi người nhận là chú.", for: PersonaStore.activeID),
+            "user notes persist successfully before reporting success")
         assert(ConversationMemory.forActivePersona().count == 1,
                "user-approved per-contact memory")
         assert(ConversationMemory.prompt().contains("Gọi người nhận là chú."),
@@ -212,6 +214,13 @@ struct VerifySmartKeyboard {
                "three manually supplied chat turns saved")
         assert(ConversationHistory.importExplicitly(source, for: historyID) == 0,
                "repeated import does not duplicate chat turns")
+        let exported = ConversationHistory.exportText(for: historyID)
+        assert(ConversationHistory.parse(exported).count == 3,
+               "manual backup reimports all labeled conversation turns")
+        assert(ConversationHistory.parse(exported)[1].0 == .other,
+               "backup preserves speaker identity")
+        assert(ConversationHistory.exportText(for: "missing-persona-id").isEmpty,
+               "export never leaks another person's chat")
         let saved = ConversationHistory.turns(for: historyID)
         assert(saved.count == 3 && saved[0].speaker == .me
                    && saved[1].speaker == .other,
