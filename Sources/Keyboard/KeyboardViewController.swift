@@ -36,6 +36,7 @@ final class KeyboardViewController: UIInputViewController {
     private var useSuggestions = KeyboardSettings.predictionsEnabled
     private var useGlide = KeyboardSettings.glideEnabled
     private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
+    private var performanceMode = KeyboardSettings.performanceMode
     private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     private var lastWordReplacement: (original: String, corrected: String)?
     // A swipe auto-inserts a trailing space. Keep its alternatives selectable
@@ -122,16 +123,17 @@ final class KeyboardViewController: UIInputViewController {
     private func refreshTypingPreferences() {
         typingMode = KeyboardSettings.typingMode
         telexEnabled = KeyboardSettings.telexEnabled
-        hapticsEnabled = KeyboardSettings.hapticEnabled
+        performanceMode = KeyboardSettings.performanceMode
+        hapticsEnabled = KeyboardSettings.hapticEnabled && !performanceMode
         hapticsStyle = KeyboardSettings.hapticStyle
         useSmartBilingual = KeyboardSettings.smartBilingual
         bilingualPreference = BilingualComposer.Preference(
             rawValue: KeyboardSettings.bilingualPreference) ?? .automatic
         resetBilingualComposition()
         knownWordBoundary = false
-        useSuggestions = KeyboardSettings.predictionsEnabled
-        useGlide = KeyboardSettings.glideEnabled
-        glideTrailEnabled = KeyboardSettings.glideTrailEnabled
+        useSuggestions = KeyboardSettings.predictionsEnabled && !performanceMode
+        useGlide = KeyboardSettings.glideEnabled && !performanceMode
+        glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
@@ -139,7 +141,7 @@ final class KeyboardViewController: UIInputViewController {
         cachedSnippets = KeyboardSettings.textSnippets
         cachedReplacements = KeyboardSettings.replacementDictionary
         autocapitalizeEnabled = KeyboardSettings.autoCapitalize
-        learnWordsEnabled = KeyboardSettings.autoLearnWords
+        learnWordsEnabled = KeyboardSettings.autoLearnWords && !performanceMode
     }
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
