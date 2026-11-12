@@ -34,6 +34,8 @@ final class KeyboardViewController: UIInputViewController {
     private var useSmartBilingual = KeyboardSettings.smartBilingual
     private var useSuggestions = KeyboardSettings.predictionsEnabled
     private var useGlide = KeyboardSettings.glideEnabled
+    private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
+    private var lastWordReplacement: (original: String, corrected: String)?
     private var learnedWords: [String: Int] = [:]
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
@@ -86,6 +88,7 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = false
         useSuggestions = KeyboardSettings.predictionsEnabled
         useGlide = KeyboardSettings.glideEnabled
+        adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
         cachedSnippets = KeyboardSettings.textSnippets
         cachedReplacements = KeyboardSettings.replacementDictionary
@@ -119,6 +122,7 @@ final class KeyboardViewController: UIInputViewController {
         candidateBar.isHidden = !useSuggestions
         applyTheme()
         updateAdaptiveLayout()
+        updateAdaptiveTouchTargets()
         updateCoupleTool()
         installWritingActions()
         installClipboardMenu()
@@ -328,6 +332,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         updateKeys()
         updateAdaptiveLayout()
+        updateAdaptiveTouchTargets()
         updateKeyboardHeight()
     }
 
@@ -402,9 +407,13 @@ final class KeyboardViewController: UIInputViewController {
             self.selectedText = MessageSafety.redacted(text)
             self.cloudTapped()
         }
+        let undoAction = UIAction(title: "Hoàn tác sửa từ",
+                                  image: UIImage(systemName: "arrow.uturn.backward")) { [weak self] _ in
+            self?.undoWordCorrection()
+        }
         toolButtons[2].menu = UIMenu(
             title: "AI · Vai xưng hô và viết lại",
-            children: [receiverMenu, profileMenu, importDraft, privacyAction] + actions
+            children: [receiverMenu, profileMenu, importDraft, privacyAction, undoAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
@@ -482,7 +491,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func keyButton(_ title: String, action: Selector) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = AdaptiveKeyButton(type: .system)
         button.setTitle(title, for: .normal)
         button.setTitleColor(.label, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
@@ -1118,8 +1127,31 @@ final class KeyboardViewController: UIInputViewController {
         } else if current.isEmpty {
             textDocumentProxy.insertText(replacement)
         }
+        if !current.isEmpty && current != replacement {
+            lastWordReplacement = (original: current, corrected: replacement)
+        }
         recentWord = replacement
         updateCandidates()
+    }
+
+    @objc private func undoWordCorrection() {
+        guard let stored = lastWordReplacement else {
+            showStatus("Chưa có sửa từ để hoàn tác")
+            return
+        }
+        lastWordReplacement = nil
+        guard let context = textDocumentProxy.documentContextBeforeInput,
+              context.hasSuffix(stored.corrected),
+              let edit = FastTyping.edit(from: stored.corrected, to: stored.original) else {
+            showStatus("Văn bản đã thay đổi, không thể hoàn tác an toàn")
+            return
+        }
+        for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+        if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+        resetBilingualComposition()
+        recentWord = stored.original
+        updateCandidates()
+        showStatus("Đã hoàn tác sửa từ")
     }
 
     @objc private func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
@@ -1201,6 +1233,16 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    private func updateAdaptiveTouchTargets() {
+        // Cover only the empty gutter between adjacent keys. No key changes
+        // another key's label or steals touches from its visible bounds.
+        let width = adaptiveTouchEnabled
+            ? CGFloat(min(4, KeyboardSettings.keySpacing / 2)) : 0
+        for button in letterButtons {
+            (button as? AdaptiveKeyButton)?.horizontalHitExpansion = width
+        }
+    }
+
     private func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
         let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
@@ -1212,6 +1254,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func beginTyping() {
+        lastWordReplacement = nil
         // Once the user starts composing, do not analyze stale clipboard text.
         selectedText = ""
         if suggestionContainer != nil { clearSuggestions() }
