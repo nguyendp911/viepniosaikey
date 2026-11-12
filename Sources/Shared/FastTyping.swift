@@ -21,6 +21,12 @@ enum FastTyping {
     /// then insert "ương", rather than deleting/reinserting the whole word.
     static func edit(from old: String, to new: String) -> Edit? {
         guard old != new else { return nil }
+        // Most key presses append exactly one character. Avoid allocating two
+        // Character arrays and scanning the whole word on this common path.
+        if new.hasPrefix(old) {
+            return Edit(deleteCount: 0,
+                        insertion: String(new.dropFirst(old.count)))
+        }
         let original = Array(old)
         let modified = Array(new)
         var prefix = 0
