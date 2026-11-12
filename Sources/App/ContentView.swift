@@ -1241,6 +1241,29 @@ struct ContentView: View {
                                                         Color.white.opacity(0.18),
                                                     lineWidth: keyboardTheme == id ? 2.5 : 1)
                                     }
+                                    .overlay {
+                                        HStack(spacing: 3) {
+                                            ForEach(["A", "S", "D"], id: \.self) { letter in
+                                                Text(letter)
+                                                    .font(.system(size: 10, weight: .bold,
+                                                                  design: .rounded))
+                                                    .foregroundStyle(
+                                                        ["amoled", "neon", "cyberpunk",
+                                                         "coffee", "gold", "midnight",
+                                                         "graphite", "forest", "aurora"]
+                                                        .contains(id)
+                                                        ? Color.white : Color.black.opacity(0.72))
+                                                    .frame(width: 18, height: 23)
+                                                    .background(
+                                                        Color.white.opacity(
+                                                            ["amoled", "neon", "cyberpunk",
+                                                             "coffee", "gold", "midnight",
+                                                             "graphite", "forest", "aurora"]
+                                                            .contains(id) ? 0.19 : 0.83),
+                                                        in: RoundedRectangle(cornerRadius: 5))
+                                            }
+                                        }
+                                    }
                                     .overlay(alignment: .topTrailing) {
                                         if keyboardTheme == id {
                                             Image(systemName: "checkmark.circle.fill")
