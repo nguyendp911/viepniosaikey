@@ -71,6 +71,51 @@ struct VerifyBilingualComposer {
         incremental("book", expected: "book")
         incremental("store", expected: "store")
         incremental("thuongwf", expected: "thường")
+        // Regression: model the exact keyboard hot path, including the
+        // no-diff branch. Every physical touch must result in a visible
+        // insertion or a deliberate Telex transformation, never a lost key.
+        func simulateTouches(_ raw: String,
+                             preference: BilingualComposer.Preference = .automatic) -> String {
+            var pressed = ""
+            var candidate = ""
+            var displayed = ""
+            for letter in raw {
+                let key = String(letter)
+                pressed += key
+                let nextCandidate = BilingualComposer.appendCandidate(candidate, key: key)
+                let next = BilingualComposer.choose(
+                    raw: pressed, vietnameseCandidate: nextCandidate,
+                    preference: preference).rendered
+                if let edit = FastTyping.edit(from: displayed, to: next) {
+                    guard edit.deleteCount <= displayed.count else {
+                        fatalError("Bad edit size for \\(pressed)")
+                    }
+                    displayed = String(displayed.dropLast(edit.deleteCount)) + edit.insertion
+                    candidate = nextCandidate
+                } else {
+                    // Same behavior as the literal-touch fallback in the UI.
+                    displayed += key
+                    candidate = nextCandidate + key
+                }
+                guard !displayed.isEmpty else {
+                    fatalError("Lost a key when typing \\(pressed)")
+                }
+            }
+            return displayed
+        }
+        for (raw, expected) in [
+            ("tooi", "tôi"), ("tool", "tool"), ("store", "store"),
+            ("thuongw", "thương"), ("thuongwf", "thường"),
+            ("vieets", "viết"), ("banf", "bàn"),
+            ("book", "book"), ("thanks", "thanks")
+        ] {
+            let actual = simulateTouches(raw)
+            guard actual == expected else {
+                fatalError("Touch stream mismatch for \\(raw): \\(actual) != \\(expected)")
+            }
+        }
+        print("PASS [Bilingual] keyboard touch stream regression")
+
         // Fast path must be bit-for-bit identical to full composition on every
         // intermediate key, including Telex removal and language reversals.
         let samples = [
