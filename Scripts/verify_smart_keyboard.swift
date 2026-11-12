@@ -75,6 +75,14 @@ struct VerifySmartKeyboard {
         assert(SmartTyping.glideCandidates(trace: "chao", language: "en").allSatisfy({
                    $0.unicodeScalars.allSatisfy({ $0.isASCII })
                }), "English-only mode never returns accented words")
+        assert(SmartTyping.glideCandidates(trace: "cvghgfdsasdftgyuio", language: "vi")
+                   .contains("chào"), "dense physical swipe recognizes chào")
+        assert(SmartTyping.glideCandidates(trace: "tyghuiokjnbhg", language: "vi")
+                   .contains("thương"), "dense physical swipe recognizes thương")
+        assert(SmartTyping.glideCandidates(trace: "bvcdsasdfcvbn", language: "vi")
+                   .contains("bạn"), "dense physical swipe recognizes bạn")
+        assert(SmartTyping.glideCandidates(trace: "dftgyuioijhgvc", language: "vi")
+                   .contains("được"), "dense physical swipe recognizes được")
         assert(SmartTyping.glideStartsWithPhysicalKey("được", key: "d"),
                "physical D gesture can insert Vietnamese Đ")
         assert(SmartTyping.glideStartsWithPhysicalKey("bạn", key: "b"),
