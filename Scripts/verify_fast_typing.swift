@@ -21,6 +21,10 @@ struct VerifyFastTyping {
         check("a", "â", deletes: 1, insertion: "â")
         check("nguoif", "người", deletes: 4, insertion: "ười")
         check("abc", "abd", deletes: 1, insertion: "d")
+        check("", "a", deletes: 0, insertion: "a")
+        check("abc", "abcd", deletes: 0, insertion: "d")
+        check("tôi", "tôi!", deletes: 0, insertion: "!")
+        check("thương", "thươngs", deletes: 0, insertion: "s")
         guard FastTyping.edit(from: "xin", to: "xin") == nil else {
             fatalError("Identical word must not rewrite anything")
         }
