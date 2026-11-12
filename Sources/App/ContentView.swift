@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var hapticStyle = KeyboardSettings.hapticStyle
     @State private var smartBilingual = KeyboardSettings.smartBilingual
     @State private var bilingualPreference = KeyboardSettings.bilingualPreference
+    @State private var performanceMode = KeyboardSettings.performanceMode
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
     @State private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
@@ -946,6 +947,15 @@ struct ContentView: View {
     private var smartTypingCard: some View {
         keyboardPanel("Gõ thông minh & Hiệu năng", icon: "brain") {
             VStack(spacing: 9) {
+                keyboardToggleRow("Chế độ siêu nhẹ · Ưu tiên gõ mượt",
+                                  symbol: "bolt.fill", isOn: $performanceMode)
+                    .onChange(of: performanceMode) {
+                        KeyboardSettings.performanceMode = $0
+                    }
+                Text("Khi bật: giữ bộ gõ Telex/VNI, tạm tắt gợi ý từ, vuốt, hiệu ứng, rung và tự học từ. AI chỉ chạy khi bạn chủ động gọi. Chuyển bàn phím rồi mở lại ViePN để áp dụng.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
                 keyboardToggleRow("Tự phân biệt Việt – Anh", symbol: "globe",
                                   isOn: $smartBilingual)
                     .onChange(of: smartBilingual) { KeyboardSettings.smartBilingual = $0 }
