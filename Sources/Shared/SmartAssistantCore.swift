@@ -79,6 +79,20 @@ enum ConversationMemory {
         notes = items
     }
 
+    /// A note is acknowledged only after verifying it survived persistence.
+    /// Returns false if the shared protected container is unavailable.
+    @discardableResult
+    static func saveVerified(_ text: String, for personaID: String) -> Bool {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, !personaID.isEmpty else { return false }
+        let id = UUID().uuidString
+        var items = notes
+        items.insert(ConversationNote(id: id, personaID: personaID,
+            text: String(cleaned.prefix(500)), createdAt: Date()), at: 0)
+        notes = items
+        return notes.contains(where: { $0.id == id && $0.personaID == personaID })
+    }
+
     static func forActivePersona() -> [ConversationNote] {
         guard !PersonaStore.activeID.isEmpty else { return [] }
         return notes.filter { $0.personaID == PersonaStore.activeID }
