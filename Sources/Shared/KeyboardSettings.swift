@@ -239,9 +239,29 @@ enum KeyboardSettings {
         get { defaults.string(forKey: prefix + "typingMode") ?? "telex" }
         set { defaults.set(["telex", "vni", "off"].contains(newValue) ? newValue : "telex", forKey: prefix + "typingMode") }
     }
+    static let availableThemes = [
+        "system", "midnight", "ocean", "rose", "lavender", "mint",
+        "sunset", "graphite", "sakura", "forest", "sand", "aurora",
+        "amoled", "neon", "cyberpunk", "coffee", "ice", "gold"
+    ]
+
     static var theme: String {
         get { defaults.string(forKey: prefix + "theme") ?? "system" }
-        set { defaults.set(["system", "midnight", "ocean", "rose", "lavender", "mint", "sunset", "graphite", "sakura", "forest", "sand", "aurora"].contains(newValue) ? newValue : "system", forKey: prefix + "theme") }
+        set {
+            defaults.set(availableThemes.contains(newValue) ? newValue : "system",
+                         forKey: prefix + "theme")
+        }
+    }
+
+    /// Core Animation-only keypress animation. No text, touches or key
+    /// coordinates are recorded, and all effects are disabled in light mode.
+    static let availableKeyEffects = ["off", "pop", "glow", "bounce", "flash"]
+    static var keypressEffect: String {
+        get { defaults.string(forKey: prefix + "keypressEffect") ?? "off" }
+        set {
+            defaults.set(availableKeyEffects.contains(newValue) ? newValue : "off",
+                         forKey: prefix + "keypressEffect")
+        }
     }
     static var autoCapitalize: Bool {
         get { defaults.object(forKey: prefix + "autoCapitalize") as? Bool ?? true }
