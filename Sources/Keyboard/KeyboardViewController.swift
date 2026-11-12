@@ -69,9 +69,14 @@ final class KeyboardViewController: UIInputViewController {
         displayedComposingWord = ""
         telexCandidateWord = ""
         pendingGlideWord = nil
+        fullGlideOptions = []
     }
     private let candidateBar = UIStackView()
+    private let candidateScroll = UIScrollView()
     private var candidateButtons: [UIButton] = []
+    private var fullGlideOptions: [String] = []
+    private var glideUsageCounts: [String: Int] = [:]
+    private var glideLearningEnabled = true
     private var candidateWords: [String] = []
     private var keyboardLeadingConstraint: NSLayoutConstraint?
     private var keyboardTrailingConstraint: NSLayoutConstraint?
@@ -106,6 +111,8 @@ final class KeyboardViewController: UIInputViewController {
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
+        glideLearningEnabled = KeyboardSettings.glideLearningEnabled
+        glideUsageCounts = KeyboardSettings.glideUsageCounts
         cachedSnippets = KeyboardSettings.textSnippets
         cachedReplacements = KeyboardSettings.replacementDictionary
         autocapitalizeEnabled = KeyboardSettings.autoCapitalize
@@ -135,7 +142,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
-        candidateBar.isHidden = !useSuggestions
+        candidateScroll.isHidden = !useSuggestions
         applyTheme()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -249,25 +256,26 @@ final class KeyboardViewController: UIInputViewController {
         container.addArrangedSubview(previewLabel)
 
         candidateBar.axis = .horizontal
-        candidateBar.spacing = 5
-        candidateBar.distribution = .fillEqually
-        // A fixed suggestion row prevents keyboard geometry from jumping
-        // while words are typed, and avoids expensive layout passes per key.
-        candidateBar.isHidden = !useSuggestions
-        candidateBar.heightAnchor.constraint(equalToConstant: 31).isActive = true
-        for index in 0..<3 {
-            let button = UIButton(type: .system)
-            button.tag = index
-            button.layer.cornerRadius = 9
-            button.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
-            button.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium)
-            button.titleLabel?.lineBreakMode = .byTruncatingTail
-            button.setTitleColor(.label, for: .normal)
-            button.addTarget(self, action: #selector(candidateTapped(_:)), for: .touchUpInside)
-            candidateButtons.append(button)
-            candidateBar.addArrangedSubview(button)
-        }
-        container.addArrangedSubview(candidateBar)
+        candidateBar.spacing = 6
+        candidateBar.distribution = .fill
+        candidateBar.alignment = .fill
+        // Scroll horizontally: all six tone choices remain accessible on a
+        // compact iPhone without shrinking each chip to unreadable text.
+        candidateScroll.showsHorizontalScrollIndicator = false
+        candidateScroll.alwaysBounceHorizontal = true
+        candidateScroll.backgroundColor = .clear
+        candidateScroll.isHidden = !useSuggestions
+        candidateScroll.heightAnchor.constraint(equalToConstant: 35).isActive = true
+        candidateScroll.addSubview(candidateBar)
+        candidateBar.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            candidateBar.leadingAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.leadingAnchor),
+            candidateBar.trailingAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.trailingAnchor),
+            candidateBar.topAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.topAnchor),
+            candidateBar.bottomAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.bottomAnchor),
+            candidateBar.heightAnchor.constraint(equalTo: candidateScroll.frameLayoutGuide.heightAnchor)
+        ])
+        container.addArrangedSubview(candidateScroll)
 
         let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         for (rowIndex, letters) in rows.enumerated() {
@@ -1159,20 +1167,52 @@ final class KeyboardViewController: UIInputViewController {
         // Only a settings change may hide the row; predictions arriving
         // or disappearing must not resize the whole keyboard.
         let shouldHide = !useSuggestions
-        if results == candidateWords && candidateBar.isHidden == shouldHide { return }
+        let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
+        if results == candidateWords && candidateScroll.isHidden == shouldHide,
+           candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
         candidateWords = results
-        if candidateBar.isHidden != shouldHide {
-            candidateBar.isHidden = shouldHide
+        if candidateScroll.isHidden != shouldHide {
+            candidateScroll.isHidden = shouldHide
             updateKeyboardHeight()
         }
-        for (index, button) in candidateButtons.enumerated() {
-            let title = index < results.count ? results[index] : ""
-            if button.title(for: .normal) != title {
-                button.setTitle(title, for: .normal)
-            }
-            let enabled = index < results.count
-            if button.isEnabled != enabled { button.isEnabled = enabled }
+        for view in candidateBar.arrangedSubviews {
+            candidateBar.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
+        candidateButtons.removeAll(keepingCapacity: true)
+        for (index, title) in results.enumerated() {
+            let button = UIButton(type: .system)
+            button.tag = index
+            button.setTitle(title, for: .normal)
+            button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+            button.setTitleColor(.label, for: .normal)
+            button.backgroundColor = UIColor.secondarySystemBackground
+            button.layer.cornerRadius = 11
+            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 13, bottom: 6, right: 13)
+            button.accessibilityLabel = "Chọn từ " + title
+            button.addTarget(self, action: #selector(candidateTapped(_:)), for: .touchUpInside)
+            button.widthAnchor.constraint(greaterThanOrEqualToConstant: 62).isActive = true
+            candidateButtons.append(button)
+            candidateBar.addArrangedSubview(button)
+        }
+        if needsExpand {
+            let more = UIButton(type: .system)
+            more.setTitle("Tất cả  ···", for: .normal)
+            more.setTitleColor(cyanColor, for: .normal)
+            more.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
+            more.backgroundColor = UIColor.tertiarySystemBackground
+            more.layer.cornerRadius = 11
+            more.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+            more.addTarget(self, action: #selector(expandGlideCandidates), for: .touchUpInside)
+            candidateBar.addArrangedSubview(more)
+        }
+        candidateScroll.setContentOffset(.zero, animated: false)
+    }
+
+    @objc private func expandGlideCandidates() {
+        guard pendingGlideWord != nil, !fullGlideOptions.isEmpty else { return }
+        renderCandidates(fullGlideOptions)
+        tactileFeedback()
     }
 
     @objc private func candidateTapped(_ sender: UIButton) {
@@ -1188,6 +1228,10 @@ final class KeyboardViewController: UIInputViewController {
                     textDocumentProxy.deleteBackward()
                 }
                 textDocumentProxy.insertText(chosen + " ")
+                if glideLearningEnabled {
+                    KeyboardSettings.recordGlideChoice(chosen)
+                    glideUsageCounts = KeyboardSettings.glideUsageCounts
+                }
                 resetBilingualComposition()
                 knownWordBoundary = true
                 recentWord = ""
@@ -1499,7 +1543,7 @@ final class KeyboardViewController: UIInputViewController {
         // No permanently reserved blank AI area.
         let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
         heightConstraint?.constant = base +
-            (candidateBar.isHidden ? 0 : 36) +
+            (candidateScroll.isHidden ? 0 : 36) +
             (statusLabel.isHidden ? 0 : 22) +
             (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()
