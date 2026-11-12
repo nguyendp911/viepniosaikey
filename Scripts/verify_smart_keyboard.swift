@@ -56,6 +56,34 @@ struct VerifySmartKeyboard {
                "zero-limit predictions return nothing")
 
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
+        let minh = SmartTyping.glideCandidates(trace: "minh", language: "vi", limit: 12)
+        let completeMinh = SmartTyping.glideOptions(minh, language: "vi", showAll: true)
+        for tone in ["minh", "mình", "mính", "mĩnh", "mỉnh", "mịnh"] {
+            assert(completeMinh.contains(tone), "six minh tone choices: " + tone)
+        }
+        assert(completeMinh.count >= 6, "all six visible before learning")
+        let usage: [String: Int] = [
+            SmartTyping.glideUsageKey("mình"): 9,
+            SmartTyping.glideUsageKey("minh"): 2
+        ]
+        let preferred = SmartTyping.glideOptions(minh, language: "vi", usage: usage)
+        assert(preferred.first == "mình", "most-used tone rises to first")
+        assert(preferred.count == 2 && preferred.contains("minh"),
+               "trained swipe hides unused tones")
+        assert(SmartTyping.glideOptions(minh, language: "vi", usage: usage,
+                                        showAll: true).count >= 6,
+               "show all can restore every tone after learning")
+        assert(SmartTyping.glideOptions(minh, language: "vi",
+                                        usage: [SmartTyping.glideUsageKey("mình"): 2]).count >= 6,
+               "early training retains every tone")
+        let englishSwipe = SmartTyping.glideCandidates(
+            trace: "store", language: "en", limit: 12)
+        let englishChoices = SmartTyping.glideOptions(englishSwipe, language: "en")
+        assert(englishChoices.contains("store"), "English choices remain literal")
+        assert(!englishChoices.contains("stóre"), "English-only has no invented tones")
+        assert(SmartTyping.glideToneVariants("mình") ==
+                   ["minh", "mình", "mính", "mĩnh", "mỉnh", "mịnh"],
+               "Vietnamese tone variants generated in clear order")
         assert(SmartTyping.glideCandidates(trace: "or") == ["or"],
                "two-letter English swipe inserts exact word")
         assert(SmartTyping.glideCandidates(trace: "or", language: "en") == ["or"],
