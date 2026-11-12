@@ -1568,7 +1568,7 @@ struct ContentView: View {
             headerDiagnosticPreview = scan.headerPreviewPNG
             let wanted = PersonaStore.normalizedName(personaName)
             if let matched = scan.candidates.first(where: {
-                !wanted.isEmpty
+                !wanted.isEmpty && $0.midY >= 0.66
                     && PersonaStore.normalizedScreenshotTitle($0.title) == wanted
             }) {
                 pendingHeaderTitle = matched.title
