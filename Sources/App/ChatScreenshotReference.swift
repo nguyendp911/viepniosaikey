@@ -63,10 +63,7 @@ enum ChatScreenshotReference {
     /// disambiguation; nothing is guessed from the message-body content.
     static func match(_ boxes: [PersonaStore.ScreenshotTextBox])
         -> PersonaStore.ScreenshotMatch? {
-        let candidates = boxes.filter {
-            $0.midY >= 0.77 && $0.midY <= 0.96
-                && $0.midX >= 0.23 && $0.midX <= 0.77
-        }
+        let candidates = PersonaStore.headerCandidates(boxes)
         for candidate in candidates {
             let title = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
             let normalized = PersonaStore.normalizedName(title)
@@ -85,7 +82,11 @@ enum ChatScreenshotReference {
 
     /// Vision runs only in the containing iOS app, on an image selected by
     /// the user. Returns a detected header and a cropped reference image.
-    static func extract(from data: Data) async throws -> (title: String, png: Data)? {
+    /// Use the saved/contact name when possible; otherwise show a likely
+    /// header for user editing. OCR keeps alternative candidates with their
+    /// normalized coordinates. Never match arbitrary message-body text.
+    static func extract(from data: Data, preferredName: String = "") async throws
+        -> (title: String, png: Data)? {
         guard let image = UIImage(data: data), let cgImage = image.cgImage else {
             return nil
         }
@@ -93,24 +94,34 @@ enum ChatScreenshotReference {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["vi-VN", "en-US"]
-            request.usesLanguageCorrection = true
+            request.usesLanguageCorrection = false
+            request.minimumTextHeight = 0.006
             try VNImageRequestHandler(cgImage: cgImage).perform([request])
-            let header = (request.results ?? []).compactMap {
-                observation -> (String, CGRect)? in
-                guard let text = observation.topCandidates(1).first?.string else {
-                    return nil
+            let recognized = (request.results ?? []).flatMap { observation
+                -> [(text: String, box: CGRect)] in
+                observation.topCandidates(3).map {
+                    (text: $0.string, box: observation.boundingBox)
                 }
-                return (text, observation.boundingBox)
-            }.filter { $0.1.midY >= 0.77 && $0.1.midY <= 0.96
-                && $0.1.midX >= 0.23 && $0.1.midX <= 0.77 }
-                .sorted { abs($0.1.midY - 0.88) < abs($1.1.midY - 0.88) }
-            guard let first = header.first else { return nil }
-            let title = first.0.trimmingCharacters(
+            }
+            let observed = recognized.map {
+                PersonaStore.ScreenshotTextBox(
+                    text: $0.text, midX: Double($0.box.midX),
+                    midY: Double($0.box.midY))
+            }
+            let navigation = PersonaStore.headerCandidates(observed)
+            let expected = PersonaStore.normalizedName(preferredName)
+            // A known saved name is safer than guessing which of several
+            // recognized lines is a person's name.
+            let chosen = navigation.first {
+                !expected.isEmpty && PersonaStore.normalizedName($0.text) == expected
+            } ?? navigation.first
+            guard let selected = chosen,
+                  let nameBox = recognized.first(where: {
+                      $0.text == selected.text
+                          && abs(Double($0.box.midY) - selected.midY) < 0.002
+                  })?.box else { return nil }
+            let title = selected.text.trimmingCharacters(
                 in: .whitespacesAndNewlines)
-            guard title.count >= 2 && title.count <= 60 else { return nil }
-            // Crop ONLY the OCR title glyph area plus a small margin, not
-            // a whole navigation band that might include actual chat lines.
-            let nameBox = first.1
             let minX = max(0, nameBox.minX - 0.035)
             let maxX = min(1, nameBox.maxX + 0.035)
             let minY = max(0, 1 - nameBox.maxY - 0.018)
@@ -119,11 +130,12 @@ enum ChatScreenshotReference {
                               y: minY * CGFloat(cgImage.height),
                               width: (maxX - minX) * CGFloat(cgImage.width),
                               height: (maxY - minY) * CGFloat(cgImage.height)).integral
-            guard let cropped = cgImage.cropping(to: crop) else { return nil }
+            guard crop.width >= 3, crop.height >= 3,
+                  let cropped = cgImage.cropping(to: crop) else { return nil }
             let aspect = CGFloat(cropped.height) / CGFloat(cropped.width)
             let target = CGSize(width: 480, height: 480 * aspect)
             let renderer = UIGraphicsImageRenderer(size: target)
-            let png = renderer.pngData { context in
+            let png = renderer.pngData { _ in
                 UIImage(cgImage: cropped).draw(
                     in: CGRect(origin: .zero, size: target))
             }
@@ -131,4 +143,5 @@ enum ChatScreenshotReference {
             return (title, png)
         }.value
     }
+
 }
