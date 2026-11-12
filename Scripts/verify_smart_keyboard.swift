@@ -162,6 +162,34 @@ struct VerifySmartKeyboard {
         PersonaStore.automaticNameMatch = true
         assert(PersonaStore.matchingProfile(named: "CHÚ TƯ")?.name == "Chú Tư",
                "case-insensitive unique matching")
+        let headerBoxes = [
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.88),
+            PersonaStore.ScreenshotTextBox(text: "Bạn khỏe không?", midX: 0.5, midY: 0.52)
+        ]
+        assert(PersonaStore.matchScreenshotTitle(headerBoxes)?.uniqueMatch?.name == "Chú Tư",
+               "OCR header maps an exact unique contact without reading chat bodies")
+        assert(PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.52)
+        ]) == nil, "a message body must not be mistaken for the chat title")
+        assert(PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.985)
+        ]) == nil, "status bar OCR must not be mistaken for a contact")
+        assert(PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Zalo", midX: 0.5, midY: 0.88)
+        ]) == nil, "app title does not identify the recipient")
+        assert(PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Tư", midX: 0.5, midY: 0.88)
+        ]) == nil, "partial name cannot choose a profile")
+        let oldPersona = PersonaStore.activeID
+        PersonaStore.all = PersonaStore.all + [
+            RecipientPersona(id: UUID().uuidString, name: "Chú Tư",
+                             recipient: "uncle", selfAddress: "cháu", tone: "Lịch sự")
+        ]
+        assert(PersonaStore.matchScreenshotTitle(headerBoxes)?.matches.count == 2
+               && PersonaStore.matchScreenshotTitle(headerBoxes)?.uniqueMatch == nil,
+               "ambiguous duplicate OCR header never silently chooses a person")
+        PersonaStore.all = PersonaStore.all.filter { $0.id == oldPersona }
+
         assert(PersonaStore.nameFromSharedTranscript("Người gửi: Chú Tư\nChú về chưa?") == "Chú Tư",
                "sender labeled transcript parsing")
         assert(PersonaStore.nameFromSharedTranscript("Chú Tư đang đi công tác") == nil,
