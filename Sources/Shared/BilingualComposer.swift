@@ -27,28 +27,35 @@ enum BilingualComposer {
         if preference == .vietnamese {
             return Decision(rendered: vi, language: "vi")
         }
-        let lower = raw.lowercased()
-        let vietnamese = vi.lowercased()
-        let englishWord = SmartTyping.isEnglishWord(lower)
-        let englishPrefix = SmartTyping.isEnglishPrefix(lower)
-        let vietnameseWord = SmartTyping.isVietnameseWord(vietnamese)
+        return choose(raw: raw, vietnameseCandidate: vi)
+    }
 
-        // An English word already complete has priority over a speculative
-        // Telex conversion, except when the user types an explicit diacritic
-        // marker that is not a valid English continuation.
-        if englishWord {
+    /// Hot-path API: the UI already has the last Vietnamese candidate, so
+    /// append one Telex key to it instead of replaying all previous keys.
+    static func appendCandidate(_ candidate: String, key: String) -> String {
+        VietnameseTelex.transformed(word: candidate, key: key) ?? (candidate + key)
+    }
+
+    static func choose(raw: String, vietnameseCandidate vi: String,
+                       preference: Preference = .automatic) -> Decision {
+        guard preference != .english else {
             return Decision(rendered: raw, language: "en")
         }
-        // A complete Vietnamese word wins over an unfinished English prefix:
-        // "too" -> maybe "tool" but "tooi" -> definitely "tôi".
-        if vietnameseWord && vi != raw {
+        if preference == .vietnamese {
             return Decision(rendered: vi, language: "vi")
         }
-        // English prefixes remain literal until additional keys disambiguate.
-        if englishPrefix {
+        let lower = raw.lowercased()
+        if SmartTyping.isEnglishWord(lower) {
+            return Decision(rendered: raw, language: "en")
+        }
+        // Vietnamese completed words beat ambiguous English prefixes,
+        // e.g. too + i -> tôi, but too + l -> tool.
+        if vi != raw && SmartTyping.isVietnameseWord(vi) {
+            return Decision(rendered: vi, language: "vi")
+        }
+        if SmartTyping.isEnglishPrefix(lower) {
             return Decision(rendered: raw, language: "en-prefix")
         }
-        // A word that cannot plausibly be English takes the usual Telex path.
         return Decision(rendered: vi, language: vi == raw ? "literal" : "vi")
     }
 
