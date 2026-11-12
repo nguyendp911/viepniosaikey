@@ -234,6 +234,21 @@ struct VerifySmartKeyboard {
         assert(ConversationIntelligence.prompt(for: historyID, query: "bận")
                    .contains("OTHER: Hôm nay bận lắm"),
                "cloud prompt includes grounded retrieved evidence")
+        KeyboardSettings.learnConversationStyleEnabled = true
+        let chatStyle = ConversationIntelligence.stylePrompt(for: historyID)
+        assert(chatStyle.contains("ME: Hôm nay đi làm thế nào?")
+                   && chatStyle.contains("ME: Cố lên nhé!")
+                   && !chatStyle.contains("OTHER: Hôm nay bận lắm."),
+               "style learning uses only user-authored imported lines")
+        KeyboardSettings.learnConversationStyleEnabled = false
+        assert(ConversationIntelligence.stylePrompt(for: historyID).isEmpty,
+               "style-learning opt-out immediately removes chat examples")
+        KeyboardSettings.learnConversationStyleEnabled = true
+        assert(ConversationIntelligence.offlineStarter(for: historyID)?
+                   .contains("Công việc") == true,
+               "offline idle starter uses explicit saved work discussion")
+        assert(ConversationIntelligence.offlineStarter(for: "missing-persona-id") == nil,
+               "no source history means no invented personal opener")
         assert(ConversationIntelligence.explanation(
             for: historyID, query: "bận", openingToday: true)
                    .contains("Người ấy: Hôm nay bận lắm"),
