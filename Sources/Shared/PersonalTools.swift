@@ -132,13 +132,14 @@ enum PersonaStore {
     /// Vision occasionally merges the chat title with the online indicator.
     /// Strip only known status suffixes, never arbitrary portions of a name.
     static func normalizedScreenshotTitle(_ value: String) -> String {
-        let normalized = normalizedName(value).replacingOccurrences(of: "đ", with: "d")
+        let normalized = normalizedName(value)
+        let statusComparable = normalized.replacingOccurrences(of: "đ", with: "d")
         let statuses = ["dang hoat dong", "vua truy cap", "hoat dong",
                         "online", "active now", "truy cap gan day"]
         for suffix in statuses {
             for delimiter in [" · ", " • ", " - ", "  ", " ", "\n"] {
                 let ending = delimiter + suffix
-                if normalized.hasSuffix(ending) {
+                if statusComparable.hasSuffix(ending) {
                     return String(normalized.dropLast(ending.count))
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                 }
