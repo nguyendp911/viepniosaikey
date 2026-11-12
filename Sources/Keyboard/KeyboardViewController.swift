@@ -867,10 +867,40 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
     @objc private func deleteTapped() {
-        resetBilingualComposition()
-        knownWordBoundary = false
         beginTyping()
         tactileFeedback()
+        knownWordBoundary = false
+        if !rawComposingWord.isEmpty {
+            let preference: BilingualComposer.Preference =
+                useSmartBilingual ? bilingualPreference : .vietnamese
+            let priorRaw = String(rawComposingWord.dropLast())
+            let prior = BilingualComposer.removingLastKey(
+                from: rawComposingWord, preference: preference).rendered
+            if let edit = FastTyping.edit(from: displayedComposingWord, to: prior) {
+                // A multi-character rewrite is only safe if the host still
+                // ends with the exact word this keyboard previously inserted.
+                // Plain single-character backspace keeps the native fast path.
+                let plainDelete = edit.deleteCount == 1 && edit.insertion.isEmpty
+                let safe = plainDelete || (
+                    !displayedComposingWord.isEmpty
+                    && (textDocumentProxy.documentContextBeforeInput ?? "")
+                        .hasSuffix(displayedComposingWord))
+                if safe {
+                    for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
+                    if !edit.insertion.isEmpty {
+                        textDocumentProxy.insertText(edit.insertion)
+                    }
+                    rawComposingWord = priorRaw
+                    displayedComposingWord = prior
+                    telexCandidateWord = VietnameseTelex.composeKeys(priorRaw)
+                    recentWord = prior
+                    updateCandidates()
+                    return
+                }
+            }
+        }
+        // Host context changed or no active composition: native deletion.
+        resetBilingualComposition()
         textDocumentProxy.deleteBackward()
         if !recentWord.isEmpty { recentWord.removeLast() }
         updateCandidates()
