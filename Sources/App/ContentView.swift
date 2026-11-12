@@ -1673,6 +1673,20 @@ struct ContentView: View {
                         }
                         .accessibilityLabel("Chọn hồ sơ " + item.name)
                         Button {
+                            // Prevent an orphaned private transcript when a
+                            // person is deleted from the profile list.
+                            ConversationHistory.clear(for: item.id)
+                            let withoutNotes = ConversationMemory.notes.filter {
+                                $0.personaID != item.id
+                            }
+                            ConversationMemory.notes = withoutNotes
+                            guard ConversationHistory.turns(for: item.id).isEmpty,
+                                  !ConversationMemory.notes.contains(where: {
+                                      $0.personaID == item.id
+                                  }) else {
+                                apiFeedback = "Không thể xóa lịch sử của hồ sơ này. Hãy mở khóa thiết bị và thử lại."
+                                return
+                            }
                             personas.removeAll { $0.id == item.id }
                             PersonaStore.all = personas
                             if activePersonaID == item.id {
