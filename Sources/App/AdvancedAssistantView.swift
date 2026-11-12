@@ -162,9 +162,14 @@ struct AdvancedAssistantView: View {
                         feedback = "Chọn hồ sơ người nhận trước khi lưu."
                         return
                     }
-                    ConversationMemory.save(memoryText, for: PersonaStore.activeID)
-                    memoryText = ""
-                    savedMemories = ConversationMemory.forActivePersona()
+                    if ConversationMemory.saveVerified(
+                        memoryText, for: PersonaStore.activeID) {
+                        memoryText = ""
+                        savedMemories = ConversationMemory.forActivePersona()
+                        feedback = "Đã lưu ghi chú vào bộ nhớ được bảo vệ."
+                    } else {
+                        feedback = "Không thể lưu ghi chú. Kiểm tra App Group và trạng thái khóa iPhone."
+                    }
                 } label: { Label("Lưu ghi chú", systemImage: "square.and.arrow.down") }
                     .buttonStyle(.bordered)
                 ForEach(savedMemories) { note in
@@ -206,8 +211,20 @@ struct AdvancedAssistantView: View {
                         let count = ConversationHistory.importExplicitly(
                             transcriptDraft, for: person.id)
                         savedChatTurns = ConversationHistory.turns(for: person.id)
-                        transcriptDraft = ""
-                        feedback = "Đã lưu " + String(count) + " lượt mới cho " + person.name + "."
+                        if count > 0 {
+                            transcriptDraft = ""
+                            feedback = "Đã lưu " + String(count) + " lượt mới cho " + person.name + "."
+                        } else {
+                            let alreadySaved = ConversationHistory.parse(transcriptDraft)
+                                .allSatisfy { item in
+                                    savedChatTurns.contains {
+                                        $0.speaker == item.0 && $0.text == item.1
+                                    }
+                                }
+                            feedback = alreadySaved
+                                ? "Các tin nhắn này đã có trong lịch sử."
+                                : "Không thể lưu lịch sử. Kiểm tra App Group hoặc trạng thái khóa iPhone."
+                        }
                     } label: {
                         Label("Lưu lịch sử", systemImage: "square.and.arrow.down")
                     }
@@ -557,6 +574,15 @@ struct AdvancedAssistantView: View {
             }
         }
         .foregroundStyle(.white)
+        .onAppear {
+            refreshActiveChatProfile()
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification)) { _ in
+                if !historyLockEnabled || historyUnlocked {
+                    refreshActiveChatProfile()
+                }
+        }
         .onDisappear { historyUnlocked = false }
     }
 
@@ -605,6 +631,15 @@ struct AdvancedAssistantView: View {
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
         }
+    }
+
+    private func refreshActiveChatProfile() {
+        savedChatTurns = ConversationHistory.turns(for: PersonaStore.activeID)
+        savedMemories = ConversationMemory.forActivePersona()
+        generatedChatSuggestions = []
+        chatPreview = ""
+        evidenceExplanation = ""
+        editingChatTurnID = nil
     }
 
     private func unlockChatHistory() {
