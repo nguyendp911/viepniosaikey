@@ -56,7 +56,7 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 
 Trong **Trợ lý → Ảnh chụp hội thoại**, chọn một ảnh chụp do bạn chủ động cung cấp. ViePN dùng **Apple Vision OCR offline trên iPhone** và chỉ xét chữ ở vùng tiêu đề điều hướng phía trên màn hình để tìm tên người đang trò chuyện.
 
-- Khi có **một hồ sơ trùng chính xác duy nhất**, hiện nút **Chọn hồ sơ**. Chỉ sau khi bạn bấm xác nhận mới đổi hồ sơ đang sử dụng.
+- Khi có **một hồ sơ trùng chính xác duy nhất** và bạn đã bật **Tự khớp tên khi Dán hội thoại** trong mục AI & API, ViePN tự chọn hồ sơ đó; nếu tắt tùy chọn, ứng dụng hiện nút **Chọn hồ sơ** để bạn xác nhận.
 - Khi có **nhiều hồ sơ trùng tên**, hiện tất cả để người dùng chọn thủ công. Không chọn theo tên xuất hiện trong nội dung tin nhắn, tên không đầy đủ hoặc dự đoán mơ hồ.
 - Nếu ảnh bị cắt mất tiêu đề hoặc ứng dụng có bố cục khác, ViePN không khẳng định nhận diện thành công; bạn có thể chọn hồ sơ thủ công ở mục AI & API.
 - Sau khi xác nhận, bộ gõ sử dụng đúng cách xưng hô và lịch sử được lưu riêng cho hồ sơ đó. Có thể lưu tên hồ sơ trùng với tên hiển thị trên Zalo/Messenger để nhận diện dễ hơn.
