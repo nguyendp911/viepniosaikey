@@ -386,7 +386,12 @@ enum SmartTyping {
         return options.enumerated().sorted { a, b in
             let x = usage[glideUsageKey(a.element)] ?? 0
             let y = usage[glideUsageKey(b.element)] ?? 0
-            return x == y ? a.offset < b.offset : x > y
+            if x != y { return x > y }
+            // Before any learning, preserve the lexicon's first recognized
+            // candidate (e.g. mình) instead of auto-inserting bare "minh".
+            if a.element == first { return true }
+            if b.element == first { return false }
+            return a.offset < b.offset
         }.map(\.element)
     }
 
