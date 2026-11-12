@@ -99,6 +99,7 @@ enum ChatScreenshotReference {
     struct ScannedTitle {
         let title: String
         let png: Data
+        let midY: Double
     }
 
     struct ScanResult {
@@ -177,7 +178,8 @@ enum ChatScreenshotReference {
             let candidates = entries.prefix(15).compactMap { entry
                 -> ScannedTitle? in
                 guard let png = pngCrop(entry.box, image: cgImage) else { return nil }
-                return ScannedTitle(title: entry.title, png: png)
+                return ScannedTitle(title: entry.title, png: png,
+                                    midY: Double(entry.box.midY))
             }
             // Diagnostic preview is transient only; never persist a band
             // that may contain private message contents.
