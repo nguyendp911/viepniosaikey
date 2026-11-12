@@ -1865,6 +1865,7 @@ final class KeyboardViewController: UIInputViewController {
         isRequestRunning = true
         requestID = UUID()
         let currentRequestID = requestID
+        let originalPersonaID = PersonaStore.activeID
         let context = ConversationContextResolver.resolve(source)
         showStatus("AI đang phân tích · Người nhận: " + context.displayName)
         Task { [weak self] in
@@ -1873,6 +1874,10 @@ final class KeyboardViewController: UIInputViewController {
                 await MainActor.run {
                     guard let self, self.requestID == currentRequestID else { return }
                     self.isRequestRunning = false
+                    guard PersonaStore.activeID == originalPersonaID else {
+                        self.showStatus("Đã đổi hồ sơ người nhận · Bỏ kết quả AI cũ.")
+                        return
+                    }
                     self.show(suggestions)
                 }
             } catch {
