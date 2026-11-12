@@ -1555,10 +1555,10 @@ struct ContentView: View {
         pendingHeaderPNG = nil
         do {
             guard let image = try await picker.loadTransferable(type: Data.self),
-                  let reference = try await ChatScreenshotReference.extract(from: image)
+                  let reference = try await ChatScreenshotReference.extract(from: image, preferredName: personaName)
             else {
                 screenshotReferenceStatus =
-                    "Không thấy tên ở tiêu đề. Hãy chụp đầy đủ thanh tên người đang trò chuyện."
+                    "Chưa đọc được tên trong vùng tiêu đề ảnh. Hãy thử ảnh không che thanh tên, hoặc nhập tên hồ sơ thủ công."
                 return
             }
             pendingHeaderTitle = reference.title
@@ -1644,8 +1644,11 @@ struct ContentView: View {
                             .scaledToFit()
                             .frame(maxWidth: 300)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                        Text("Ảnh mẫu nhận diện: " + pendingHeaderTitle)
-                            .font(.system(size: 11)).foregroundStyle(cyan)
+                        TextField("Tên trên ảnh (sửa lỗi OCR nếu cần)", text: $pendingHeaderTitle)
+                            .font(.system(size: 12))
+                            .textFieldStyle(.roundedBorder)
+                        Text("Xác nhận vùng chữ cắt đúng tên người trước khi lưu. Sửa tên không thay đổi ảnh tham chiếu.")
+                            .font(.system(size: 10)).foregroundStyle(muted)
                         Text("ViePN chỉ lưu vùng tiêu đề của ảnh, không lưu nội dung tin nhắn.")
                             .font(.system(size: 10)).foregroundStyle(muted)
                         if !activePersonaID.isEmpty {
