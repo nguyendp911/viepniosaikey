@@ -52,6 +52,21 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 - **Ưu tiên tiếng Việt**: `or` → `ỏ`; thêm `r` lần nữa (`orr`) → `or`.
 - Phím xóa lùi theo chuỗi phím đã gõ, kể cả khi một phím đã biến đổi nhiều ký tự.
 
+## Hội thoại cá nhân theo từng người
+
+1. Trong ứng dụng chính, tạo hoặc chọn một **Hồ sơ người nhận** ở trang **AI & API**.
+2. Mở **Trợ lý → Hội thoại riêng cho từng người**, dán đoạn chat bạn tự sao chép, có nhãn theo dòng:
+   ```text
+   Tôi: Hôm nay đi làm có mệt không?
+   Bạn ấy: Hơi bận nhưng cũng ổn.
+   Tôi: Vậy nhớ nghỉ ngơi nhé.
+   ```
+3. Kiểm tra nhãn người nói, xóa mật khẩu/số điện thoại/thông tin nhạy cảm rồi bấm **Lưu lịch sử**. Lưu tối đa 150 lượt cho mỗi hồ sơ, tổng cộng 1.000 lượt trên thiết bị; nhập trùng không tăng số lượt.
+4. Bấm **Gợi ý trả lời** nếu lượt mới nhất là tin từ người kia; bấm **Nhắn gì hôm nay?** để nhận ba gợi ý chủ động bắt chuyện (không tự gửi).
+5. Trên bàn phím ViePN, **nhấn giữ AI → Hôm nay nhắn gì? · Theo lịch sử**, xem ba gợi ý rồi chọn/chỉnh trước khi dùng.
+
+ViePN không tự đọc hay theo dõi Zalo, Messenger hoặc bất kỳ ứng dụng khác. Lịch sử chỉ được lưu **khi bạn bấm Lưu**, tách theo hồ sơ đang chọn và có chức năng **Xóa toàn bộ lịch sử người này**. Khi bạn chủ động dùng AI online, tối đa 14 lượt gần nhất được gửi cho nhà cung cấp AI đã cấu hình, cùng ghi chú và hồ sơ liên quan. Dữ liệu lịch sử đang lưu trong App Group UserDefaults **chưa mã hóa chuyên dụng**; không lưu bí mật hoặc cuộc trò chuyện nhạy cảm. Các tin nhắn đã lưu là dữ liệu tham chiếu cho AI trong lần suy luận, **không phải huấn luyện trọng số mô hình**. Ứng dụng không tự lên lịch gửi tin nhắn.
+
 ## Quyền riêng tư và giới hạn iOS
 
 - Không tự đọc Zalo, Messenger, Facebook, danh bạ, email hoặc hội thoại ứng dụng khác. Thông tin người nhận phải do người dùng chọn hoặc tự cung cấp qua nội dung dán.
