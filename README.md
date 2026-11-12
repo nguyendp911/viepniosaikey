@@ -78,6 +78,25 @@ ViePN có một **vùng gợi ý cố định, không làm thay đổi vị trí
 - Có thể cuộn ngang qua các emoji, mẫu lời nhắn và gợi ý từ. Bấm một chip để chèn nội dung; bàn phím không tự gửi tin nhắn.
 - Câu gợi chuyện ở trạng thái chờ là **mẫu offline** có thể dùng tên hồ sơ đã được bạn chọn, không phải câu do AI tự suy luận từ tin nhắn chưa được người dùng chia sẻ. AI lịch sử hội thoại vẫn chỉ chạy khi bạn chủ động yêu cầu.
 
+## ViePN 3.0 — Conversation Brain, Today AI và học có kiểm soát
+
+**Đã triển khai trong mã nguồn:**
+
+- **Conversation Brain:** Tra cứu offline những tin nhắn do người dùng chủ động nhập, xếp hạng theo nội dung liên quan và mức độ mới. Chỉ chọn tối đa 6 đoạn có nguồn để gửi kèm khi người dùng gọi Gemini/OpenAI, không gửi nguyên cả lịch sử.
+- **Today AI:** Gợi ý 3 câu mở đầu hôm nay theo hồ sơ và lịch sử, không đoán cảm xúc hay khẳng định các sự kiện chưa được nhắc đến.
+- **Vì sao AI gợi ý?** Trong Trợ lý, sau khi tạo câu gợi ý, bấm nút xem các tin nhắn đã lưu được truy xuất làm ngữ cảnh. Đây là giải thích *nguồn tham khảo*, không phải tiết lộ quá trình suy nghĩ nội bộ của AI.
+- **Phân tích chủ đề offline:** Nhận diện nhóm chủ đề như công việc, sức khỏe, học tập, gia đình; hiển thị số lượt tin nhắn được phân loại. Đây là phân loại theo từ khóa, không phải kết luận tâm lý.
+- **Smart Context Bar:** Phần trống dưới 5 nút công cụ hiện emoji được chọn thường xuyên và gợi chuyện khi chờ. Nếu có lịch sử nhập thủ công cho hồ sơ đang chọn, câu hỏi thăm offline có thể dựa trên chủ đề đã nhắc. Bắt đầu gõ hoặc vuốt thì hiện gợi ý từ, không thay đổi vị trí hàng phím.
+- **Học theo từng người:** Khi dùng AI online, tùy chọn học giọng văn từ các lượt được đánh dấu **Tôi**, không học từ tin nhắn người nhận. Có thể bấm **Học giọng văn** trên từng câu gợi ý do AI tạo và quản lý tối đa 8 ví dụ văn phong.
+- **Follow-up:** Chạm **Tạo nhắc hỏi thăm từ hội thoại** để điền gợi ý vào biểu mẫu lịch. Người dùng kiểm tra và chọn giờ trước khi bấm thêm vào Lịch iPhone; không tự lập lịch hay nhắn.
+- **Bảng thống kê học:** Xem số lần chọn từ vuốt, emoji đã chạm và số ví dụ văn phong; có nút xóa thống kê.
+- **Bảo vệ dữ liệu:** Trên iOS, lịch sử và ghi chú được ghi vào tệp App Group với **iOS Data Protection (completeUntilFirstUserAuthentication)** và tự chuyển dữ liệu từ UserDefaults đời cũ. Có thể bật tùy chọn khóa giao diện xem lịch sử bằng **Face ID hoặc mật mã**. Đây không phải mã hóa đầu-cuối; sau lần mở khóa đầu tiên, ứng dụng và keyboard extension đã được cấp quyền App Group vẫn có thể truy cập tệp. Không nhập nội dung quá nhạy cảm và bảo vệ thiết bị bằng mật mã.
+- **Tốc độ:** Bộ gõ Telex/song ngữ, vuốt, emoji và gợi ý chữ không kích hoạt AI online trên từng phím; nhận diện vuốt và gợi ý từ tính ngoài luồng chạm chính.
+
+**Sử dụng:** tạo/chọn hồ sơ ở **AI & API** → vào **Trợ lý** → nhập lịch sử với nhãn **Tôi:** / **Bạn ấy:** → **Lưu lịch sử** → chọn **Gợi ý trả lời** hoặc **Nhắn gì hôm nay?**. Trước khi sử dụng AI online, bật đồng ý và kiểm tra lịch sử phù hợp. Để xem căn cứ, chạm **Vì sao AI đưa ra những gợi ý này?**. Chọn riêng một câu, sửa, rồi đưa sang bàn phím. Có thể xóa lịch sử từng hồ sơ bất cứ lúc nào.
+
+**Giới hạn:** ViePN không thể tự động đọc hoặc đồng bộ hội thoại bên trong Zalo, Messenger, Facebook. Bộ nhớ là truy xuất dữ liệu và thống kê cục bộ, **không phải huấn luyện lại trọng số mô hình**. Chưa có đánh giá thực tế trên iPhone 12 Pro Max về tốc độ, pin hay hiệu quả gợi ý; cần cài bản IPA mới sau khi build hoàn tất để kiểm thử.
+
 ## Quyền riêng tư và giới hạn iOS
 
 - Không tự đọc Zalo, Messenger, Facebook, danh bạ, email hoặc hội thoại ứng dụng khác. Thông tin người nhận phải do người dùng chọn hoặc tự cung cấp qua nội dung dán.
