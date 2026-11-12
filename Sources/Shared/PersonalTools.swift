@@ -108,6 +108,52 @@ enum PersonaStore {
         return matches.count == 1 ? matches.first : nil
     }
 
+    /// A screenshot supplied through the app's photo picker may contain a
+    /// chat title in its top navigation bar. Only evaluate OCR boxes in that
+    /// region; never infer the recipient from a chat bubble's text.
+    /// Vision's bounding boxes are normalized, origin at bottom left.
+    struct ScreenshotTextBox {
+        let text: String
+        let midX: Double
+        let midY: Double
+    }
+
+    struct ScreenshotMatch {
+        let recognizedTitle: String
+        let matches: [RecipientPersona]
+        var uniqueMatch: RecipientPersona? {
+            matches.count == 1 ? matches[0] : nil
+        }
+    }
+
+    static func matchScreenshotTitle(_ boxes: [ScreenshotTextBox]) -> ScreenshotMatch? {
+        // At the top of a screenshot, the name normally occupies the center
+        // navigation title area. Exclude status bars, app menus and messages.
+        let navigationTitles = boxes.filter {
+            $0.midY >= 0.77 && $0.midY <= 0.96
+                && $0.midX >= 0.23 && $0.midX <= 0.77
+        }
+        let ignored: Set<String> = [
+            "zalo", "messenger", "facebook", "tin nhan", "cuoc tro chuyen",
+            "chat", "tim kiem", "search", "online", "hoat dong",
+            "goi dien", "tro ve", "them", "chinh sua", "nhom"
+        ]
+        // Never use substring or fuzzy matching: ambiguous names should
+        // produce a candidate for user confirmation, not auto-selection.
+        for box in navigationTitles {
+            let title = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalized = normalizedName(title)
+            guard title.count >= 2, title.count <= 50,
+                  !ignored.contains(normalized),
+                  !normalized.contains(":") else { continue }
+            let matches = all.filter { normalizedName($0.name) == normalized }
+            if !matches.isEmpty {
+                return ScreenshotMatch(recognizedTitle: title, matches: matches)
+            }
+        }
+        return nil
+    }
+
     @discardableResult
     static func autoSelect(fromSharedTranscript text: String) -> RecipientPersona? {
         guard automaticNameMatch,
