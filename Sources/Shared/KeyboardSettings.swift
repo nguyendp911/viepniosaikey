@@ -113,6 +113,12 @@ enum KeyboardSettings {
         get { defaults.bool(forKey: prefix + "glideEnabled") }
         set { defaults.set(newValue, forKey: prefix + "glideEnabled") }
     }
+    // Optional touch-area expansion into the gap between neighboring keys.
+    static var adaptiveTouchEnabled: Bool {
+        get { defaults.object(forKey: prefix + "adaptiveTouchEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "adaptiveTouchEnabled") }
+    }
+
     static var autoLearnWords: Bool {
         get { defaults.bool(forKey: prefix + "autoLearnWords") }
         set { defaults.set(newValue, forKey: prefix + "autoLearnWords") }
@@ -190,6 +196,18 @@ enum KeyboardSettings {
         get { defaults.string(forKey: prefix + "translationLanguage") ?? "English" }
         set { defaults.set(newValue, forKey: prefix + "translationLanguage") }
     }
+    // Only examples explicitly supplied by the user are stored. No keystroke
+    // capture or cross-app text collection is involved.
+    static var writingSamples: [String] {
+        get { defaults.stringArray(forKey: prefix + "writingSamples") ?? [] }
+        set {
+            let cleaned = newValue.map {
+                String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(350))
+            }.filter { !$0.isEmpty }
+            defaults.set(Array(cleaned.prefix(8)), forKey: prefix + "writingSamples")
+        }
+    }
+
     static var savedPhrases: [String] {
         get { defaults.stringArray(forKey: prefix + "phrases") ?? ["Xin chào, mình có thể hỗ trợ gì cho bạn?", "Cảm ơn bạn đã liên hệ!", "Mình sẽ phản hồi bạn sớm nhé."] }
         set { defaults.set(Array(newValue.prefix(30)), forKey: prefix + "phrases") }
