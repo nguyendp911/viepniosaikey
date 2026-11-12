@@ -11,6 +11,8 @@ import LocalAuthentication
 /// keyboard extensions cannot inspect other apps' conversations or use microphone.
 struct AdvancedAssistantView: View {
     @State private var chosenImage: PhotosPickerItem?
+    @State private var screenshotMatch: PersonaStore.ScreenshotMatch?
+    @State private var screenshotMatchStatus = ""
     @State private var sourceText = ""
     @State private var responseText = ""
     @State private var feedback = ""
@@ -55,6 +57,37 @@ struct AdvancedAssistantView: View {
                 .onChange(of: chosenImage) { item in
                     guard let item else { return }
                     Task { await readScreenshot(item) }
+                }
+                if let match = screenshotMatch {
+                    Text("Tên trên thanh tiêu đề ảnh: " + match.recognizedTitle)
+                        .font(.caption).foregroundStyle(.cyan)
+                    if match.matches.count == 1, let person = match.uniqueMatch {
+                        HStack {
+                            Text("Đã tìm thấy hồ sơ: " + person.name)
+                                .font(.caption)
+                            Spacer()
+                            Button("Chọn hồ sơ") {
+                                selectScreenshotPersona(person)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    } else {
+                        Text("Có nhiều hồ sơ trùng tên. Hãy xác nhận đúng người:")
+                            .font(.caption2).foregroundStyle(.orange)
+                        ForEach(match.matches) { person in
+                            Button {
+                                selectScreenshotPersona(person)
+                            } label: {
+                                Label(person.name + " · " + person.recipient,
+                                      systemImage: "person.crop.circle")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+                if !screenshotMatchStatus.isEmpty {
+                    Text(screenshotMatchStatus)
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }
 
@@ -638,7 +671,7 @@ struct AdvancedAssistantView: View {
                 feedback = "Không đọc được ảnh. Hãy chọn ảnh chụp màn hình khác."
                 return
             }
-            let recognized = try await Task.detached(priority: .userInitiated) {
+            let observations = try await Task.detached(priority: .userInitiated) {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate
                 request.recognitionLanguages = ["vi-VN", "en-US"]
@@ -650,16 +683,41 @@ struct AdvancedAssistantView: View {
                             return a.boundingBox.midY > b.boundingBox.midY
                         }
                         return a.boundingBox.minX < b.boundingBox.minX
+                    }.compactMap { observation
+                        -> PersonaStore.ScreenshotTextBox? in
+                        guard let string = observation.topCandidates(1).first?.string
+                        else { return nil }
+                        return PersonaStore.ScreenshotTextBox(
+                            text: string, midX: Double(observation.boundingBox.midX),
+                            midY: Double(observation.boundingBox.midY))
                     }
-                    .compactMap { $0.topCandidates(1).first?.string }
-                    .joined(separator: "\n")
             }.value
-            sourceText = String(recognized.prefix(3000))
-            feedback = recognized.isEmpty ? "Ảnh không có chữ nhận diện được."
-                                          : "Đã nhận dạng chữ trên máy. Hãy kiểm tra thứ tự người gửi trước khi xử lý."
+            sourceText = String(
+                observations.map(\.text).joined(separator: "\n").prefix(3000))
+            screenshotMatch = PersonaStore.matchScreenshotTitle(observations)
+            if let match = screenshotMatch {
+                screenshotMatchStatus = "Đã phát hiện tên trên ảnh. Vui lòng xác nhận hồ sơ."
+                // Never silently switch a persona based on OCR alone. Chat
+                // screenshots can be cropped, edited or contain group titles.
+                feedback = "Đã đọc ảnh và nhận diện tên. Chọn hồ sơ đúng bên trên."
+            } else {
+                screenshotMatchStatus = "Không xác định được tên ở tiêu đề. Có thể chọn hồ sơ thủ công."
+                feedback = observations.isEmpty
+                    ? "Ảnh không có chữ nhận diện được."
+                    : "Đã nhận dạng chữ. Không tìm được hồ sơ khớp chắc chắn."
+            }
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
         }
+    }
+
+    private func selectScreenshotPersona(_ person: RecipientPersona) {
+        guard PersonaStore.all.contains(where: { $0.id == person.id }) else { return }
+        PersonaStore.select(person.id)
+        refreshActiveChatProfile()
+        screenshotMatchStatus = "Đã chọn hồ sơ " + person.name
+            + ". ViePN sẽ sử dụng lịch sử riêng của người này."
+        feedback = "Đã xác nhận đúng người nhận từ ảnh."
     }
 
     private func conversationExport(for personaID: String) -> String {
