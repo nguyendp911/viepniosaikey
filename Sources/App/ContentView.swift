@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var coupleAddress = KeyboardSettings.coupleAddress
     @State private var typingMode = KeyboardSettings.typingMode
     @State private var keyboardTheme = KeyboardSettings.theme
+    @State private var keypressEffect = KeyboardSettings.keypressEffect
     @State private var showAllThemes = false
     @State private var showAllShortcuts = false
     @State private var hapticEnabled = KeyboardSettings.hapticEnabled
@@ -728,6 +729,12 @@ struct ContentView: View {
         case "forest": return Color(red: 0.15, green: 0.25, blue: 0.22)
         case "sand": return Color(red: 0.92, green: 0.88, blue: 0.79)
         case "aurora": return Color(red: 0.08, green: 0.20, blue: 0.26)
+        case "amoled": return .black
+        case "neon": return Color(red: 0.035, green: 0.045, blue: 0.10)
+        case "cyberpunk": return Color(red: 0.13, green: 0.055, blue: 0.18)
+        case "coffee": return Color(red: 0.26, green: 0.19, blue: 0.16)
+        case "ice": return Color(red: 0.82, green: 0.92, blue: 0.98)
+        case "gold": return Color(red: 0.14, green: 0.12, blue: 0.10)
         default: return cardColor
         }
     }
@@ -1192,12 +1199,28 @@ struct ContentView: View {
                                           ("mint", "Mint"), ("sunset", "Sunset"),
                                           ("graphite", "Graphite"), ("sakura", "Sakura"),
                                           ("forest", "Forest"), ("sand", "Sand"),
-                                          ("aurora", "Aurora")])
+                                          ("aurora", "Aurora"), ("amoled", "AMOLED"),
+                                          ("neon", "Neon"), ("cyberpunk", "Cyberpunk"),
+                                          ("coffee", "Coffee"), ("ice", "Ice"),
+                                          ("gold", "Gold")])
                     .onChange(of: keyboardTheme) { KeyboardSettings.theme = $0 }
+                keyboardDivider()
+                keyboardMenuRow("Hiệu ứng khi chạm phím", symbol: "sparkles",
+                                value: $keypressEffect,
+                                options: [("off", "Không hiệu ứng · Mượt nhất"),
+                                          ("pop", "Pop · Nhấn nhẹ"),
+                                          ("glow", "Glow · Phát sáng"),
+                                          ("bounce", "Bounce · Nảy phím"),
+                                          ("flash", "Flash · Chớp sáng")])
+                    .onChange(of: keypressEffect) {
+                        KeyboardSettings.keypressEffect = $0
+                    }
+                Text("Hiệu ứng chạy trên lớp phím có sẵn, không tạo thêm giao diện khi gõ. Chế độ Siêu nhẹ tự tắt hiệu ứng; cài đặt Giảm chuyển động của iOS cũng được tôn trọng.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
 
-                let themes = ["system", "midnight", "ocean", "rose", "lavender",
-                              "mint", "sunset", "graphite", "sakura", "forest",
-                              "sand", "aurora"]
+                let themes = KeyboardSettings.availableThemes
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
                     spacing: 10
@@ -1244,7 +1267,7 @@ struct ContentView: View {
                     }
                 } label: {
                     HStack(spacing: 5) {
-                        Text(showAllThemes ? "Thu gọn" : "Xem đủ 12 chủ đề")
+                        Text(showAllThemes ? "Thu gọn" : "Xem đủ 18 chủ đề")
                         Image(systemName: showAllThemes ? "chevron.up" : "chevron.down")
                     }
                     .font(.system(size: 11, weight: .semibold))
