@@ -411,9 +411,14 @@ final class KeyboardViewController: UIInputViewController {
                                   image: UIImage(systemName: "arrow.uturn.backward")) { [weak self] _ in
             self?.undoWordCorrection()
         }
+        let variantsAction = UIAction(title: "Viết lại · 3 phiên bản",
+                                      image: UIImage(systemName: "square.stack.3d.up")) { [weak self] _ in
+            self?.performWritingVariants()
+        }
         toolButtons[2].menu = UIMenu(
             title: "AI · Vai xưng hô và viết lại",
-            children: [receiverMenu, profileMenu, importDraft, privacyAction, undoAction] + actions
+            children: [receiverMenu, profileMenu, importDraft, privacyAction,
+                       undoAction, variantsAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
@@ -479,6 +484,44 @@ final class KeyboardViewController: UIInputViewController {
                     guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
                     self.show([ReplySuggestion(tone: action.rawValue, text: transformed)])
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.requestID == activeID else { return }
+                    self.isRequestRunning = false
+                    self.showStatus("AI lỗi: " + error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func performWritingVariants() {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else { showStatus("Cần Full Access để dùng AI"); return }
+        let source = selectedText.isEmpty
+            ? (textDocumentProxy.documentContextBeforeInput ?? "") : selectedText
+        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            showStatus("Hãy nhập hoặc Dán nội dung trước khi dùng AI")
+            return
+        }
+        guard MessageSafety.warnings(in: source).isEmpty else {
+            showStatus("Có dữ liệu nhạy cảm · Hãy ẩn thông tin trước khi gửi AI")
+            return
+        }
+        isRequestRunning = true
+        let activeID = UUID()
+        requestID = activeID
+        showStatus("Đang tạo 3 phiên bản để bạn chọn")
+        Task { [weak self] in
+            do {
+                let texts = try await AIWritingService.transformVariants(source)
+                await MainActor.run {
+                    guard let self, self.requestID == activeID else { return }
+                    self.isRequestRunning = false
+                    let labels = ["Tự nhiên", "Lịch sự", "Ngắn gọn"]
+                    self.show(texts.enumerated().map {
+                        ReplySuggestion(tone: labels[$0.offset], text: $0.element)
+                    })
                 }
             } catch {
                 await MainActor.run {
