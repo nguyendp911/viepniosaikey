@@ -179,18 +179,22 @@ enum PersonaStore {
     }
 
     static func matchScreenshotTitle(_ boxes: [ScreenshotTextBox]) -> ScreenshotMatch? {
-        // Compare only top-of-screen candidates against full names. A
-        // distinctive name outside the old center-only region now works.
-        for box in headerCandidates(boxes) {
-            let title = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let matches = all.filter {
-                normalizedName($0.name) == normalizedScreenshotTitle(title)
-            }
-            if !matches.isEmpty {
-                return ScreenshotMatch(recognizedTitle: title, matches: matches)
-            }
+        // Compare every plausible header line, never return the first
+        // matching profile. Two distinct names => ambiguous, not a guess.
+        let candidates = headerCandidates(boxes)
+        let normalizedTitles = Set(candidates.map {
+            normalizedScreenshotTitle($0.text)
+        })
+        let matches = all.filter {
+            normalizedTitles.contains(normalizedName($0.name))
         }
-        return nil
+        guard !matches.isEmpty else { return nil }
+        let title = candidates.first(where: { candidate in
+            matches.contains {
+                normalizedName($0.name) == normalizedScreenshotTitle(candidate.text)
+            }
+        })?.text ?? "Tiêu đề cuộc trò chuyện"
+        return ScreenshotMatch(recognizedTitle: title, matches: matches)
     }
 
     @discardableResult
