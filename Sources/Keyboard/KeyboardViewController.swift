@@ -41,11 +41,20 @@ final class KeyboardViewController: UIInputViewController {
     // or a Vietnamese-looking prefix to resolve back to English.
     private var rawComposingWord = ""
     private var displayedComposingWord = ""
+    // Cached incremental candidate avoids reconstructing the word after
+    // every touch (formerly replayed Telex over its entire history).
+    private var telexCandidateWord = ""
+    private var candidateUpdateWork: DispatchWorkItem?
+    private var cachedSnippets: [String: String] = [:]
+    private var cachedReplacements: [String: String] = [:]
+    private var autocapitalizeEnabled = true
+    private var learnWordsEnabled = false
     private var bilingualPreference: BilingualComposer.Preference = .automatic
 
     private func resetBilingualComposition() {
         rawComposingWord = ""
         displayedComposingWord = ""
+        telexCandidateWord = ""
     }
     private let candidateBar = UIStackView()
     private var candidateButtons: [UIButton] = []
@@ -70,6 +79,10 @@ final class KeyboardViewController: UIInputViewController {
         useSuggestions = KeyboardSettings.predictionsEnabled
         useGlide = KeyboardSettings.glideEnabled
         learnedWords = KeyboardSettings.learnedWords
+        cachedSnippets = KeyboardSettings.textSnippets
+        cachedReplacements = KeyboardSettings.replacementDictionary
+        autocapitalizeEnabled = KeyboardSettings.autoCapitalize
+        learnWordsEnabled = KeyboardSettings.autoLearnWords
     }
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
@@ -688,14 +701,19 @@ final class KeyboardViewController: UIInputViewController {
                 if !existing.isEmpty && existing.count <= 40 {
                     rawComposingWord = existing
                     displayedComposingWord = existing
+                    telexCandidateWord = existing
                 }
             }
             let rawNext = rawComposingWord + key
             if rawNext.count <= 40 {
                 let preference: BilingualComposer.Preference =
                     useSmartBilingual ? bilingualPreference : .vietnamese
-                let newWord = BilingualComposer.compose(
-                    rawNext, preference: preference).rendered
+                // One transformation step, not O(word length²) replay.
+                let nextTelex = BilingualComposer.appendCandidate(
+                    telexCandidateWord, key: key)
+                let newWord = BilingualComposer.choose(
+                    raw: rawNext, vietnameseCandidate: nextTelex,
+                    preference: preference).rendered
                 if let edit = FastTyping.edit(from: displayedComposingWord, to: newWord) {
                     if edit.deleteCount > 0 {
                         let current = textDocumentProxy.documentContextBeforeInput ?? ""
@@ -717,6 +735,7 @@ final class KeyboardViewController: UIInputViewController {
                         textDocumentProxy.insertText(edit.insertion)
                     }
                     rawComposingWord = rawNext
+                    telexCandidateWord = nextTelex
                     displayedComposingWord = newWord
                     recentWord = newWord
                     if isUppercase && !isShiftLocked {
@@ -728,6 +747,7 @@ final class KeyboardViewController: UIInputViewController {
                     return
                 }
                 rawComposingWord = rawNext
+                telexCandidateWord = nextTelex
                 displayedComposingWord = newWord
                 recentWord = newWord
                 updateCandidates()
@@ -775,14 +795,14 @@ final class KeyboardViewController: UIInputViewController {
                 $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_"
             }).reversed())
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
-            if let snippet = KeyboardSettings.textSnippets[token], !token.isEmpty {
+            if let snippet = cachedSnippets[token], !token.isEmpty {
                 for _ in token { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(SmartTyping.expandSnippet(snippet))
-            } else if let replacement = KeyboardSettings.replacementDictionary[word.lowercased()],
+            } else if let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
                 for _ in word { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(replacement)
-            } else if KeyboardSettings.autoLearnWords && word.count >= 3 && word.count <= 24 {
+            } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
                 let normalized = word.lowercased()
                 learnedWords[normalized, default: 0] += 1
                 KeyboardSettings.learnedWords = learnedWords
@@ -791,7 +811,7 @@ final class KeyboardViewController: UIInputViewController {
         textDocumentProxy.insertText(" ")
         recentWord = ""
         updateCandidates()
-        if KeyboardSettings.autoCapitalize && !isShiftLocked {
+        if autocapitalizeEnabled && !isShiftLocked {
             let before = textDocumentProxy.documentContextBeforeInput ?? ""
             let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
             let nextUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
@@ -962,10 +982,33 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCandidates(_ override: [String]? = nil) {
-        let results = override ?? (useSuggestions
-            ? SmartTyping.predictions(prefix: recentWord, learned: learnedWords) : [])
+        // Prediction sorting and keyboard-height changes happen after a
+        // short typing pause, not synchronously for every physical key.
+        // A direct swipe prediction is shown immediately.
+        candidateUpdateWork?.cancel()
+        if let override {
+            renderCandidates(override)
+            return
+        }
+        guard useSuggestions, !recentWord.isEmpty else {
+            renderCandidates([])
+            return
+        }
+        let word = recentWord
+        let personalWords = learnedWords
+        let job = DispatchWorkItem { [weak self] in
+            guard let self, self.recentWord == word else { return }
+            let results = SmartTyping.predictions(
+                prefix: word, learned: personalWords)
+            self.renderCandidates(results)
+        }
+        candidateUpdateWork = job
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(65),
+                                      execute: job)
+    }
+
+    private func renderCandidates(_ results: [String]) {
         let visible = !results.isEmpty
-        // Skip all UI work when nothing changed (common while typing).
         if results == candidateWords && candidateBar.isHidden != visible { return }
         candidateWords = results
         if candidateBar.isHidden == visible {
@@ -973,8 +1016,12 @@ final class KeyboardViewController: UIInputViewController {
             updateKeyboardHeight()
         }
         for (index, button) in candidateButtons.enumerated() {
-            button.setTitle(index < results.count ? results[index] : "", for: .normal)
-            button.isEnabled = index < results.count
+            let title = index < results.count ? results[index] : ""
+            if button.title(for: .normal) != title {
+                button.setTitle(title, for: .normal)
+            }
+            let enabled = index < results.count
+            if button.isEnabled != enabled { button.isEnabled = enabled }
         }
     }
 
