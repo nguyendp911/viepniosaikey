@@ -64,6 +64,14 @@ struct VerifySmartKeyboard {
                "invalid traced words are not accepted as literal candidates")
         assert(SmartTyping.glideCandidates(trace: "bokk").contains("book"),
                "swipe recognizer tolerates one traced-key error")
+        // Dense traces simulate real finger movement across intervening keys,
+        // rather than idealized spelling where only target keys are recorded.
+        assert(SmartTyping.glideCandidates(trace: "hgtfrertyhjklo").contains("hello"),
+               "geometric glide path recognizes hello")
+        assert(SmartTyping.glideCandidates(trace: "sdrtyuioiuytre").contains("store"),
+               "geometric glide path recognizes store")
+        assert(SmartTyping.glideCandidates(trace: "kjhygtrertyhbnjkoiuygtfdsaserd")
+                   .contains("keyboard"), "geometric glide path recognizes keyboard")
         assert(SmartTyping.glideCandidates(trace: "helo", learned: ["hello": 9])
                    .contains("hello"), "personalized swipe word")
         assert(SmartTyping.nearbyKeyCorrections("storw").contains("store"),
