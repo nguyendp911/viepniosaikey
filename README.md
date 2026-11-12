@@ -199,6 +199,15 @@ Sau khi cài, mở **Cài đặt iOS → Cài đặt chung → Bàn phím → C�
 - **Vuốt có ngưỡng:** Cú chạm trượt nhẹ trên phím không còn được coi là một từ vuốt; đồng thời giảm số lần hit-test phím, giới hạn số lần vẽ vệt sáng mỗi khung hình và dùng hàng đợi nền riêng cho vuốt.
 - **Tình trạng xác minh:** CI kiểm thử biên dịch; cảm giác gõ lâu trên iPhone thực tế vẫn cần được kiểm tra vì UIKit, bàn phím host (Zalo/Messenger) và thiết bị có thể khác môi trường build.
 
+## Bộ giao diện bàn phím 18 phong cách + hiệu ứng chạm phím
+
+Trong **ViePN → Cá nhân hóa → Giao diện bàn phím**, chọn 1 trong 18 chủ đề:
+**System, Midnight, Ocean, Rose, Lavender, Mint, Sunset, Graphite, Sakura, Forest, Sand, Aurora, AMOLED, Neon, Cyberpunk, Coffee, Ice, Gold**. Lưới hiển thị màu nền và phím mẫu A/S/D, có dấu chọn cho theme đang dùng.
+
+**Hiệu ứng gõ phím:** `Không hiệu ứng` (mặc định), `Pop` (nhấn nhẹ), `Glow` (sáng phím), `Bounce` (nảy), `Flash` (chớp). Hiệu ứng áp dụng trên lớp Core Animation của phím hiện có, không tạo các view hay ràng buộc Auto Layout mới mỗi lần chạm. Hiệu ứng không thay đổi ký tự gõ, không ghi lại văn bản và không gọi mạng.
+
+**Chống lag:** Khi bật **Chế độ siêu nhẹ**, ViePN tự tắt hiệu ứng cùng gợi ý, vuốt, vệt sáng, rung và tự học từ, trong khi vẫn duy trì bộ gõ Telex/VNI. Cài đặt **Giảm chuyển động** của iOS luôn được ưu tiên. Chuyển sang bàn phím khác rồi quay lại ViePN để áp dụng cài đặt giao diện/hiệu ứng mới. Trên thiết bị thật vẫn cần kiểm tra độ mượt trong Zalo/Messenger.
+
 ## GitHub Actions / IPA
 
 Mỗi push lên `main` chạy kiểm thử Swift và build iOS qua workflow [iOS Build](.github/workflows/ios.yml). Vào Actions → run mới nhất → Artifacts để tải sản phẩm nếu job tạo artifact. Workflow có đường ký Ad Hoc thủ công theo môi trường và secrets `ios-signing`; IPA chưa ký không thể cài trực tiếp.
