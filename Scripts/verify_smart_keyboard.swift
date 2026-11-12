@@ -253,9 +253,27 @@ struct VerifySmartKeyboard {
             for: historyID, query: "bận", openingToday: true)
                    .contains("Người ấy: Hôm nay bận lắm"),
                "user-visible why-explanation quotes real source messages")
+        // A manual correction to an imported message must be reflected in
+        // future evidence retrieval, without changing who sent it.
+        var changedTurns = ConversationHistory.all
+        if let index = changedTurns.firstIndex(where: {
+            $0.personaID == historyID && $0.text == "Cố lên nhé!"
+        }) {
+            changedTurns[index].text = "Cố gắng nhé!"
+            ConversationHistory.all = changedTurns
+        }
+        assert(ConversationHistory.turns(for: historyID).contains(where: {
+            $0.speaker == .me && $0.text == "Cố gắng nhé!"
+        }), "editing a saved turn updates the same speaker's conversation")
         ConversationHistory.clear(for: historyID)
         assert(ConversationHistory.turns(for: historyID).isEmpty,
                "conversation deletion removes scoped history")
+        let uninformative = "Tôi: Hôm nay bạn sao rồi?\nBạn ấy: Mình ổn."
+        assert(ConversationHistory.importExplicitly(uninformative, for: historyID) == 2,
+               "unrelated chat can be imported explicitly")
+        assert(ConversationIntelligence.topics(for: historyID).isEmpty,
+               "word-boundary classifier must not infer sickness from hôm or food from bạn")
+        ConversationHistory.clear(for: historyID)
         ConversationMemory.notes = []
         PersonaStore.clearSelection()
         PersonaStore.all = []
