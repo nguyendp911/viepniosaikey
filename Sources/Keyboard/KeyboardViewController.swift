@@ -1036,7 +1036,12 @@ final class KeyboardViewController: UIInputViewController {
             // If another app edited or moved the caret, do not touch its
             // existing text. Check the host suffix before destructive edits.
             if rawComposingWord.isEmpty, !knownWordBoundary,
+               (textDocumentProxy.documentContextAfterInput?.first?.isLetter != true),
+               (textDocumentProxy.selectedText?.isEmpty ?? true),
                let context = textDocumentProxy.documentContextBeforeInput {
+                // A moved caret inside another word or a selected text range
+                // must not be silently adopted as this keyboard's composing
+                // syllable: doing so can rewrite unrelated host text.
                 let existing = String(context.reversed()
                     .prefix(while: { $0.isLetter }).reversed())
                 if !existing.isEmpty && existing.count <= 40 {
