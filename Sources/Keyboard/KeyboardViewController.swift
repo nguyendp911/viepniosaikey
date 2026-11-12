@@ -1236,9 +1236,15 @@ final class KeyboardViewController: UIInputViewController {
         let person = PersonaStore.active
         let greeting = person == nil ? "Hôm nay bạn thế nào?"
             : "Hôm nay \(person!.name) thế nào?"
-        idleActions = emoji.map { (title: $0, insert: $0, emoji: true) }
+        let topEmoji = Array(emoji.prefix(4))
+        idleActions = topEmoji.map { (title: $0, insert: $0, emoji: true) }
+        // Keep a useful conversation starter in the visible portion of the
+        // strip, rather than hiding it behind ten emoji on narrow screens.
+        idleActions.append((title: "💬 Hỏi thăm", insert: greeting, emoji: false))
+        idleActions.append(contentsOf: emoji.dropFirst(4).map {
+            (title: $0, insert: $0, emoji: true)
+        })
         idleActions.append(contentsOf: [
-            (title: "💬 Hỏi thăm", insert: greeting, emoji: false),
             (title: "☀️ Chào ngày mới", insert: "Chúc bạn một ngày tốt lành nhé!", emoji: false),
             (title: "✨ Gợi chuyện", insert: "Dạo này bạn có gì mới không?", emoji: false)
         ])
@@ -1349,6 +1355,20 @@ final class KeyboardViewController: UIInputViewController {
         let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
         if results == candidateWords && candidateScroll.isHidden == shouldHide,
            candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
+        let canUpdateInPlace = !needsExpand && candidateButtons.count == results.count
+            && candidateBar.arrangedSubviews.count == results.count
+        if canUpdateInPlace {
+            candidateWords = results
+            if candidateScroll.isHidden != shouldHide {
+                candidateScroll.isHidden = shouldHide
+            }
+            for (index, word) in results.enumerated()
+                where candidateButtons[index].title(for: .normal) != word {
+                candidateButtons[index].setTitle(word, for: .normal)
+            }
+            updateContextVisibility()
+            return
+        }
         candidateWords = results
         if candidateScroll.isHidden != shouldHide {
             candidateScroll.isHidden = shouldHide
