@@ -49,6 +49,7 @@ enum AIService {
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
         \(ConversationMemory.prompt())
+        \(KeyboardSettings.personalStylePrompt)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         The recipient relationship is more important than any saved Couple style.
         Suggest short, context-aware Vietnamese REPLIES to that message.
