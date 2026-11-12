@@ -299,11 +299,28 @@ struct AdvancedAssistantView: View {
                         .background(.white.opacity(0.045),
                                     in: RoundedRectangle(cornerRadius: 9))
                     }
+                    // Export is opt-in and scoped to the selected person.
+                    // The system share sheet is invoked only by a real tap;
+                    // sharing a transcript as plain text is NOT encrypted.
+                    if let person = PersonaStore.active {
+                        ShareLink(item: conversationExport(for: person.id),
+                                  subject: Text("Hội thoại của " + person.name),
+                                  message: Text("Bản sao lịch sử do tôi chủ động xuất từ ViePN")) {
+                            Label("Xuất hội thoại người này", systemImage: "square.and.arrow.up")
+                        }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                        Text("Bản xuất là văn bản thường, không mã hóa. Chỉ chia sẻ với nơi bạn tin cậy; không gửi công khai.")
+                            .font(.caption2).foregroundStyle(.orange)
+                    }
                     Button(role: .destructive) {
                         guard let person = PersonaStore.active else { return }
                         ConversationHistory.clear(for: person.id)
                         savedChatTurns = []
-                        feedback = "Đã xóa lịch sử hội thoại của " + person.name + "."
+                        chatPreview = ""
+                        generatedChatSuggestions = []
+                        evidenceExplanation = ""
+                        feedback = "Đã yêu cầu xóa lịch sử hội thoại của " + person.name + "."
                     } label: {
                         Label("Xóa toàn bộ lịch sử người này", systemImage: "trash")
                     }
@@ -631,6 +648,15 @@ struct AdvancedAssistantView: View {
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
         }
+    }
+
+    private func conversationExport(for personaID: String) -> String {
+        ConversationHistory.turns(for: personaID).map { turn in
+            let who = turn.speaker == .me ? "Tôi" : "Bạn ấy"
+            let date = DateFormatter.localizedString(
+                from: turn.createdAt, dateStyle: .short, timeStyle: .short)
+            return "[" + date + "] " + who + ": " + turn.text
+        }.joined(separator: "\n")
     }
 
     private func refreshActiveChatProfile() {
