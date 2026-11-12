@@ -26,6 +26,8 @@ struct AdvancedAssistantView: View {
     @State private var showExplanation = false
     @State private var openingNote = ""
     @State private var historyLockEnabled = KeyboardSettings.historyScreenLockEnabled
+    @State private var conversationStyleEnabled =
+        KeyboardSettings.learnConversationStyleEnabled
     @State private var historyUnlocked = false
     @State private var remindersTitle = ""
     @State private var reminderDate = Date().addingTimeInterval(3600)
@@ -271,6 +273,15 @@ struct AdvancedAssistantView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+                Toggle("Học cách xưng hô, giọng văn từ tin nhắn Tôi đã tự lưu",
+                       isOn: $conversationStyleEnabled)
+                    .font(.caption)
+                    .tint(.cyan)
+                    .onChange(of: conversationStyleEnabled) {
+                        KeyboardSettings.learnConversationStyleEnabled = $0
+                    }
+                Text("Khi bật, các tin do bạn tự đánh dấu Tôi có thể được dùng làm ví dụ về văn phong trong những yêu cầu AI do bạn chủ động gửi. Không học từ tin nhắn của người kia.")
+                    .font(.caption2).foregroundStyle(.secondary)
                 TextField("Ghi chú tùy chọn: Hôm nay muốn hỏi chuyện gì?", text: $openingNote)
                     .textFieldStyle(.roundedBorder)
                 HStack {
