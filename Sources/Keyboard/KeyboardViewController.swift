@@ -1479,15 +1479,20 @@ final class KeyboardViewController: UIInputViewController {
             glideLastPoint = nil
             guard isWordSwipe else { return }
             let personalWords = learnedWords
+            let usageCounts = glideLearningEnabled ? glideUsageCounts : [:]
             let language = useSmartBilingual ? bilingualPreference.rawValue : "vi"
             let generation = candidateGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let suggestions = SmartTyping.glideCandidates(
-                    trace: trace, learned: personalWords, language: language)
+                    trace: trace, learned: personalWords, language: language, limit: 12)
+                let complete = SmartTyping.glideOptions(
+                    suggestions, language: language, usage: usageCounts, showAll: true)
+                let display = SmartTyping.glideOptions(
+                    suggestions, language: language, usage: usageCounts)
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, !suggestions.isEmpty,
+                    guard let self, !display.isEmpty,
                           self.candidateGeneration == generation,
                           self.typingTouchCount == touchCount else { return }
                     let before = self.textDocumentProxy.documentContextBeforeInput ?? ""
@@ -1496,26 +1501,25 @@ final class KeyboardViewController: UIInputViewController {
                     let initial = String(trace.prefix(1))
                     if current.lowercased() == initial,
                        SmartTyping.glideStartsWithPhysicalKey(
-                           suggestions[0], key: initial) {
+                           display[0], key: initial) {
                         // touchDown already inserted the first letter.
                         // Replace just that letter with the recognized word.
-                        self.replaceCurrentWord(suggestions[0])
+                        self.replaceCurrentWord(display[0])
                         self.textDocumentProxy.insertText(" ")
                         self.knownWordBoundary = true
                         self.resetBilingualComposition()
-                        self.pendingGlideWord = suggestions[0]
+                        self.pendingGlideWord = display[0]
+                        self.fullGlideOptions = complete
                         self.recentWord = ""
                         if self.useSuggestions {
-                            // Keep accented alternatives visible after swipe:
-                            // e.g. bàn, bạn, bán share the same QWERTY path.
-                            self.updateCandidates(suggestions)
+                            self.updateCandidates(display)
                         } else {
                             self.updateCandidates()
                         }
                     } else {
                         // Never overwrite an existing draft or a changed caret.
                         // Offer alternatives only; the user can tap to accept.
-                        self.updateCandidates(suggestions)
+                        self.updateCandidates(display)
                     }
                 }
             }
@@ -1550,6 +1554,18 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func beginTyping() {
+        // When the user continues after accepting the automatically chosen
+        // word, record one real usage. Explicitly picking a different tone
+        // records only that chosen tone, never the abandoned auto-choice.
+        if let word = pendingGlideWord {
+            if glideLearningEnabled,
+               (textDocumentProxy.documentContextBeforeInput ?? "").hasSuffix(word + " ") {
+                KeyboardSettings.recordGlideChoice(word)
+                glideUsageCounts = KeyboardSettings.glideUsageCounts
+            }
+            pendingGlideWord = nil
+            fullGlideOptions = []
+        }
         lastWordReplacement = nil
         // Once the user starts composing, do not analyze stale clipboard text.
         selectedText = ""
