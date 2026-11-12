@@ -23,6 +23,7 @@ struct AdvancedAssistantView: View {
     @State private var chatSearch = ""
     @State private var editingChatTurnID: String?
     @State private var editingChatText = ""
+    @State private var showClearChatConfirmation = false
     @State private var chatPreview = ""
     @State private var generatedChatSuggestions: [ReplySuggestion] = []
     @State private var evidenceExplanation = ""
@@ -314,17 +315,28 @@ struct AdvancedAssistantView: View {
                             .font(.caption2).foregroundStyle(.orange)
                     }
                     Button(role: .destructive) {
-                        guard let person = PersonaStore.active else { return }
-                        ConversationHistory.clear(for: person.id)
-                        savedChatTurns = []
-                        chatPreview = ""
-                        generatedChatSuggestions = []
-                        evidenceExplanation = ""
-                        feedback = "Đã yêu cầu xóa lịch sử hội thoại của " + person.name + "."
+                        showClearChatConfirmation = true
                     } label: {
                         Label("Xóa toàn bộ lịch sử người này", systemImage: "trash")
                     }
                     .font(.caption)
+                    .confirmationDialog(
+                        "Xóa vĩnh viễn mọi tin nhắn đã lưu của hồ sơ này?",
+                        isPresented: $showClearChatConfirmation,
+                        titleVisibility: .visible) {
+                        Button("Xóa vĩnh viễn", role: .destructive) {
+                            guard let person = PersonaStore.active else { return }
+                            ConversationHistory.clear(for: person.id)
+                            savedChatTurns = ConversationHistory.turns(for: person.id)
+                            chatPreview = ""
+                            generatedChatSuggestions = []
+                            evidenceExplanation = ""
+                            feedback = savedChatTurns.isEmpty
+                                ? "Đã xóa lịch sử của " + person.name + "."
+                                : "Xóa chưa hoàn tất. Kiểm tra vùng lưu trữ của iOS."
+                        }
+                        Button("Hủy", role: .cancel) {}
+                    }
                 }
                 if let person = PersonaStore.active {
                     let personTopics = ConversationIntelligence.topics(for: person.id)
