@@ -111,8 +111,15 @@ enum ChatScreenshotReference {
             let crop = CGRect(x: 0, y: CGFloat(cgImage.height) * 0.055,
                               width: CGFloat(cgImage.width),
                               height: CGFloat(cgImage.height) * 0.185).integral
-            guard let cropped = cgImage.cropping(to: crop),
-                  let png = UIImage(cgImage: cropped).pngData() else { return nil }
+            guard let cropped = cgImage.cropping(to: crop) else { return nil }
+            let aspect = CGFloat(cropped.height) / CGFloat(cropped.width)
+            let target = CGSize(width: 480, height: 480 * aspect)
+            let renderer = UIGraphicsImageRenderer(size: target)
+            let png = renderer.pngData { context in
+                UIImage(cgImage: cropped).draw(
+                    in: CGRect(origin: .zero, size: target))
+            }
+            guard png.count < 300_000 else { return nil }
             return (title, png)
         }.value
     }
