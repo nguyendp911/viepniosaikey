@@ -52,6 +52,15 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 - **Ưu tiên tiếng Việt**: `or` → `ỏ`; thêm `r` lần nữa (`orr`) → `or`.
 - Phím xóa lùi theo chuỗi phím đã gõ, kể cả khi một phím đã biến đổi nhiều ký tự.
 
+## Hồ sơ kèm ảnh chụp làm mẫu nhận diện
+
+- Mở **AI & API → Hồ sơ người nhận**, nhập tên, vai quan hệ và chọn **Kèm ảnh chụp màn hình Zalo / Messenger**. Ảnh cần có tiêu đề tên người đang trò chuyện. ViePN đọc tên bằng Apple Vision ngay trên iPhone và cho xem trước.
+- Bấm **Thêm & chọn hồ sơ** để tạo hồ sơ gắn với mẫu, hoặc **Gắn ảnh cho hồ sơ đang chọn** để thêm mẫu vào hồ sơ đã có.
+- Chỉ **vùng thanh tiêu đề** được lưu dưới dạng ảnh mẫu vào App Group có iOS Data Protection. Tin nhắn trong ảnh gốc không được lưu trong kho ảnh mẫu. Mỗi hồ sơ hiện lưu một mẫu; có thể thay ảnh khác.
+- Khi người dùng **chủ động chọn một ảnh chụp cuộc trò chuyện mới** trong **Trợ lý**, OCR của ảnh mới được đối chiếu với tên thanh tiêu đề của các ảnh mẫu. Khi có khớp duy nhất và **Tự khớp tên** đang bật, hồ sơ được chuyển tự động; trùng tên thì yêu cầu chọn.
+- Tên Zalo và tên tự đặt trong hồ sơ có thể khác nhau, vì phần so khớp dựa trên tên đã đọc trong ảnh mẫu.
+- **Không thể nhận ảnh màn hình chỉ vì người dùng chuyển sang một cuộc chat khác trong Zalo**: iOS không cấp quyền đọc màn hình ứng dụng khác cho keyboard extension. Tính năng tự động chạy *sau khi ảnh được cung cấp*, không tự quan sát màn hình nền. Ảnh của người khác phải được chia sẻ có chủ đích và tuân thủ quyền riêng tư.
+
 ## Nhận diện người nhận từ ảnh chụp Zalo, Messenger
 
 Trong **Trợ lý → Ảnh chụp hội thoại**, chọn một ảnh chụp do bạn chủ động cung cấp. ViePN dùng **Apple Vision OCR offline trên iPhone** và chỉ xét chữ ở vùng tiêu đề điều hướng phía trên màn hình để tìm tên người đang trò chuyện.
