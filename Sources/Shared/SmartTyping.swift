@@ -131,6 +131,44 @@ enum SmartTyping {
         return candidate
     }
 
+    // Only suggest, never auto-insert: a single nearby-key typo should not
+    // force English spelling on someone composing Vietnamese via Telex.
+    // These 2D neighbors are generated once, without tracking touch locations.
+    private static let nearbyKeys: [Character: Set<Character>] = {
+        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map(Array.init)
+        var result: [Character: Set<Character>] = [:]
+        for rowIndex in rows.indices {
+            for (column, key) in rows[rowIndex].enumerated() {
+                for otherRow in rows.indices where abs(otherRow - rowIndex) <= 1 {
+                    for (otherColumn, neighbor) in rows[otherRow].enumerated()
+                        where neighbor != key && abs(otherColumn - column) <= 1 {
+                        result[key, default: []].insert(neighbor)
+                    }
+                }
+            }
+        }
+        return result
+    }()
+
+    static func nearbyKeyCorrections(_ raw: String, limit: Int = 3) -> [String] {
+        let typed = Array(raw.lowercased())
+        guard typed.count >= 3, typed.count <= 20, limit > 0,
+              typed.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
+        var matches: [String] = []
+        for word in englishWords where word.count == typed.count {
+            var mismatches = 0
+            for (key, expected) in zip(typed, word) where key != expected {
+                mismatches += 1
+                if mismatches > 1 || !(nearbyKeys[key]?.contains(expected) ?? false) {
+                    mismatches = 2
+                    break
+                }
+            }
+            if mismatches == 1 { matches.append(word) }
+        }
+        return Array(matches.sorted().prefix(limit))
+    }
+
     static func predictions(prefix raw: String, learned: [String: Int] = [:],
                             limit: Int = 3) -> [String] {
         let prefix = raw.lowercased()
@@ -143,6 +181,13 @@ enum SmartTyping {
         let bucket = predictionBuckets[String(prefix.prefix(2))] ?? []
         for word in bucket where word.hasPrefix(prefix) {
             if seen.insert(word).inserted { candidates.append(word) }
+        }
+        if candidates.isEmpty {
+            // A miss such as "storw" can suggest "store" in the suggestion
+            // strip; no automatic replacement or destructive text edit.
+            for suggestion in nearbyKeyCorrections(prefix, limit: limit) {
+                if seen.insert(suggestion).inserted { candidates.append(suggestion) }
+            }
         }
         // Plain `<` instead of localizedStandardCompare: the locale-aware
         // comparison is very slow and ran for every candidate on every key.
@@ -167,20 +212,27 @@ enum SmartTyping {
 
     /// A small local glide recognizer. The traced key sequence is compressed
     /// and scored against the dictionary; it is deliberately never sent to AI.
-    static func glideCandidates(trace raw: String, limit: Int = 3) -> [String] {
+    static func glideCandidates(trace raw: String, learned: [String: Int] = [:],
+                                limit: Int = 3) -> [String] {
         let trace = collapseRepeats(raw.lowercased())
-        guard trace.count >= 3 else { return [] }
-        let matches = (englishWords + vietnameseWords).compactMap { word -> (String, Int)? in
+        guard trace.count >= 3, trace.count <= 30, limit > 0 else { return [] }
+        let threshold = max(2, trace.count / 2)
+        let dictionary = englishWords + vietnameseWords + Array(learned.keys)
+        let matches = dictionary.compactMap { word -> (String, Int)? in
             let letters = collapseRepeats(word.lowercased())
-            guard letters.first == trace.first, letters.last == trace.last else { return nil }
+            guard abs(letters.count - trace.count) <= threshold,
+                  letters.first == trace.first, letters.last == trace.last else { return nil }
             let distance = editDistance(Array(letters), Array(trace))
-            guard distance <= max(2, trace.count/2) else { return nil }
+            guard distance <= threshold else { return nil }
             return (word, distance)
         }
+        var seen = Set<String>()
         return Array(matches.sorted {
             if $0.1 != $1.1 { return $0.1 < $1.1 }
+            let a = learned[$0.0] ?? 0, b = learned[$1.0] ?? 0
+            if a != b { return a > b }
             return abs($0.0.count - trace.count) < abs($1.0.count - trace.count)
-        }.prefix(limit).map(\.0))
+        }.compactMap { seen.insert($0.0).inserted ? $0.0 : nil }.prefix(limit))
     }
 
     private static func collapseRepeats(_ input: String) -> String {
