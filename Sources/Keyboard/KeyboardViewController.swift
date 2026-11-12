@@ -1,5 +1,6 @@
 import UIKit
 import AudioToolbox
+import Vision
 
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
@@ -161,6 +162,7 @@ final class KeyboardViewController: UIInputViewController {
         updateCoupleTool()
         installWritingActions()
         installClipboardMenu()
+        refreshProfileIndicator()
         updateCandidates()
         refreshIdleActions()
         updateContextVisibility()
@@ -427,6 +429,7 @@ final class KeyboardViewController: UIInputViewController {
                 PersonaStore.activeID = ""
                 KeyboardSettings.recipientMode = recipient.rawValue
                 self?.installWritingActions()
+                self?.refreshProfileIndicator()
                 let text = self?.selectedText ?? ""
                 let resolved = ConversationContextResolver.resolve(text)
                 self?.showStatus("Người nhận: " + resolved.displayName + " · Nhấn AI")
@@ -444,6 +447,7 @@ final class KeyboardViewController: UIInputViewController {
                 PersonaStore.select(person.id)
                 self?.installWritingActions()
                 self?.refreshIdleActions()
+                self?.refreshProfileIndicator()
                 self?.showStatus("Hồ sơ: " + person.name)
             }
             item.state = PersonaStore.activeID == person.id ? .on : .off
@@ -456,6 +460,7 @@ final class KeyboardViewController: UIInputViewController {
                 PersonaStore.clearSelection()
                 self?.installWritingActions()
                 self?.refreshIdleActions()
+                self?.refreshProfileIndicator()
                 self?.showStatus("Đã tắt hồ sơ người nhận")
             }] + personaActions
         )
@@ -492,17 +497,124 @@ final class KeyboardViewController: UIInputViewController {
                                       image: UIImage(systemName: "square.stack.3d.up")) { [weak self] _ in
             self?.performWritingVariants()
         }
+        let screenshotAction = UIAction(
+            title: "Nhận diện người từ ảnh đã sao chép",
+            image: UIImage(systemName: "photo.text.rectangle")
+        ) { [weak self] _ in
+            self?.recognizeRecipientFromCopiedScreenshot()
+        }
         let openingAction = UIAction(title: "Hôm nay nhắn gì? · Theo lịch sử",
                                      image: UIImage(systemName: "sun.max")) { [weak self] _ in
             self?.suggestDailyMessage()
         }
         toolButtons[2].menu = UIMenu(
             title: "AI · Hội thoại và viết lại",
-            children: [receiverMenu, profileMenu, openingAction, importDraft,
-                       privacyAction, undoAction, variantsAction] + actions
+            children: [receiverMenu, profileMenu, screenshotAction, openingAction,
+                       importDraft, privacyAction, undoAction, variantsAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
-        toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
+        toolButtons[2].accessibilityHint =
+            "Chạm AI để trả lời. Nhấn giữ để kiểm tra hồ sơ, nhận diện ảnh đã sao chép hoặc chọn người nhận."
+    }
+
+    /// A keyboard extension cannot read Zalo/Messenger's chat title.
+    /// This opt-in workflow looks ONLY at an image the user explicitly copied
+    /// into the system clipboard, never at host app UI or conversation text.
+    private func recognizeRecipientFromCopiedScreenshot() {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else {
+            showStatus("Cần Full Access để đọc ảnh được bạn sao chép")
+            return
+        }
+        guard let picture = UIPasteboard.general.image else {
+            showStatus("Chưa có ảnh trong bộ nhớ Dán. Sao chép ảnh chụp Zalo rồi thử lại.")
+            return
+        }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let bound = max(picture.size.width, picture.size.height)
+        let factor = min(1, 1100 / max(1, bound))
+        let target = CGSize(width: picture.size.width * factor,
+                            height: picture.size.height * factor)
+        guard target.width >= 100, target.height >= 100 else {
+            showStatus("Ảnh quá nhỏ để đọc tiêu đề")
+            return
+        }
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
+        let png = renderer.pngData { _ in
+            picture.draw(in: CGRect(origin: .zero, size: target))
+        }
+        // Never retain or upload the screenshot; process only a temporary,
+        // downscaled image to minimize keyboard extension memory pressure.
+        isRequestRunning = true
+        showStatus("Đang đọc tiêu đề ảnh đã sao chép…")
+        let ticket = UUID()
+        requestID = ticket
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let found: PersonaStore.ScreenshotMatch?
+            if let image = UIImage(data: png)?.cgImage {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.recognitionLanguages = ["vi-VN", "en-US"]
+                request.usesLanguageCorrection = false
+                do {
+                    try VNImageRequestHandler(cgImage: image, options: [:])
+                        .perform([request])
+                    let boxes = (request.results ?? []).compactMap { observation
+                        -> PersonaStore.ScreenshotTextBox? in
+                        guard let label = observation.topCandidates(1).first?.string
+                        else { return nil }
+                        return PersonaStore.ScreenshotTextBox(
+                            text: label, midX: Double(observation.boundingBox.midX),
+                            midY: Double(observation.boundingBox.midY))
+                    }
+                    found = PersonaStore.matchScreenshotTitle(boxes)
+                } catch {
+                    found = nil
+                }
+            } else {
+                found = nil
+            }
+            DispatchQueue.main.async {
+                guard let self, self.requestID == ticket else { return }
+                self.isRequestRunning = false
+                guard let found else {
+                    self.showStatus("Không khớp tên ở tiêu đề ảnh. Dùng ViePN → AI & API để chọn hồ sơ.")
+                    return
+                }
+                guard let person = found.uniqueMatch else {
+                    self.showStatus("Có nhiều hồ sơ trùng tên: " + found.recognizedTitle
+                        + ". Giữ nút AI → Hồ sơ người nhận để chọn.")
+                    return
+                }
+                guard PersonaStore.automaticNameMatch else {
+                    self.showStatus("Đã thấy " + person.name
+                        + ". Bật Tự khớp tên hoặc chọn trong menu Hồ sơ.")
+                    return
+                }
+                PersonaStore.select(person.id)
+                self.installWritingActions()
+                self.refreshIdleActions()
+                self.refreshProfileIndicator()
+                self.showStatus("Đã nhận diện theo ảnh sao chép: " + person.name)
+            }
+        }
+    }
+
+    /// Show the effective persona in the toolbar, not only in an invisible
+    /// App Group preference. This helps catch a stale profile before AI reply.
+    private func refreshProfileIndicator() {
+        guard toolButtons.count > 2 else { return }
+        let button = toolButtons[2]
+        if let person = PersonaStore.active {
+            button.setTitle("AI · " + String(person.name.prefix(12)), for: .normal)
+            button.accessibilityLabel = "AI, hồ sơ đang chọn: " + person.name
+        } else {
+            button.setTitle("AI", for: .normal)
+            button.accessibilityLabel = "AI, chưa chọn hồ sơ người nhận"
+        }
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.65
     }
 
     private func installClipboardMenu() {
@@ -1820,7 +1932,11 @@ final class KeyboardViewController: UIInputViewController {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
         let matchedPersona = PersonaStore.autoSelect(fromSharedTranscript: selectedText)
-        if matchedPersona != nil { installWritingActions() }
+        if matchedPersona != nil {
+            installWritingActions()
+            refreshProfileIndicator()
+            refreshIdleActions()
+        }
         let context = ConversationContextResolver.resolve(selectedText)
         let matchLabel = matchedPersona.map { "✓ Đã khớp: " + $0.name } ??
             ("Người nhận: " + context.displayName)
