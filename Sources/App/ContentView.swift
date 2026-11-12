@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var bilingualPreference = KeyboardSettings.bilingualPreference
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
+    @State private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
     @State private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
@@ -957,7 +958,14 @@ struct ContentView: View {
                 keyboardToggleRow("Vuốt chữ để nhập từ",
                                   symbol: "hand.draw", isOn: $glideEnabled)
                     .onChange(of: glideEnabled) { KeyboardSettings.glideEnabled = $0 }
-                Text("Giữ ngón tay trên phím đầu rồi vuốt qua các chữ, thả tay để chèn từ và dấu cách. Nếu bàn phím đang mở, hãy chuyển sang bàn phím khác rồi chọn lại ViePN sau khi đổi cài đặt.")
+                if glideEnabled {
+                    keyboardToggleRow("Hiệu ứng vệt sáng khi vuốt",
+                                      symbol: "scribble.variable", isOn: $glideTrailEnabled)
+                        .onChange(of: glideTrailEnabled) {
+                            KeyboardSettings.glideTrailEnabled = $0
+                        }
+                }
+                Text("Vuốt qua các phím để chèn từ tiếng Việt có dấu hoặc tiếng Anh. Với từ có nhiều cách đặt dấu, chọn phương án đúng trên thanh gợi ý. Nếu bàn phím đang mở, chuyển bàn phím khác rồi chọn lại ViePN để cập nhật.")
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
