@@ -234,6 +234,15 @@ enum ConversationHistory {
         return Array(turns.suffix(80))
     }
 
+    /// A plain-text backup that round-trips through parse()/importExplicitly().
+    /// Export is initiated only from the iOS share sheet by the user.
+    static func exportText(for personaID: String) -> String {
+        turns(for: personaID).map { turn in
+            let label = turn.speaker == .me ? "Tôi: " : "Bạn ấy: "
+            return label + turn.text.replacingOccurrences(of: "\n", with: " ")
+        }.joined(separator: "\n")
+    }
+
     @discardableResult
     static func importExplicitly(_ transcript: String, for personaID: String) -> Int {
         guard !personaID.isEmpty, PersonaStore.all.contains(where: { $0.id == personaID })
