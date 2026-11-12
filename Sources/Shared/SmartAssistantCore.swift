@@ -279,6 +279,22 @@ enum ConversationIntelligence {
         }.prefix(max(0, min(limit, 7))).map { (name: $0.name, count: $0.count) })
     }
 
+    /// Small, completely offline opener from topics seen in user-imported
+    /// history. These templates do not invent an event or contact's mood.
+    static func offlineStarter(for personaID: String) -> String? {
+        guard !ConversationHistory.turns(for: personaID).isEmpty else { return nil }
+        switch topics(for: personaID, limit: 1).first?.name {
+        case "Công việc": return "Công việc hôm nay của bạn ổn chứ?"
+        case "Sức khỏe": return "Dạo này bạn có khỏe không?"
+        case "Gia đình": return "Dạo này gia đình bạn thế nào?"
+        case "Học tập": return "Việc học gần đây của bạn ổn chứ?"
+        case "Ăn uống": return "Hôm nay bạn ăn gì ngon chưa?"
+        case "Du lịch": return "Dạo này bạn có dự định đi đâu chơi không?"
+        case "Sở thích": return "Dạo này bạn có gì thú vị để chia sẻ không?"
+        default: return "Dạo này bạn thế nào rồi?"
+        }
+    }
+
     /// Return a few actual messages as traceable evidence. Always include the
     /// newest message when replying, then favor token overlap + recency.
     static func evidence(for personaID: String, query: String = "",
