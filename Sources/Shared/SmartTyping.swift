@@ -215,7 +215,8 @@ enum SmartTyping {
     static func glideCandidates(trace raw: String, learned: [String: Int] = [:],
                                 limit: Int = 3) -> [String] {
         let trace = collapseRepeats(raw.lowercased())
-        guard trace.count >= 2, trace.count <= 30, limit > 0 else { return [] }
+        guard trace.count >= 2, trace.count <= 30, limit > 0,
+              trace.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
         let dictionary = englishWords + vietnameseWords + Array(learned.keys)
         // Two-key swipes are ambiguous; accept only exact dictionary hits.
         if trace.count == 2 {
