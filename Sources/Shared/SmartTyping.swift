@@ -58,7 +58,26 @@ enum SmartTyping {
         "thấy","thật","thế","thêm","thích","thôi","thời","thương","thường",
         "thử","tiếng","tin","tình","tôi","trong","trước","trường",
         "từ","và","vậy","vẫn","về","việc","vì","với","vui","xin",
-        "yêu","ý"
+        "yêu","ý",
+        // Additional common single-word Vietnamese vocabulary for swipe
+        // recognition. Ambiguous accent variants remain selectable in the
+        // candidate strip rather than inferred as a certainty.
+        "ạ","ấm","ăn","ảnh","ba","bà","bác","bài","bánh","bắt",
+        "bé","bên","biển","bỏ","bố","bốn","buổi","bút","cách","cái",
+        "cảnh","câu","cây","cơ","cơm","cửa","cuối","cười","dạ","dài",
+        "dạy","dần","dễ","đẹp","điện","địa","định","đọc","đổi","đợi",
+        "đông","đủ","đưa","đừng","giá","giáo","giải","giống","giỏi","gần",
+        "ghế","hai","hành","hay","hết","hiện","hình","hòa","hoàn","họ",
+        "hướng","khác","khách","khó","khóa","khoảng","kỹ","lớp","lớn","lúc",
+        "luyện","máy","mẹ","mệt","mèo","mỗi","mở","mùa","mức","ngắn",
+        "ngon","ngồi","ngôn","ngoài","nguyên","ngữ","nhận","nhìn","nhỏ","những",
+        "nóng","nước","phòng","phút","quá","quản","quan","quên","quyết","sách",
+        "sáng","sẵn","sinh","số","sống","sửa","tặng","tập","tay","tên",
+        "tết","tháng","thi","thầy","thức","thực","tiết","tiền","tìm","tốt",
+        "toán","trả","trái","trên","trọng","trời","trợ","từng","tuần","tuyệt",
+        "vâng","vật","vấn","vị","viên","viết","vừa","xe","xem","xinh",
+        "xuống","yên","yếu"
+
     ]
 
     private static let englishSet = Set(englishWords)
