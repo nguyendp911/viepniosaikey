@@ -1366,37 +1366,54 @@ final class KeyboardViewController: UIInputViewController {
 
         let tones = UIStackView()
         tones.axis = .horizontal
-        tones.spacing = 4
-        tones.distribution = .fillEqually
+        tones.spacing = 7
+        tones.distribution = .fill
         toneButtons.removeAll()
 
         for (index, item) in lastSuggestions.enumerated() {
+            let isSample = item.tone == "Mẫu câu"
             let duplicated = lastSuggestions.filter { $0.tone == item.tone }.count > 1
-            let displayTone = item.tone == "Mẫu câu" ? "Mẫu" : item.tone
-            let title = duplicated ? "\(displayTone) \(index + 1)" : displayTone
-            let button = keyButton(title, action: #selector(selectSuggestion(_:)))
-            let toneSymbol = coupleSymbol(item.tone, index: index)
-            button.setImage(UIImage(systemName: toneSymbol,
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
-                            for: .normal)
-            button.tintColor = aiColor
-            button.semanticContentAttribute = .forceLeftToRight
-            // Use default UIKit image spacing (no deprecated edge insets).
+            let title = isSample ? String(format: "%02d  Mẫu", index + 1)
+                : (duplicated ? "\(item.tone) \(index + 1)" : item.tone)
+            let button = UIButton(type: .system)
             button.tag = index
-            button.layer.cornerRadius = 12
-            button.titleLabel?.font = .systemFont(ofSize: 11, weight: .medium)
-            button.accessibilityLabel = "Chọn câu trả lời \(item.tone)"
+            button.addTarget(self, action: #selector(selectSuggestion(_:)), for: .touchUpInside)
+            var config = UIButton.Configuration.plain()
+            config.title = title
+            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+                var updated = attributes
+                updated.font = .systemFont(ofSize: 12, weight: .semibold)
+                return updated
+            }
+            config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 9, bottom: 7, trailing: 9)
+            config.cornerStyle = .capsule
+            if !isSample {
+                config.image = UIImage(systemName: coupleSymbol(item.tone, index: index),
+                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .medium))
+                config.imagePadding = 4
+                config.imagePlacement = .leading
+            }
+            button.configuration = config
+            button.accessibilityLabel = isSample ? "Chọn mẫu \(index + 1)" : "Chọn câu trả lời \(item.tone)"
+            button.accessibilityTraits.insert(.button)
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            button.setContentHuggingPriority(.defaultLow, for: .horizontal)
             toneButtons.append(button)
             tones.addArrangedSubview(button)
         }
-        let close = keyButton("×", action: #selector(dismissSuggestions))
-        close.titleLabel?.font = .systemFont(ofSize: 20, weight: .medium)
-        close.backgroundColor = UIColor.secondarySystemBackground
-        close.widthAnchor.constraint(equalToConstant: 33).isActive = true
-        tones.distribution = .fill
-        for button in toneButtons { button.setContentHuggingPriority(.defaultLow, for: .horizontal) }
+        let close = UIButton(type: .system)
+        var closeConfig = UIButton.Configuration.plain()
+        closeConfig.image = UIImage(systemName: "xmark",
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
+        closeConfig.baseForegroundColor = .secondaryLabel
+        closeConfig.background.backgroundColor = .tertiarySystemFill
+        closeConfig.cornerStyle = .capsule
+        close.configuration = closeConfig
+        close.accessibilityLabel = "Đóng các mẫu"
+        close.addTarget(self, action: #selector(dismissSuggestions), for: .touchUpInside)
+        close.widthAnchor.constraint(equalToConstant: 37).isActive = true
         tones.addArrangedSubview(close)
-        tones.heightAnchor.constraint(equalToConstant: 33).isActive = true
+        tones.heightAnchor.constraint(equalToConstant: 38).isActive = true
         panel.addArrangedSubview(tones)
 
         let actions = makeRow([
@@ -1444,8 +1461,19 @@ final class KeyboardViewController: UIInputViewController {
     private func updateToneStyles() {
         for (index, button) in toneButtons.enumerated() {
             let chosen = index == chosenIndex
-            button.backgroundColor = chosen ? aiColor.withAlphaComponent(0.82) : .secondarySystemBackground
-            button.setTitleColor(chosen ? .white : .label, for: .normal)
+            var config = button.configuration ?? UIButton.Configuration.plain()
+            config.baseForegroundColor = chosen ? .white : .secondaryLabel
+            config.background.backgroundColor = chosen ? aiColor : UIColor.secondarySystemBackground
+            config.background.strokeColor = chosen ? aiColor : UIColor.separator.withAlphaComponent(0.20)
+            config.background.strokeWidth = chosen ? 0 : 0.75
+            config.cornerStyle = .capsule
+            button.configuration = config
+            button.layer.shadowColor = aiColor.cgColor
+            button.layer.shadowOpacity = chosen ? 0.18 : 0
+            button.layer.shadowRadius = chosen ? 4 : 0
+            button.layer.shadowOffset = CGSize(width: 0, height: 2)
+            button.isSelected = chosen
+            button.accessibilityTraits = chosen ? [.button, .selected] : [.button]
         }
     }
 
