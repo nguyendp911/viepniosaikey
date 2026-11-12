@@ -50,7 +50,9 @@ enum AIService {
         // transmitting the full recent conversation at every AI request.
         let historyContext = ConversationIntelligence.prompt(
             for: PersonaStore.activeID, query: incoming, openingToday: openingToday)
-        guard MessageSafety.warnings(in: historyContext).isEmpty else {
+        let approvedNoteContext = ConversationMemory.prompt()
+        guard MessageSafety.warnings(in: historyContext).isEmpty,
+              MessageSafety.warnings(in: approvedNoteContext).isEmpty else {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
         }
@@ -81,7 +83,7 @@ enum AIService {
         the intent, relationship, age hierarchy and politeness; THEN write suggested replies.
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
-        \(ConversationMemory.prompt())
+        \(approvedNoteContext)
         \(historyContext)
         \(contactStyle)
         \(conversationTask)
