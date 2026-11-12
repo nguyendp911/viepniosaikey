@@ -25,6 +25,7 @@ targets:
         # Modern iPhone viewport needs a launch screen; without one iOS can
         # letterbox the app into a legacy-sized area with black top/bottom bands.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "ViePN sử dụng Face ID để mở khóa lịch sử hội thoại do bạn lưu."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "ViePN thu âm khi bạn bấm ghi âm để chuyển giọng nói thành văn bản."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "ViePN nhận dạng giọng nói khi bạn chọn chức năng nói thành văn bản."
         INFOPLIST_KEY_NSCalendarsUsageDescription: "ViePN thêm lịch hẹn khi bạn xác nhận trong ứng dụng."
