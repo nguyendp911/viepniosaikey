@@ -74,6 +74,9 @@ final class KeyboardViewController: UIInputViewController {
     private let candidateBar = UIStackView()
     private let candidateScroll = UIScrollView()
     private var candidateButtons: [UIButton] = []
+    // Swipe suggestions remain visible even when ordinary predictions are off.
+    private var isGlideSuggestionVisible = false
+    private var glideResultGeneration: UInt64 = 0
     private var fullGlideOptions: [String] = []
     private var glideUsageCounts: [String: Int] = [:]
     private var glideLearningEnabled = true
@@ -142,7 +145,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
-        candidateScroll.isHidden = !useSuggestions
+        candidateScroll.isHidden = !useSuggestions && !isGlideSuggestionVisible
         applyTheme()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -1175,6 +1178,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCandidates(_ override: [String]? = nil) {
+        if override == nil && pendingGlideWord == nil {
+            isGlideSuggestionVisible = false
+        }
         // Prediction sorting and keyboard-height changes happen after a
         // short typing pause, not synchronously for every physical key.
         // A direct swipe prediction is shown immediately.
@@ -1210,7 +1216,7 @@ final class KeyboardViewController: UIInputViewController {
     private func renderCandidates(_ results: [String]) {
         // Only a settings change may hide the row; predictions arriving
         // or disappearing must not resize the whole keyboard.
-        let shouldHide = !useSuggestions
+        let shouldHide = !useSuggestions && !isGlideSuggestionVisible
         let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
         if results == candidateWords && candidateScroll.isHidden == shouldHide,
            candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
@@ -1497,6 +1503,7 @@ final class KeyboardViewController: UIInputViewController {
         let point = recognizer.location(in: view)
         switch recognizer.state {
         case .began:
+            glideResultGeneration &+= 1
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
@@ -1525,7 +1532,7 @@ final class KeyboardViewController: UIInputViewController {
             let personalWords = learnedWords
             let usageCounts = glideLearningEnabled ? glideUsageCounts : [:]
             let language = useSmartBilingual ? bilingualPreference.rawValue : "vi"
-            let generation = candidateGeneration
+            let generation = glideResultGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -1536,9 +1543,16 @@ final class KeyboardViewController: UIInputViewController {
                 let display = SmartTyping.glideOptions(
                     suggestions, language: language, usage: usageCounts)
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, !display.isEmpty,
-                          self.candidateGeneration == generation,
+                    guard let self,
+                          self.glideResultGeneration == generation,
                           self.typingTouchCount == touchCount else { return }
+                    guard !display.isEmpty else {
+                        self.showStatus("Chưa nhận diện được từ · Thử vuốt chậm hơn")
+                        return
+                    }
+                    // Keep swipe options visible whether general predictions
+                    // are enabled or not; these are separate user features.
+                    self.isGlideSuggestionVisible = true
                     let before = self.textDocumentProxy.documentContextBeforeInput ?? ""
                     let current = String(before.reversed()
                         .prefix(while: { $0.isLetter }).reversed())
@@ -1555,14 +1569,11 @@ final class KeyboardViewController: UIInputViewController {
                         self.pendingGlideWord = display[0]
                         self.fullGlideOptions = complete
                         self.recentWord = ""
-                        if self.useSuggestions {
-                            self.updateCandidates(display)
-                        } else {
-                            self.updateCandidates()
-                        }
+                        self.updateCandidates(display)
                     } else {
                         // Never overwrite an existing draft or a changed caret.
-                        // Offer alternatives only; the user can tap to accept.
+                        // Still show choices if the text was modified by
+                        // iOS or a host app during the gesture.
                         self.updateCandidates(display)
                     }
                 }
@@ -1601,6 +1612,7 @@ final class KeyboardViewController: UIInputViewController {
         // When the user continues after accepting the automatically chosen
         // word, record one real usage. Explicitly picking a different tone
         // records only that chosen tone, never the abandoned auto-choice.
+        glideResultGeneration &+= 1
         if let word = pendingGlideWord {
             if glideLearningEnabled,
                (textDocumentProxy.documentContextBeforeInput ?? "").hasSuffix(word + " ") {
