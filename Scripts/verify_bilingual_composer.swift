@@ -71,5 +71,34 @@ struct VerifyBilingualComposer {
         incremental("book", expected: "book")
         incremental("store", expected: "store")
         incremental("thuongwf", expected: "thường")
+        // Fast path must be bit-for-bit identical to full composition on every
+        // intermediate key, including Telex removal and language reversals.
+        let samples = [
+            "tooi", "Tooi", "tool", "book", "boos", "car", "care",
+            "store", "street", "stress", "strong", "thanks",
+            "vieets", "tieengs", "thuongw", "thuongwf",
+            "nguoifw", "ddaw", "ddaay", "muaw", "thos", "mafr",
+            "Hello", "Facebook", "Vietnam", "orange", "google",
+            "xin", "chaof", "banf", "troi", "hieeur"
+        ]
+        for raw in samples {
+            for pref: BilingualComposer.Preference in [.automatic, .vietnamese, .english] {
+                var keys = ""
+                var candidate = ""
+                for letter in raw {
+                    let key = String(letter)
+                    keys += key
+                    candidate = BilingualComposer.appendCandidate(candidate, key: key)
+                    let optimized = BilingualComposer.choose(
+                        raw: keys, vietnameseCandidate: candidate,
+                        preference: pref).rendered
+                    let reference = BilingualComposer.compose(keys, preference: pref).rendered
+                    guard optimized == reference else {
+                        fatalError("Incremental mismatch: \\(keys), pref \\(pref), \\(optimized) vs \\(reference)")
+                    }
+                }
+            }
+            print("PASS [Bilingual] fast-path parity \\(raw)")
+        }
     }
 }
