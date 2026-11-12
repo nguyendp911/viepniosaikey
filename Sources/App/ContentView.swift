@@ -53,6 +53,8 @@ struct ContentView: View {
     @State private var personaScreenshotPicker: PhotosPickerItem?
     @State private var pendingHeaderTitle = ""
     @State private var pendingHeaderPNG: Data?
+    @State private var scannedTitleOptions: [ChatScreenshotReference.ScannedTitle] = []
+    @State private var headerDiagnosticPreview: Data?
     @State private var screenshotReferenceStatus = ""
     @State private var autoMatchPersona = PersonaStore.automaticNameMatch
     @State private var transcriptPreview = ""
@@ -1551,20 +1553,39 @@ struct ContentView: View {
 
     @MainActor
     private func recognizePersonaScreenshot(_ picker: PhotosPickerItem) async {
-        screenshotReferenceStatus = "Đang đọc tiêu đề ảnh trên iPhone..."
+        screenshotReferenceStatus = "Đang kiểm tra hướng ảnh và đọc tiêu đề trên iPhone..."
         pendingHeaderPNG = nil
+        scannedTitleOptions = []
+        headerDiagnosticPreview = nil
         do {
-            guard let image = try await picker.loadTransferable(type: Data.self),
-                  let reference = try await ChatScreenshotReference.extract(from: image, preferredName: personaName)
-            else {
-                screenshotReferenceStatus =
-                    "Chưa đọc được tên trong vùng tiêu đề ảnh. Hãy thử ảnh không che thanh tên, hoặc nhập tên hồ sơ thủ công."
+            guard let data = try await picker.loadTransferable(type: Data.self) else {
+                screenshotReferenceStatus = "Không tải được ảnh từ Thư viện."
                 return
             }
-            pendingHeaderTitle = reference.title
-            pendingHeaderPNG = reference.png
-            screenshotReferenceStatus = "Đã đọc tên: " + reference.title
-                + ". Hãy kiểm tra đúng người trước khi lưu."
+            let scan = try await ChatScreenshotReference.scan(
+                data, preferredName: personaName)
+            scannedTitleOptions = scan.candidates
+            headerDiagnosticPreview = scan.headerPreviewPNG
+            let wanted = PersonaStore.normalizedName(personaName)
+            if let matched = scan.candidates.first(where: {
+                !wanted.isEmpty
+                    && PersonaStore.normalizedScreenshotTitle($0.title) == wanted
+            }) {
+                pendingHeaderTitle = matched.title
+                pendingHeaderPNG = matched.png
+                screenshotReferenceStatus = "Đã khớp tên hồ sơ với tiêu đề trong ảnh."
+            } else if !scan.candidates.isEmpty {
+                // Do not silently enroll a navigation button or chat bubble
+                // as a recipient name. Show alternatives for user selection.
+                screenshotReferenceStatus = "Đã đọc "
+                    + String(scan.totalOCRLines)
+                    + " vùng chữ. Chọn đúng tên trong các dòng bên dưới."
+            } else {
+                screenshotReferenceStatus = scan.totalOCRLines == 0
+                    ? "OCR chưa đọc được chữ nào. Kiểm tra ảnh có rõ nét và đúng hướng."
+                    : "Có " + String(scan.totalOCRLines)
+                        + " vùng chữ, nhưng chưa tìm được tên phù hợp. Xem ảnh tiêu đề rồi chọn ảnh rõ hơn."
+            }
         } catch {
             screenshotReferenceStatus = "Không đọc được ảnh: " + error.localizedDescription
         }
@@ -1636,6 +1657,47 @@ struct ContentView: View {
                 .onChange(of: personaScreenshotPicker) { image in
                     guard let image else { return }
                     Task { await recognizePersonaScreenshot(image) }
+                }
+                if let diagnostic = headerDiagnosticPreview,
+                   let image = UIImage(data: diagnostic) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Vùng phía trên ảnh mà ViePN đã kiểm tra")
+                            .font(.system(size: 11, weight: .semibold))
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 320)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        Text("Đây chỉ là ảnh xem trước, không được lưu kèm hồ sơ.")
+                            .font(.system(size: 10)).foregroundStyle(muted)
+                    }
+                }
+                if !scannedTitleOptions.isEmpty {
+                    Text("Chạm đúng dòng tên người đang nhắn (không chọn nội dung tin nhắn):")
+                        .font(.system(size: 11)).foregroundStyle(muted)
+                    ForEach(Array(scannedTitleOptions.enumerated()), id: \.offset) {
+                        index, result in
+                        Button {
+                            pendingHeaderTitle = result.title
+                            pendingHeaderPNG = result.png
+                            screenshotReferenceStatus = "Đã chọn: " + result.title
+                                + ". Kiểm tra lại phần ảnh tên bên dưới trước khi lưu."
+                        } label: {
+                            HStack {
+                                Text(result.title).lineLimit(2)
+                                Spacer()
+                                if let preview = UIImage(data: result.png) {
+                                    Image(uiImage: preview).resizable()
+                                        .scaledToFit().frame(height: 22)
+                                }
+                                if pendingHeaderTitle == result.title {
+                                    Image(systemName: "checkmark.circle.fill")
+                                }
+                            }
+                            .font(.system(size: 12))
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 if let png = pendingHeaderPNG, let preview = UIImage(data: png) {
                     VStack(alignment: .leading, spacing: 6) {
