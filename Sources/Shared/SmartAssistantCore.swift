@@ -53,7 +53,9 @@ enum ConversationMemory {
             #if os(iOS)
             if let url = protectedURL {
                 do {
-                    try bytes.write(to: url, options: .atomic)
+                    try bytes.write(to: url, options: [
+                        .atomic, .completeFileProtectionUntilFirstUserAuthentication
+                    ])
                     try FileManager.default.setAttributes([
                         .protectionKey:
                             FileProtectionType.completeUntilFirstUserAuthentication
@@ -181,7 +183,9 @@ enum ConversationHistory {
             #if os(iOS)
             if let url = protectedURL {
                 do {
-                    try bytes.write(to: url, options: .atomic)
+                    try bytes.write(to: url, options: [
+                        .atomic, .completeFileProtectionUntilFirstUserAuthentication
+                    ])
                     try FileManager.default.setAttributes([
                         .protectionKey:
                             FileProtectionType.completeUntilFirstUserAuthentication
