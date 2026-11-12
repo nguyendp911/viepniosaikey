@@ -74,6 +74,8 @@ final class KeyboardViewController: UIInputViewController {
     private var glidePath = ""
     private var glideLastKey = ""
     private var glideIsActive = false
+    private var glideRecognizer: UIPanGestureRecognizer?
+    private var glideTouchOrigin: CGPoint?
     private var cursorSteps = 0
 
     private func refreshTypingPreferences() {
@@ -123,6 +125,7 @@ final class KeyboardViewController: UIInputViewController {
         applyTheme()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
+        configureGlideRecognizer()
         updateCoupleTool()
         installWritingActions()
         installClipboardMenu()
@@ -325,11 +328,9 @@ final class KeyboardViewController: UIInputViewController {
         keyHeightConstraints.append(bottomHeight)
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
-        if useGlide {
-            let pan = UIPanGestureRecognizer(target: self, action: #selector(glidePanned(_:)))
-            pan.cancelsTouchesInView = false
-            view.addGestureRecognizer(pan)
-        }
+        // Install once regardless of the setting's initial value. A user
+        // enabling swipe later must not need a fresh keyboard controller.
+        configureGlideRecognizer()
         updateKeys()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -986,6 +987,7 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = false
         tactileFeedback()
         isNumbers.toggle()
+        configureGlideRecognizer()
         recentWord = ""
         updateCandidates()
         updateKeys()
@@ -1221,19 +1223,45 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func letterUnder(_ position: CGPoint) -> String? {
+        // Sample the nearest visible letter inside a small gutter around a
+        // key. A finger rarely passes through exact button center points.
+        var best: (distance: CGFloat, name: String)?
         for key in letterButtons where !key.isHidden {
-            if key.convert(key.bounds, to: view).contains(position),
-               let name = key.title(for: .normal), name.count == 1 {
-                return name.lowercased()
+            let rect = key.convert(key.bounds, to: view)
+            guard rect.insetBy(dx: -7, dy: -7).contains(position),
+                  let name = key.title(for: .normal), name.count == 1 else {
+                continue
+            }
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            let dx = center.x - position.x
+            let dy = center.y - position.y
+            let distance = dx * dx + dy * dy
+            if best == nil || distance < best!.distance {
+                best = (distance, name.lowercased())
             }
         }
-        return nil
+        return best?.name
     }
 
     private func captureGlidePoint(_ position: CGPoint) {
         guard let key = letterUnder(position), key != glideLastKey else { return }
         glideLastKey = key
         glidePath += key
+    }
+
+    private func configureGlideRecognizer() {
+        if glideRecognizer == nil {
+            let pan = UIPanGestureRecognizer(target: self,
+                                             action: #selector(glidePanned(_:)))
+            pan.minimumNumberOfTouches = 1
+            pan.maximumNumberOfTouches = 1
+            pan.cancelsTouchesInView = false
+            pan.delaysTouchesBegan = false
+            pan.delegate = self
+            view.addGestureRecognizer(pan)
+            glideRecognizer = pan
+        }
+        glideRecognizer?.isEnabled = useGlide && !isNumbers
     }
 
     @objc private func glidePanned(_ recognizer: UIPanGestureRecognizer) {
@@ -1244,8 +1272,7 @@ final class KeyboardViewController: UIInputViewController {
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
-            let delta = recognizer.translation(in: view)
-            let origin = CGPoint(x: point.x - delta.x, y: point.y - delta.y)
+            let origin = glideTouchOrigin ?? point
             captureGlidePoint(origin)
             captureGlidePoint(point)
         case .changed:
@@ -1253,15 +1280,17 @@ final class KeyboardViewController: UIInputViewController {
             if glidePath.count >= 3 { glideIsActive = true }
         case .ended:
             captureGlidePoint(point)
-            guard glideIsActive, glidePath.count >= 3 else { return }
             let trace = glidePath
-            let personalWords = learnedWords
-            let generation = candidateGeneration
-            let touchCount = typingTouchCount
+            let isWordSwipe = glideIsActive && trace.count >= 3
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
-            // Edit-distance scoring must not block the main touch thread.
+            glideTouchOrigin = nil
+            guard isWordSwipe else { return }
+            let personalWords = learnedWords
+            let generation = candidateGeneration
+            let touchCount = typingTouchCount
+            // Edit-distance scoring runs off the touch-critical main thread.
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let suggestions = SmartTyping.glideCandidates(
                     trace: trace, learned: personalWords)
@@ -1269,15 +1298,23 @@ final class KeyboardViewController: UIInputViewController {
                     guard let self, !suggestions.isEmpty,
                           self.candidateGeneration == generation,
                           self.typingTouchCount == touchCount else { return }
-                    // Only replace the one-character trace starting point,
-                    // and only if the host still has the expected prefix.
                     let before = self.textDocumentProxy.documentContextBeforeInput ?? ""
                     let current = String(before.reversed()
                         .prefix(while: { $0.isLetter }).reversed())
-                    if current.count == 1,
-                       suggestions[0].lowercased().hasPrefix(current.lowercased()) {
+                    let initial = String(trace.prefix(1))
+                    if current.lowercased() == initial,
+                       suggestions[0].lowercased().hasPrefix(initial) {
+                        // touchDown already inserted the first letter.
+                        // Replace just that letter with the recognized word.
                         self.replaceCurrentWord(suggestions[0])
+                        self.textDocumentProxy.insertText(" ")
+                        self.knownWordBoundary = true
+                        self.resetBilingualComposition()
+                        self.recentWord = ""
+                        self.updateCandidates()
                     } else {
+                        // Never overwrite an existing draft or a changed caret.
+                        // Offer alternatives only; the user can tap to accept.
                         self.updateCandidates(suggestions)
                     }
                 }
@@ -1286,6 +1323,7 @@ final class KeyboardViewController: UIInputViewController {
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
+            glideTouchOrigin = nil
         }
     }
 
@@ -1632,5 +1670,19 @@ final class KeyboardViewController: UIInputViewController {
         textDocumentProxy.insertText(answer)
         dismissSuggestions()
         showStatus("Đã chèn chỉ câu trả lời vào ô soạn")
+    }
+}
+
+extension KeyboardViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === glideRecognizer, useGlide, !isNumbers,
+              let target = touch.view else { return false }
+        // Do not intercept toolbars, delete, return, spacebar or suggestion taps.
+        guard letterButtons.contains(where: { target.isDescendant(of: $0) }) else {
+            return false
+        }
+        glideTouchOrigin = touch.location(in: view)
+        return true
     }
 }
