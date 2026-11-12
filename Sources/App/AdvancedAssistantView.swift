@@ -18,6 +18,7 @@ struct AdvancedAssistantView: View {
     @State private var screenshotMatchStatus = ""
     @State private var sourceText = ""
     @State private var responseText = ""
+    @State private var replyChoices: [ReplySuggestion] = []
     @State private var feedback = ""
     @State private var busy = false
     @State private var privatePreview = true
@@ -193,6 +194,32 @@ struct AdvancedAssistantView: View {
                         feedback = "Đã lưu bản nháp trong ViePN. Nhấn giữ nút AI trên bàn phím → Lấy bản nháp."
                     }
                     .buttonStyle(.bordered)
+                }
+                if mode == "Gợi ý trả lời" && !replyChoices.isEmpty {
+                    Text("Smart Reply 2.0 · Chọn một phương án, kiểm tra rồi chỉnh sửa")
+                        .font(.caption).bold()
+                    ForEach(Array(replyChoices.enumerated()), id: \.offset) { index, answer in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(answer.tone)
+                                .font(.caption2).foregroundStyle(.cyan)
+                            Text(answer.text)
+                                .font(.subheadline)
+                            HStack {
+                                Button("Sử dụng câu này") {
+                                    responseText = answer.text
+                                }
+                                Button("Sao chép") {
+                                    UIPasteboard.general.string = answer.text
+                                    feedback = "Đã sao chép phương án " + String(index + 1)
+                                }
+                            }
+                            .buttonStyle(.bordered).font(.caption)
+                        }
+                        .padding(9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white.opacity(0.065),
+                                    in: RoundedRectangle(cornerRadius: 11))
+                    }
                 }
                 if !responseText.isEmpty {
                     Text("Kết quả (có thể sửa)").font(.caption).foregroundStyle(.secondary)
@@ -881,11 +908,13 @@ struct AdvancedAssistantView: View {
         busy = true
         defer { busy = false }
         let source = privatePreview ? MessageSafety.redacted(sourceText) : sourceText
+        replyChoices = []
         do {
             switch mode {
             case "Gợi ý trả lời":
                 let replies = try await AIService.reply(to: source)
-                responseText = replies.map { $0.text }.joined(separator: "\n\n")
+                replyChoices = replies
+                responseText = replies.first?.text ?? ""
             case "Kiểm tra giọng điệu":
                 let items = ToneInspector.suggestions(for: sourceText)
                 let rewritten = try await AIWritingService.transform(source, action: .polite)
