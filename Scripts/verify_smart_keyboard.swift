@@ -23,6 +23,38 @@ struct VerifySmartKeyboard {
         assert(SmartTyping.predictions(prefix: "sto").contains("store"), "offline English suggestions")
         assert(SmartTyping.predictions(prefix: "thư").contains("thương"), "offline Vietnamese suggestions")
         assert(SmartTyping.predictions(prefix: "xyzz").isEmpty, "unknown prefixes return nothing")
+        // Compare indexed predictions with the reference full scan for
+        // English, Vietnamese, personalized, and accented prefixes.
+        let personal = ["thương mại": 7, "storefront": 4, "tôi": 2]
+        func referencePredictions(_ raw: String, limit: Int = 3) -> [String] {
+            let prefix = raw.lowercased()
+            guard prefix.count >= 2, prefix.count <= 24, limit > 0 else { return [] }
+            var seen = Set<String>()
+            var words: [String] = []
+            for word in personal.keys where word.lowercased().hasPrefix(prefix) {
+                if seen.insert(word).inserted { words.append(word) }
+            }
+            for word in SmartTyping.englishWords + SmartTyping.vietnameseWords
+                where word.hasPrefix(prefix) {
+                if seen.insert(word).inserted { words.append(word) }
+            }
+            return Array(words.sorted {
+                let a = personal[$0] ?? 0, b = personal[$1] ?? 0
+                if a != b { return a > b }
+                if $0 == prefix { return true }
+                if $1 == prefix { return false }
+                if $0.count != $1.count { return $0.count < $1.count }
+                return $0 < $1
+            }.prefix(limit))
+        }
+        for prefix in ["st", "sto", "th", "thư", "tô", "ng", "ngư", "ca",
+                       "bo", "go", "zz", "ST", "Th", "tiếng", "tôi"] {
+            let actual = SmartTyping.predictions(prefix: prefix, learned: personal)
+            assert(actual == referencePredictions(prefix), "indexed predictions: " + prefix)
+        }
+        assert(SmartTyping.predictions(prefix: "th", learned: personal, limit: 0).isEmpty,
+               "zero-limit predictions return nothing")
+
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
         let expanded = SmartTyping.expandSnippet("Hôm nay {date}, giờ {time}")
         assert(!expanded.contains("{date}") && !expanded.contains("{time}"),
