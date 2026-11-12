@@ -299,7 +299,7 @@ struct AdvancedAssistantView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(PersonaStore.active == nil || busy)
                 }
-                Text("AI chỉ nhận tối đa 14 lượt hội thoại gần đây khi bạn nhấn gợi ý và bật AI online. Không tự gửi tin nhắn. Hãy kiểm tra câu gợi ý trước khi chèn.")
+                Text("Khi bạn nhấn AI online, ViePN chọn tối đa 6 đoạn hội thoại có liên quan; nếu bật học văn phong, có thể kèm tối đa 5 câu do bạn ghi nhãn Tôi và các ghi chú tự lưu. Không tự gửi tin nhắn.")
                     .font(.caption2).foregroundStyle(.secondary)
                 if !generatedChatSuggestions.isEmpty {
                     Text("Ba phương án — chọn đúng một câu để chỉnh sửa hoặc dùng")
@@ -576,6 +576,7 @@ struct AdvancedAssistantView: View {
 
     @MainActor
     private func proposeFromHistory(openingToday: Bool) async {
+        guard !busy else { return }
         guard PersonaStore.active != nil else {
             feedback = "Hãy chọn hồ sơ người nhận."
             return
