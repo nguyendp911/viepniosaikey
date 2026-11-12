@@ -62,6 +62,8 @@ final class KeyboardViewController: UIInputViewController {
     // for CPU and starving keystrokes during long chats.
     private let predictionQueue = DispatchQueue(
         label: "com.viepn.keyboard.predictions", qos: .utility)
+    private let glideRecognitionQueue = DispatchQueue(
+        label: "com.viepn.keyboard.glide", qos: .utility)
     private var candidateExpandButton: UIButton?
     // A monotonically increasing generation prevents stale suggestions from
     // appearing after deletion or when the same prefix is typed again.
@@ -113,6 +115,8 @@ final class KeyboardViewController: UIInputViewController {
     private let glideTipLayer = CAShapeLayer()
     private var glideTrailPath = UIBezierPath()
     private var glideTrailPointCount = 0
+    private var glideTravelDistance: CGFloat = 0
+    private var lastGlideDrawTime: CFTimeInterval = 0
     private var cursorSteps = 0
 
     private func refreshTypingPreferences() {
@@ -1704,7 +1708,10 @@ final class KeyboardViewController: UIInputViewController {
         let dx = point.x - previous.x
         let dy = point.y - previous.y
         let distance = hypot(dx, dy)
-        let steps = max(1, min(80, Int(ceil(distance / 7))))
+        glideTravelDistance += distance
+        // 10-point sampling is sufficient for key centers (~35-45pt), while
+        // bounded work prevents huge UIKit hit-test loops during fast swipes.
+        let steps = max(1, min(24, Int(ceil(distance / 10))))
         for index in 1...steps {
             let t = CGFloat(index) / CGFloat(steps)
             captureGlidePoint(CGPoint(x: previous.x + dx * t,
@@ -1754,7 +1761,11 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func drawGlideTrail(to point: CGPoint) {
-        guard glideTrailEnabled, glideTrailPointCount < 300 else { return }
+        guard glideTrailEnabled, glideTrailPointCount < 180 else { return }
+        let now = CACurrentMediaTime()
+        // Limit Core Animation path/shadow updates to one per display frame.
+        guard now - lastGlideDrawTime >= 1.0 / 60.0 else { return }
+        lastGlideDrawTime = now
         glideTrailPointCount += 1
         glideTrailPath.addLine(to: point)
         // Avoid implicit Core Animation transitions on every finger move.
@@ -1820,6 +1831,7 @@ final class KeyboardViewController: UIInputViewController {
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
+            glideTravelDistance = 0
             let origin = glideTouchOrigin ?? point
             glideLastPoint = origin
             captureGlidePoint(origin)
@@ -1835,10 +1847,13 @@ final class KeyboardViewController: UIInputViewController {
             drawGlideTrail(to: point)
             finishGlideTrail()
             let trace = glidePath
-            let isWordSwipe = trace.count >= 2 && (glideIsActive || trace.count >= 2)
+            let isWordSwipe = SmartTyping.isIntentionalGlide(
+                trace: trace, travelPoints: Double(glideTravelDistance),
+                keyHeight: Double(KeyboardSettings.keyHeight))
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
+            glideTravelDistance = 0
             glideTouchOrigin = nil
             glideLastPoint = nil
             guard isWordSwipe else { return }
@@ -1848,7 +1863,7 @@ final class KeyboardViewController: UIInputViewController {
             let generation = glideResultGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            glideRecognitionQueue.async { [weak self] in
                 let suggestions = SmartTyping.glideCandidates(
                     trace: trace, learned: personalWords, language: language, limit: 12)
                 let complete = SmartTyping.glideOptions(
@@ -1897,6 +1912,7 @@ final class KeyboardViewController: UIInputViewController {
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
+            glideTravelDistance = 0
             glideTouchOrigin = nil
             glideLastPoint = nil
             hideGlideTrail()
