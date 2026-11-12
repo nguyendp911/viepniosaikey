@@ -12,6 +12,8 @@ import LocalAuthentication
 struct AdvancedAssistantView: View {
     @State private var chosenImage: PhotosPickerItem?
     @State private var screenshotMatch: PersonaStore.ScreenshotMatch?
+    @State private var screenshotEvidence = ""
+    @State private var screenshotVisualOnly = false
     @State private var screenshotMatchStatus = ""
     @State private var sourceText = ""
     @State private var responseText = ""
@@ -59,8 +61,13 @@ struct AdvancedAssistantView: View {
                     Task { await readScreenshot(item) }
                 }
                 if let match = screenshotMatch {
-                    Text("Tên trên thanh tiêu đề ảnh: " + match.recognizedTitle)
+                    Text("Chữ nhận diện trong ảnh: " + match.recognizedTitle)
                         .font(.caption).foregroundStyle(.cyan)
+                    if !screenshotEvidence.isEmpty {
+                        Text(screenshotEvidence)
+                            .font(.caption2)
+                            .foregroundStyle(screenshotVisualOnly ? .orange : .green)
+                    }
                     if match.matches.count == 1, let person = match.uniqueMatch {
                         HStack {
                             Text("Đã tìm thấy hồ sơ: " + person.name)
@@ -697,28 +704,41 @@ struct AdvancedAssistantView: View {
             // Enrolled navigation-title references take precedence over
             // contact display-name matching. A nickname in Zalo may differ
             // from the user's saved contact name.
-            screenshotMatch = ChatScreenshotReference.match(observations)
-                ?? PersonaStore.matchScreenshotTitle(observations)
-            if let match = screenshotMatch {
+            // Main-app AI recognition combines normalized screenshot title
+            // OCR with on-device Vision comparison of saved header references.
+            // Only a uniquely OCR-confirmed title can auto-select the
+            // recipient; image-only evidence is a suggestion, not identity.
+            let scan = try await ChatScreenshotReference.scan(data)
+            let recognition = await ChatScreenshotReference.recognize(scan)
+            screenshotVisualOnly = recognition?.method == .imageReference
+            if let recognition {
+                screenshotMatch = PersonaStore.ScreenshotMatch(
+                    recognizedTitle: recognition.title,
+                    matches: recognition.matches)
+                screenshotEvidence = recognition.method == .titleOCR
+                    ? "Đã khớp chữ trên tiêu đề với tên/ảnh mẫu đã lưu."
+                    : "Ảnh tiêu đề có nét tương tự ảnh mẫu. Cần bạn xác nhận người nhận; không tự chuyển hồ sơ."
                 if PersonaStore.automaticNameMatch,
-                   let uniquePerson = match.uniqueMatch {
-                    // Explicit user opt-in + OCR from an explicitly selected
-                    // screenshot + unique full title match: no repeat choice.
-                    selectScreenshotPersona(uniquePerson)
-                    screenshotMatchStatus = "Tự khớp từ tiêu đề ảnh: "
-                        + uniquePerson.name + " · Có thể đổi hồ sơ trong AI & API."
-                    feedback = "Đã nhận diện và chuyển hồ sơ theo lựa chọn tự khớp tên."
+                   recognition.mayAutoSelect,
+                   let person = recognition.uniqueMatch {
+                    selectScreenshotPersona(person)
+                    screenshotMatchStatus = "AI nhận diện từ tiêu đề: "
+                        + person.name + ". Đã áp dụng hồ sơ."
+                    feedback = "Đã tự chọn hồ sơ từ tiêu đề ảnh bạn cung cấp."
                 } else {
-                    screenshotMatchStatus = "Đã phát hiện tên trên ảnh. Vui lòng xác nhận hồ sơ."
-                    feedback = match.matches.count > 1
-                        ? "Có nhiều hồ sơ trùng tên, hãy chọn đúng người bên trên."
-                        : "Đã nhận diện tên. Chọn hồ sơ đúng bên trên."
+                    screenshotMatchStatus = recognition.matches.count > 1
+                        ? "Nhiều hồ sơ có tên trùng, hãy xác nhận người đúng."
+                        : "Đã tìm thấy hồ sơ có thể phù hợp, hãy xác nhận."
+                    feedback = screenshotMatchStatus
                 }
             } else {
-                screenshotMatchStatus = "Không xác định được tên ở tiêu đề. Có thể chọn hồ sơ thủ công."
+                screenshotMatch = nil
+                screenshotEvidence = ""
+                screenshotMatchStatus =
+                    "Không thể xác định đúng người từ ảnh này. Chọn hồ sơ thủ công."
                 feedback = observations.isEmpty
-                    ? "Ảnh không có chữ nhận diện được."
-                    : "Đã nhận dạng chữ. Không tìm được hồ sơ khớp chắc chắn."
+                    ? "OCR chưa đọc được chữ. Kiểm tra ảnh và hồ sơ đã lưu."
+                    : "Đã đọc nội dung ảnh nhưng chưa khớp hồ sơ đủ tin cậy."
             }
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
