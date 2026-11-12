@@ -1345,6 +1345,7 @@ final class KeyboardViewController: UIInputViewController {
         // Only a settings change may hide the row; predictions arriving
         // or disappearing must not resize the whole keyboard.
         let shouldHide = !isComposingInteraction
+            || (!useSuggestions && !isGlideSuggestionVisible)
         let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
         if results == candidateWords && candidateScroll.isHidden == shouldHide,
            candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
@@ -1384,6 +1385,7 @@ final class KeyboardViewController: UIInputViewController {
             candidateBar.addArrangedSubview(more)
         }
         candidateScroll.setContentOffset(.zero, animated: false)
+        updateContextVisibility()
     }
 
     @objc private func expandGlideCandidates() {
