@@ -40,7 +40,10 @@ enum OpenAIService {
 
         let incoming = String(message.prefix(3000))
         let recipientContext = ConversationContextResolver.resolve(incoming)
-        let historyContext = ConversationHistory.prompt(for: PersonaStore.activeID)
+        // Prefer a small set of genuinely relevant memories rather than
+        // transmitting the full recent conversation at every AI request.
+        let historyContext = ConversationIntelligence.prompt(
+            for: PersonaStore.activeID, query: incoming, openingToday: openingToday)
         guard MessageSafety.warnings(in: historyContext).isEmpty else {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
@@ -71,6 +74,8 @@ enum OpenAIService {
         \(ConversationMemory.prompt())
         \(historyContext)
         \(conversationTask)
+        If you use past details, ground them in the selected excerpts.
+        Do not claim you have access to other chats, contacts or live app data.
         \(KeyboardSettings.personalStylePrompt)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         These relationship rules override romantic Couple styles or generic anh/em examples.
