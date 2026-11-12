@@ -99,6 +99,35 @@ struct AdvancedAssistantView: View {
                     Text(screenshotMatchStatus)
                         .font(.caption2).foregroundStyle(.secondary)
                 }
+                let lensFindings = ConversationLens.findings(in: sourceText)
+                if !lensFindings.isEmpty {
+                    Text("Conversation Lens · Phát hiện trực tiếp từ chữ OCR")
+                        .font(.caption).bold()
+                    ForEach(lensFindings) { finding in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(finding.text,
+                                  systemImage: finding.kind == .question
+                                      ? "questionmark.bubble" : "calendar.badge.clock")
+                                .font(.caption)
+                            HStack {
+                                Button("Dùng để gợi ý trả lời") {
+                                    sourceText = finding.text
+                                    mode = "Gợi ý trả lời"
+                                    feedback = "Đã chọn câu từ ảnh. Kiểm tra văn bản, sau đó nhấn Xử lý bằng AI."
+                                }
+                                if finding.kind == .followUp {
+                                    Button("Nhắc việc") {
+                                        remindersTitle = String(finding.text.prefix(70))
+                                        feedback = "Đã điền nội dung nhắc việc. Hãy tự xác nhận ngày giờ trước khi lưu."
+                                    }
+                                }
+                            }
+                            .font(.caption2).buttonStyle(.bordered)
+                        }
+                    }
+                    Text("Đây là các câu nguyên văn cần xem lại, không xác nhận người gửi, thời điểm hoặc ý định.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
             }
 
             section("Giọng nói thành văn bản", icon: "waveform") {
