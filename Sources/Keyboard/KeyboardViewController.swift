@@ -443,10 +443,14 @@ final class KeyboardViewController: UIInputViewController {
                                       image: UIImage(systemName: "square.stack.3d.up")) { [weak self] _ in
             self?.performWritingVariants()
         }
+        let openingAction = UIAction(title: "Hôm nay nhắn gì? · Theo lịch sử",
+                                     image: UIImage(systemName: "sun.max")) { [weak self] _ in
+            self?.suggestDailyMessage()
+        }
         toolButtons[2].menu = UIMenu(
-            title: "AI · Vai xưng hô và viết lại",
-            children: [receiverMenu, profileMenu, importDraft, privacyAction,
-                       undoAction, variantsAction] + actions
+            title: "AI · Hội thoại và viết lại",
+            children: [receiverMenu, profileMenu, openingAction, importDraft,
+                       privacyAction, undoAction, variantsAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint = "Chạm AI để trả lời. Nhấn giữ để chọn người nhận như chú, cô, bác hoặc sửa câu."
@@ -486,6 +490,46 @@ final class KeyboardViewController: UIInputViewController {
                             children: [save, history, clear])
         paste.showsMenuAsPrimaryAction = false
         paste.accessibilityHint = "Chạm để Dán; nhấn giữ để lưu, chọn hoặc xóa clipboard."
+    }
+
+    private func suggestDailyMessage() {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else {
+            showStatus("Cần Full Access để sử dụng AI")
+            return
+        }
+        guard let person = PersonaStore.active,
+              !ConversationHistory.turns(for: person.id).isEmpty else {
+            showStatus("Mở ViePN → Trợ lý để lưu hội thoại cho người nhận")
+            return
+        }
+        let history = ConversationHistory.prompt(for: person.id)
+        guard MessageSafety.warnings(in: history).isEmpty else {
+            showStatus("Lịch sử có dữ liệu nhạy cảm · Hãy kiểm tra trong ứng dụng")
+            return
+        }
+        isRequestRunning = true
+        let activeID = UUID()
+        requestID = activeID
+        showStatus("Đang gợi ý lời nhắn hôm nay cho " + person.name)
+        Task { [weak self] in
+            do {
+                let suggestions = try await AIService.reply(
+                    to: "", openingToday: true)
+                await MainActor.run {
+                    guard let self, self.requestID == activeID,
+                          PersonaStore.activeID == person.id else { return }
+                    self.isRequestRunning = false
+                    self.show(suggestions)
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.requestID == activeID else { return }
+                    self.isRequestRunning = false
+                    self.showStatus("Không tạo được gợi ý: " + error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func performWritingAction(_ action: AIWritingAction) {
