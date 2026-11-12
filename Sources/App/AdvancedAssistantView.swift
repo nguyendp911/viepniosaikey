@@ -20,6 +20,9 @@ struct AdvancedAssistantView: View {
     @State private var memoryText = ""
     @State private var transcriptDraft = ""
     @State private var savedChatTurns = ConversationHistory.turns(for: PersonaStore.activeID)
+    @State private var chatSearch = ""
+    @State private var editingChatTurnID: String?
+    @State private var editingChatText = ""
     @State private var chatPreview = ""
     @State private var generatedChatSuggestions: [ReplySuggestion] = []
     @State private var evidenceExplanation = ""
@@ -216,15 +219,68 @@ struct AdvancedAssistantView: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 if !savedChatTurns.isEmpty {
-                    ForEach(Array(savedChatTurns.suffix(6))) { turn in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(turn.speaker == .me ? "Tôi" : "Bạn ấy")
-                                .font(.caption2).bold()
-                                .foregroundStyle(turn.speaker == .me ? .cyan : .mint)
-                                .frame(width: 51, alignment: .leading)
-                            Text(turn.text).font(.caption2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    TextField("Tìm trong lịch sử đã lưu", text: $chatSearch)
+                        .textFieldStyle(.roundedBorder)
+                    let filtered = savedChatTurns.filter {
+                        chatSearch.isEmpty || $0.text.localizedCaseInsensitiveContains(chatSearch)
+                    }
+                    ForEach(Array(filtered.suffix(10))) { turn in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(turn.speaker == .me ? "Tôi" : "Bạn ấy")
+                                    .font(.caption2).bold()
+                                    .foregroundStyle(turn.speaker == .me ? .cyan : .mint)
+                                    .frame(width: 51, alignment: .leading)
+                                Text(turn.text).font(.caption2)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Button {
+                                    editingChatTurnID = turn.id
+                                    editingChatText = turn.text
+                                } label: {
+                                    Image(systemName: "pencil")
+                                }.accessibilityLabel("Sửa tin nhắn")
+                                Button(role: .destructive) {
+                                    ConversationHistory.all.removeAll { $0.id == turn.id }
+                                    savedChatTurns = ConversationHistory.turns(
+                                        for: PersonaStore.activeID)
+                                    feedback = "Đã xóa tin nhắn được chọn."
+                                } label: {
+                                    Image(systemName: "trash")
+                                }.accessibilityLabel("Xóa tin nhắn")
+                            }
+                            if editingChatTurnID == turn.id {
+                                TextField("Chỉnh lại nội dung tin nhắn", text: $editingChatText)
+                                    .textFieldStyle(.roundedBorder)
+                                HStack {
+                                    Button("Lưu sửa") {
+                                        let value = String(editingChatText
+                                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                                            .prefix(800))
+                                        guard !value.isEmpty,
+                                              MessageSafety.warnings(in: value).isEmpty else {
+                                            feedback = "Nội dung trống hoặc có dữ liệu nhạy cảm."
+                                            return
+                                        }
+                                        var all = ConversationHistory.all
+                                        if let index = all.firstIndex(where: {
+                                            $0.id == turn.id && $0.personaID == PersonaStore.activeID
+                                        }) {
+                                            all[index].text = value
+                                            ConversationHistory.all = all
+                                        }
+                                        savedChatTurns = ConversationHistory.turns(
+                                            for: PersonaStore.activeID)
+                                        editingChatTurnID = nil
+                                        feedback = "Đã sửa nội dung trong lịch sử."
+                                    }
+                                    Button("Hủy") { editingChatTurnID = nil }
+                                }
+                                .font(.caption).buttonStyle(.bordered)
+                            }
                         }
+                        .padding(7)
+                        .background(.white.opacity(0.045),
+                                    in: RoundedRectangle(cornerRadius: 9))
                     }
                     Button(role: .destructive) {
                         guard let person = PersonaStore.active else { return }
