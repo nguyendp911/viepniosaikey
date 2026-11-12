@@ -110,7 +110,9 @@ enum KeyboardSettings {
         set { defaults.set(newValue, forKey: prefix + "predictionsEnabled") }
     }
     static var glideEnabled: Bool {
-        get { defaults.bool(forKey: prefix + "glideEnabled") }
+        // Swipe typing is available by default; preserve an explicit opt-out
+        // from existing users rather than forcing their setting back on.
+        get { defaults.object(forKey: prefix + "glideEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "glideEnabled") }
     }
     // Optional touch-area expansion into the gap between neighboring keys.
