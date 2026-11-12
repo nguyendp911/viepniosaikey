@@ -197,6 +197,28 @@ struct VerifySmartKeyboard {
                "user-approved per-contact memory")
         assert(ConversationMemory.prompt().contains("Gọi người nhận là chú."),
                "AI receives only selected-contact notes")
+        let historyID = PersonaStore.activeID
+        ConversationHistory.clear(for: historyID)
+        let source = "Tôi: Hôm nay đi làm thế nào?\nBạn ấy: Hôm nay bận lắm.\nTôi: Cố lên nhé!"
+        assert(ConversationHistory.parse(source).count == 3,
+               "explicitly labeled chat history parses correct speakers")
+        assert(ConversationHistory.parse("Chú Tư đang đi chơi").isEmpty,
+               "unlabeled text never guesses message sender")
+        assert(ConversationHistory.importExplicitly(source, for: historyID) == 3,
+               "three manually supplied chat turns saved")
+        assert(ConversationHistory.importExplicitly(source, for: historyID) == 0,
+               "repeated import does not duplicate chat turns")
+        let saved = ConversationHistory.turns(for: historyID)
+        assert(saved.count == 3 && saved[0].speaker == .me
+                   && saved[1].speaker == .other,
+               "two-speaker history preserves labels and order")
+        assert(ConversationHistory.prompt(for: historyID).contains("OTHER: Hôm nay bận lắm"),
+               "AI sees only saved conversation of the selected profile")
+        assert(ConversationHistory.prompt(for: "missing-persona-id").isEmpty,
+               "unknown contact cannot access another contact history")
+        ConversationHistory.clear(for: historyID)
+        assert(ConversationHistory.turns(for: historyID).isEmpty,
+               "conversation deletion removes scoped history")
         ConversationMemory.notes = []
         PersonaStore.clearSelection()
         PersonaStore.all = []
