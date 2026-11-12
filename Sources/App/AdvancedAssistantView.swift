@@ -17,6 +17,10 @@ struct AdvancedAssistantView: View {
     @State private var privatePreview = true
     @State private var mode = "Viết tự nhiên"
     @State private var memoryText = ""
+    @State private var transcriptDraft = ""
+    @State private var savedChatTurns = ConversationHistory.turns(for: PersonaStore.activeID)
+    @State private var chatPreview = ""
+    @State private var openingNote = ""
     @State private var remindersTitle = ""
     @State private var reminderDate = Date().addingTimeInterval(3600)
     @State private var savedMemories = ConversationMemory.forActivePersona()
@@ -150,6 +154,102 @@ struct AdvancedAssistantView: View {
                 }
             }
 
+            section("Hội thoại riêng cho từng người", icon: "bubble.left.and.bubble.right") {
+                Text(PersonaStore.active.map { "Hồ sơ đang chọn: " + $0.name }
+                     ?? "Hãy chọn hồ sơ người nhận ở mục AI & API trước khi nhập hội thoại.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Dán lịch sử đã được bạn chủ động sao chép. Mỗi dòng ghi rõ người nói, ví dụ: Tôi: Hôm nay em thế nào? / Bạn ấy: Em đang đi làm. Không tự đọc Zalo hay Messenger.")
+                    .font(.caption).foregroundStyle(.secondary)
+                TextEditor(text: $transcriptDraft)
+                    .frame(minHeight: 100)
+                    .scrollContentBackground(.hidden)
+                    .padding(7)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityLabel("Lịch sử hội thoại được nhập thủ công")
+                let parsedCount = ConversationHistory.parse(transcriptDraft).count
+                Text("Nhận diện " + String(parsedCount) + " lượt nói có nhãn Tôi / Bạn ấy. Kiểm tra lại trước khi lưu.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                if !MessageSafety.warnings(in: transcriptDraft).isEmpty {
+                    Text("Đoạn nhập có thể chứa thông tin nhạy cảm. Hãy xóa hoặc ẩn trước khi lưu.")
+                        .font(.caption2).foregroundStyle(.orange)
+                }
+                HStack {
+                    Button {
+                        guard let person = PersonaStore.active else {
+                            feedback = "Hãy chọn hồ sơ trước khi lưu."
+                            return
+                        }
+                        let count = ConversationHistory.importExplicitly(
+                            transcriptDraft, for: person.id)
+                        savedChatTurns = ConversationHistory.turns(for: person.id)
+                        transcriptDraft = ""
+                        feedback = "Đã lưu " + String(count) + " lượt mới cho " + person.name + "."
+                    } label: {
+                        Label("Lưu lịch sử", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(PersonaStore.active == nil || parsedCount == 0
+                              || !MessageSafety.warnings(in: transcriptDraft).isEmpty)
+                    Spacer()
+                    Text(String(savedChatTurns.count) + " lượt đã lưu")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                if !savedChatTurns.isEmpty {
+                    ForEach(Array(savedChatTurns.suffix(6))) { turn in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(turn.speaker == .me ? "Tôi" : "Bạn ấy")
+                                .font(.caption2).bold()
+                                .foregroundStyle(turn.speaker == .me ? .cyan : .mint)
+                                .frame(width: 51, alignment: .leading)
+                            Text(turn.text).font(.caption2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    Button(role: .destructive) {
+                        guard let person = PersonaStore.active else { return }
+                        ConversationHistory.clear(for: person.id)
+                        savedChatTurns = []
+                        feedback = "Đã xóa lịch sử hội thoại của " + person.name + "."
+                    } label: {
+                        Label("Xóa toàn bộ lịch sử người này", systemImage: "trash")
+                    }
+                    .font(.caption)
+                }
+                TextField("Ghi chú tùy chọn: Hôm nay muốn hỏi chuyện gì?", text: $openingNote)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Button {
+                        Task { await proposeFromHistory(openingToday: false) }
+                    } label: {
+                        Label("Gợi ý trả lời", systemImage: "arrowshape.turn.up.left")
+                    }
+                    .buttonStyle(.bordered)
+                    Button {
+                        Task { await proposeFromHistory(openingToday: true) }
+                    } label: {
+                        Label("Nhắn gì hôm nay?", systemImage: "sun.max")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(PersonaStore.active == nil || busy)
+                }
+                Text("AI chỉ nhận tối đa 14 lượt hội thoại gần đây khi bạn nhấn gợi ý và bật AI online. Không tự gửi tin nhắn. Hãy kiểm tra câu gợi ý trước khi chèn.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                if !chatPreview.isEmpty {
+                    TextEditor(text: $chatPreview)
+                        .frame(height: 125)
+                        .scrollContentBackground(.hidden)
+                        .padding(7)
+                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                    Button {
+                        ShareDraft.save(chatPreview)
+                        feedback = "Đã chuyển bản nháp sang ViePN. Mở bàn phím và chọn Lấy bản nháp."
+                    } label: {
+                        Label("Đưa gợi ý sang bàn phím", systemImage: "keyboard")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
             section("Lịch hẹn & lời nhắc", icon: "calendar.badge.plus") {
                 Text("Đề xuất tác vụ từ văn bản đã nhận. Bạn xác nhận tiêu đề và giờ trước khi lưu vào Lịch iPhone.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -236,6 +336,37 @@ struct AdvancedAssistantView: View {
                                           : "Đã nhận dạng chữ trên máy. Hãy kiểm tra thứ tự người gửi trước khi xử lý."
         } catch {
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func proposeFromHistory(openingToday: Bool) async {
+        guard PersonaStore.active != nil else {
+            feedback = "Hãy chọn hồ sơ người nhận."
+            return
+        }
+        let context = ConversationHistory.turns(for: PersonaStore.activeID)
+        guard !context.isEmpty else {
+            feedback = "Hãy nhập và lưu lịch sử hội thoại trước."
+            return
+        }
+        if !openingToday && context.last?.speaker != .other {
+            feedback = "Tin cuối đã lưu không phải của người ấy. Hãy bổ sung tin nhắn mới nhất trước khi gợi ý trả lời."
+            return
+        }
+        busy = true
+        defer { busy = false }
+        let incoming = openingToday ? openingNote : (context.last?.text ?? "")
+        do {
+            let suggestions = try await AIService.reply(
+                to: incoming, openingToday: openingToday)
+            chatPreview = suggestions.enumerated().map {
+                "Mẫu \($0.offset + 1): " + $0.element.text
+            }.joined(separator: "\n\n")
+            feedback = "Đã tạo " + String(suggestions.count)
+                + " gợi ý. Chọn hoặc chỉnh lại trước khi sử dụng."
+        } catch {
+            feedback = "Không tạo được gợi ý: " + error.localizedDescription
         }
     }
 
