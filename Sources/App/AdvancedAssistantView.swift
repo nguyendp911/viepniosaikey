@@ -14,6 +14,7 @@ struct AdvancedAssistantView: View {
     @State private var screenshotMatch: PersonaStore.ScreenshotMatch?
     @State private var screenshotEvidence = ""
     @State private var screenshotVisualOnly = false
+    @State private var screenshotRecognitionRequest = UUID()
     @State private var screenshotMatchStatus = ""
     @State private var sourceText = ""
     @State private var responseText = ""
@@ -79,7 +80,9 @@ struct AdvancedAssistantView: View {
                             .buttonStyle(.borderedProminent)
                         }
                     } else {
-                        Text("Có nhiều hồ sơ trùng tên. Hãy xác nhận đúng người:")
+                        Text(screenshotVisualOnly
+                             ? "Ảnh mẫu có nét tương tự. Đây không phải xác minh danh tính; hãy tự chọn đúng người:"
+                             : "Có nhiều hồ sơ trùng tên. Hãy xác nhận đúng người:")
                             .font(.caption2).foregroundStyle(.orange)
                         ForEach(match.matches) { person in
                             Button {
@@ -670,8 +673,21 @@ struct AdvancedAssistantView: View {
 
     @MainActor
     private func readScreenshot(_ item: PhotosPickerItem) async {
+        let ticket = UUID()
+        screenshotRecognitionRequest = ticket
         busy = true
-        defer { busy = false }
+        screenshotMatch = nil
+        screenshotEvidence = ""
+        screenshotVisualOnly = false
+        screenshotMatchStatus = "Đang đối chiếu ảnh với các hồ sơ đã lưu…"
+        // A new screenshot represents a new conversation, not the old
+        // previously selected recipient. Never silently reuse that person's
+        // private history while we cannot verify the new one.
+        PersonaStore.clearSelection()
+        refreshActiveChatProfile()
+        defer {
+            if screenshotRecognitionRequest == ticket { busy = false }
+        }
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
                   let image = UIImage(data: data)?.cgImage else {
@@ -710,14 +726,17 @@ struct AdvancedAssistantView: View {
             // recipient; image-only evidence is a suggestion, not identity.
             let scan = try await ChatScreenshotReference.scan(data)
             let recognition = await ChatScreenshotReference.recognize(scan)
+            guard screenshotRecognitionRequest == ticket else { return }
             screenshotVisualOnly = recognition?.method == .imageReference
             if let recognition {
                 screenshotMatch = PersonaStore.ScreenshotMatch(
                     recognizedTitle: recognition.title,
                     matches: recognition.matches)
                 screenshotEvidence = recognition.method == .titleOCR
-                    ? "Đã khớp chữ trên tiêu đề với tên/ảnh mẫu đã lưu."
-                    : "Ảnh tiêu đề có nét tương tự ảnh mẫu. Cần bạn xác nhận người nhận; không tự chuyển hồ sơ."
+                    ? (recognition.matches.count == 1
+                        ? "Đã khớp duy nhất tên trên tiêu đề với hồ sơ đã lưu."
+                        : "Có nhiều tên được phát hiện. Chưa tự chọn hồ sơ.")
+                    : "Chỉ có tương đồng hình ảnh. Không đủ chứng cứ để xác định người nhận; phải chọn thủ công."
                 if PersonaStore.automaticNameMatch,
                    recognition.mayAutoSelect,
                    let person = recognition.uniqueMatch {
@@ -727,21 +746,24 @@ struct AdvancedAssistantView: View {
                     feedback = "Đã tự chọn hồ sơ từ tiêu đề ảnh bạn cung cấp."
                 } else {
                     screenshotMatchStatus = recognition.matches.count > 1
-                        ? "Nhiều hồ sơ có tên trùng, hãy xác nhận người đúng."
-                        : "Đã tìm thấy hồ sơ có thể phù hợp, hãy xác nhận."
+                        ? "Có nhiều hồ sơ có thể phù hợp. Hãy xác nhận đúng người."
+                        : "Chưa xác minh danh tính, hãy xác nhận người phù hợp."
                     feedback = screenshotMatchStatus
                 }
             } else {
                 screenshotMatch = nil
                 screenshotEvidence = ""
                 screenshotMatchStatus =
-                    "Không thể xác định đúng người từ ảnh này. Chọn hồ sơ thủ công."
+                    "Chưa xác định được hồ sơ từ ảnh mới. Hồ sơ cũ đã được bỏ chọn để tránh nhầm người."
                 feedback = observations.isEmpty
                     ? "OCR chưa đọc được chữ. Kiểm tra ảnh và hồ sơ đã lưu."
                     : "Đã đọc nội dung ảnh nhưng chưa khớp hồ sơ đủ tin cậy."
             }
         } catch {
+            guard screenshotRecognitionRequest == ticket else { return }
             feedback = "Lỗi đọc ảnh: " + error.localizedDescription
+            screenshotMatch = nil
+            screenshotMatchStatus = "Không thể nhận diện. Hồ sơ cũ đã bỏ chọn; hãy chọn thủ công."
         }
     }
 
