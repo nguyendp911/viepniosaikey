@@ -36,6 +36,7 @@ final class KeyboardViewController: UIInputViewController {
     private var useGlide = KeyboardSettings.glideEnabled
     private var learnedWords: [String: Int] = [:]
     private var recentWord = ""
+    private var typingTouchCount: UInt64 = 0
     // Original physical keys and displayed word are tracked separately.
     // This allows a partial English prefix to become Vietnamese later,
     // or a Vietnamese-looking prefix to resolve back to English.
@@ -45,6 +46,9 @@ final class KeyboardViewController: UIInputViewController {
     // every touch (formerly replayed Telex over its entire history).
     private var telexCandidateWord = ""
     private var candidateUpdateWork: DispatchWorkItem?
+    // A monotonically increasing generation prevents stale suggestions from
+    // appearing after deletion or when the same prefix is typed again.
+    private var candidateGeneration: UInt64 = 0
     private var cachedSnippets: [String: String] = [:]
     private var cachedReplacements: [String: String] = [:]
     private var autocapitalizeEnabled = true
@@ -682,8 +686,10 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
-        // Sample one out of 50 touches; never store the key or input text.
-        let sample = Int.random(in: 0..<50) == 0
+        // Sample every 50th touch without invoking a random-number generator
+        // on the input latency-critical path.
+        typingTouchCount &+= 1
+        let sample = typingTouchCount % 50 == 0
         let startedAt = sample ? CACurrentMediaTime() : 0
         defer {
             if sample {
@@ -756,7 +762,10 @@ final class KeyboardViewController: UIInputViewController {
                 // This branch previously swallowed the touch entirely.
                 textDocumentProxy.insertText(key)
                 rawComposingWord = rawNext
-                telexCandidateWord = nextTelex + key
+                // Keep the internal Vietnamese candidate independent of the
+                // literal display; adding the key a second time corrupts later
+                // auto-language decisions (e.g. repeated tone modifiers).
+                telexCandidateWord = nextTelex
                 displayedComposingWord += key
                 recentWord = displayedComposingWord
                 if isUppercase && !isShiftLocked {
@@ -999,6 +1008,7 @@ final class KeyboardViewController: UIInputViewController {
         // short typing pause, not synchronously for every physical key.
         // A direct swipe prediction is shown immediately.
         candidateUpdateWork?.cancel()
+        candidateGeneration &+= 1
         if let override {
             renderCandidates(override)
             return
@@ -1008,6 +1018,7 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let word = recentWord
+        let generation = candidateGeneration
         // Keep dictionary scanning and sorting off the keyboard UI thread.
         // Debounce the background work, then return only the final 3 labels.
         let personalWords = learnedWords
@@ -1015,7 +1026,8 @@ final class KeyboardViewController: UIInputViewController {
             let results = SmartTyping.predictions(
                 prefix: word, learned: personalWords)
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.recentWord == word else { return }
+                guard let self, self.candidateGeneration == generation,
+                      self.recentWord == word else { return }
                 self.renderCandidates(results)
             }
         }
