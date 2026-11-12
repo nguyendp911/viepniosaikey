@@ -1536,8 +1536,13 @@ final class KeyboardViewController: UIInputViewController {
                 top: 6, left: 13, bottom: 6, right: 13)
             button.addTarget(self, action: #selector(candidateTapped(_:)),
                              for: .touchUpInside)
-            button.widthAnchor.constraint(
-                greaterThanOrEqualToConstant: 62).isActive = true
+            // Hidden arrangedSubviews get UIKit's required zero-width
+            // constraint. A required minimum width here would conflict with
+            // it and produce repeated Auto Layout warnings on every word.
+            let minWidth = button.widthAnchor.constraint(
+                greaterThanOrEqualToConstant: 62)
+            minWidth.priority = .defaultHigh
+            minWidth.isActive = true
             candidateButtons.append(button)
             candidateBar.insertArrangedSubview(button, at: index)
         }
