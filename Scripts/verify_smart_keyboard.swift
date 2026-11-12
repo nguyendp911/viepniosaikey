@@ -232,6 +232,16 @@ struct VerifySmartKeyboard {
                "local performance counters contain no text")
         KeyboardStability.clear()
         KeyboardSettings.learnedWords = [:]
+        KeyboardSettings.frequentlyUsedEmoji = [:]
+        KeyboardSettings.recordEmojiSelection("❤️")
+        KeyboardSettings.recordEmojiSelection("❤️")
+        KeyboardSettings.recordEmojiSelection("😊")
+        assert(KeyboardSettings.frequentlyUsedEmoji["❤️"] == 2
+               && KeyboardSettings.frequentlyUsedEmoji["😊"] == 1,
+               "emoji usage counts explicit selections only")
+        KeyboardSettings.frequentlyUsedEmoji = [:]
+        assert(KeyboardSettings.frequentlyUsedEmoji.isEmpty,
+               "emoji learning can be cleared independently of chat history")
         KeyboardSettings.writingSamples = ["Xin chào, cảm ơn bạn."]
         assert(KeyboardSettings.personalStylePrompt.contains("cảm ơn"),
                "explicit style examples included for AI")
