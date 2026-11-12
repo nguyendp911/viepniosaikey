@@ -235,12 +235,110 @@ enum SmartTyping {
             return (word, distance)
         }
         var seen = Set<String>()
-        return Array(matches.sorted {
+        let direct = Array(matches.sorted {
             if $0.1 != $1.1 { return $0.1 < $1.1 }
             let a = learned[$0.0] ?? 0, b = learned[$1.0] ?? 0
             if a != b { return a > b }
             return abs($0.0.count - trace.count) < abs($1.0.count - trace.count)
         }.compactMap { seen.insert($0.0).inserted ? $0.0 : nil }.prefix(limit))
+        if !direct.isEmpty { return direct }
+        // A real finger crosses intervening keys between intended letters.
+        // Edit distance on the raw visited-key string fails there. Compare
+        // the geometry of the traced path with dictionary word strokes.
+        return geometryGlideCandidates(trace: trace, dictionary: dictionary,
+                                       learned: learned, limit: limit)
+    }
+
+    private static let qwertyCenters: [Character: (Double, Double)] = {
+        var result: [Character: (Double, Double)] = [:]
+        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+        for (rowIndex, row) in rows.enumerated() {
+            let offset: Double = rowIndex == 0 ? 0 : (rowIndex == 1 ? 0.5 : 1.5)
+            for (index, key) in row.enumerated() {
+                result[key] = (Double(index) + offset, Double(rowIndex))
+            }
+        }
+        return result
+    }()
+
+    private static func strokePoints(_ text: String) -> [(Double, Double)]? {
+        let plain = collapseRepeats(
+            text.lowercased()
+                .folding(options: [.diacriticInsensitive], locale: Locale(identifier: "vi_VN"))
+                .replacingOccurrences(of: "đ", with: "d"))
+        var points: [(Double, Double)] = []
+        for key in plain {
+            guard let position = qwertyCenters[key] else { return nil }
+            points.append(position)
+        }
+        return points.count >= 2 ? points : nil
+    }
+
+    private static func resampleStroke(_ points: [(Double, Double)],
+                                       count: Int = 16) -> [(Double, Double)] {
+        guard points.count >= 2 else { return points }
+        var cumulative: [Double] = [0]
+        for index in 1..<points.count {
+            let dx = points[index].0 - points[index - 1].0
+            let dy = points[index].1 - points[index - 1].1
+            cumulative.append(cumulative[index - 1] + hypot(dx, dy))
+        }
+        guard let length = cumulative.last, length > 0 else {
+            return Array(repeating: points[0], count: count)
+        }
+        var output: [(Double, Double)] = []
+        var segment = 0
+        for index in 0..<count {
+            let distance = Double(index) * length / Double(count - 1)
+            while segment + 1 < cumulative.count - 1
+                    && cumulative[segment + 1] < distance {
+                segment += 1
+            }
+            let span = max(0.00001, cumulative[segment + 1] - cumulative[segment])
+            let t = min(1, max(0, (distance - cumulative[segment]) / span))
+            output.append((
+                points[segment].0 + t * (points[segment + 1].0 - points[segment].0),
+                points[segment].1 + t * (points[segment + 1].1 - points[segment].1)
+            ))
+        }
+        return output
+    }
+
+    private static func geometryGlideCandidates(
+        trace: String, dictionary: [String], learned: [String: Int],
+        limit: Int
+    ) -> [String] {
+        guard let points = strokePoints(trace) else { return [] }
+        let observed = resampleStroke(points)
+        let first = trace.first
+        let last = trace.last
+        var scores: [(word: String, cost: Double)] = []
+        for word in dictionary {
+            guard let wordPoints = strokePoints(word),
+                  let firstLetter = word.lowercased()
+                    .folding(options: [.diacriticInsensitive],
+                             locale: Locale(identifier: "vi_VN")).first,
+                  let lastLetter = word.lowercased()
+                    .folding(options: [.diacriticInsensitive],
+                             locale: Locale(identifier: "vi_VN")).last,
+                  firstLetter == first, lastLetter == last else { continue }
+            let ideal = resampleStroke(wordPoints)
+            var squared: Double = 0
+            for (a, b) in zip(observed, ideal) {
+                let dx = a.0 - b.0
+                let dy = a.1 - b.1
+                squared += dx * dx + dy * dy
+            }
+            let rms = sqrt(squared / Double(observed.count))
+            if rms < 1.25 { scores.append((word, rms)) }
+        }
+        var seen = Set<String>()
+        return Array(scores.sorted {
+            if abs($0.cost - $1.cost) > 0.12 { return $0.cost < $1.cost }
+            let a = learned[$0.word] ?? 0, b = learned[$1.word] ?? 0
+            if a != b { return a > b }
+            return $0.cost < $1.cost
+        }.compactMap { seen.insert($0.word).inserted ? $0.word : nil }.prefix(limit))
     }
 
     private static func collapseRepeats(_ input: String) -> String {
