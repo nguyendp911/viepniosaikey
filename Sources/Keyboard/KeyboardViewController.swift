@@ -106,6 +106,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
+        candidateBar.isHidden = !useSuggestions
         applyTheme()
         updateAdaptiveLayout()
         updateCoupleTool()
@@ -215,7 +216,9 @@ final class KeyboardViewController: UIInputViewController {
         candidateBar.axis = .horizontal
         candidateBar.spacing = 5
         candidateBar.distribution = .fillEqually
-        candidateBar.isHidden = true
+        // A fixed suggestion row prevents keyboard geometry from jumping
+        // while words are typed, and avoids expensive layout passes per key.
+        candidateBar.isHidden = !useSuggestions
         candidateBar.heightAnchor.constraint(equalToConstant: 31).isActive = true
         for index in 0..<3 {
             let button = UIButton(type: .system)
@@ -1022,11 +1025,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func renderCandidates(_ results: [String]) {
-        let visible = !results.isEmpty
-        if results == candidateWords && candidateBar.isHidden != visible { return }
+        // Only a settings change may hide the row; predictions arriving
+        // or disappearing must not resize the whole keyboard.
+        let shouldHide = !useSuggestions
+        if results == candidateWords && candidateBar.isHidden == shouldHide { return }
         candidateWords = results
-        if candidateBar.isHidden == visible {
-            candidateBar.isHidden = !visible
+        if candidateBar.isHidden != shouldHide {
+            candidateBar.isHidden = shouldHide
             updateKeyboardHeight()
         }
         for (index, button) in candidateButtons.enumerated() {
