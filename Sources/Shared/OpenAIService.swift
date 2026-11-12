@@ -31,7 +31,7 @@ private struct OpenAIReplyPayload: Decodable {
 }
 
 enum OpenAIService {
-    static func reply(to message: String) async throws -> [ReplySuggestion] {
+    static func reply(to message: String, openingToday: Bool = false) async throws -> [ReplySuggestion] {
         let apiKey = KeyboardSettings.openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else { throw AIServiceError.provider(401, "Chưa nhập OpenAI API Key.") }
         let model = KeyboardSettings.openAIModel
@@ -40,6 +40,20 @@ enum OpenAIService {
 
         let incoming = String(message.prefix(3000))
         let recipientContext = ConversationContextResolver.resolve(incoming)
+        let historyContext = ConversationHistory.prompt(for: PersonaStore.activeID)
+        let conversationTask = openingToday
+            ? """
+              Offer THREE optional, natural, low-pressure Vietnamese conversation
+              openers I could send today to the selected person. Use the saved
+              history to reflect shared interests and appropriate address,
+              but never invent an event, promise, their feelings, or a reply.
+              If ME last wrote, do not repeat the same message.
+              """
+            : """
+              Answer the supplied incoming message appropriately in the
+              context of the selected relationship and past exchanges.
+              Distinguish ME from OTHER in the saved conversation.
+              """
         let coupleGuidance = recipientContext.romanticInstructionsAllowed
             ? CoupleReplyGuide.context : ""
         let coupleExamples = recipientContext.romanticInstructionsAllowed
@@ -51,6 +65,8 @@ enum OpenAIService {
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
         \(ConversationMemory.prompt())
+        \(historyContext)
+        \(conversationTask)
         \(KeyboardSettings.personalStylePrompt)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         These relationship rules override romantic Couple styles or generic anh/em examples.
@@ -68,7 +84,9 @@ enum OpenAIService {
             model: model,
             messages: [
                 .init(role: "system", content: system),
-                .init(role: "user", content: "Suggest Vietnamese replies to this message:\n" + incoming)
+                .init(role: "user", content: openingToday
+                      ? "Suggest 3 optional Vietnamese first messages for today. User note (optional):\n" + incoming
+                      : "Suggest Vietnamese replies to this message:\n" + incoming)
             ],
             response_format: .init(type: "json_object"),
             temperature: 0.5
@@ -101,7 +119,7 @@ enum OpenAIService {
         else { throw AIServiceError.invalidResponse }
         let decoded = try JSONDecoder().decode(OpenAIReplyPayload.self, from: output)
         let result = decoded.replies.prefix(5).compactMap { item -> ReplySuggestion? in
-            let text = ReplyTextCleaner.answerOnly(item.text, source: message)
+            let text = ReplyTextCleaner.answerOnly(item.text, source: openingToday ? "" : message)
             guard !text.isEmpty, recipientContext.accepts(text) else { return nil }
             return ReplySuggestion(tone: String(item.tone.prefix(40)), text: String(EmojiEnhancer.decorate(text, tone: item.tone).prefix(1500)))
         }
