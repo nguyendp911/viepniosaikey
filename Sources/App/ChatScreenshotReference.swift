@@ -69,7 +69,8 @@ enum ChatScreenshotReference {
             let normalized = PersonaStore.normalizedName(title)
             guard normalized.count >= 2 else { continue }
             let ids = Set(all.filter {
-                PersonaStore.normalizedName($0.headerTitle) == normalized
+                PersonaStore.normalizedName($0.headerTitle)
+                    == PersonaStore.normalizedScreenshotTitle(title)
             }.map(\.personaID))
             let matches = PersonaStore.all.filter { ids.contains($0.id) }
             if !matches.isEmpty {
@@ -113,7 +114,8 @@ enum ChatScreenshotReference {
             // A known saved name is safer than guessing which of several
             // recognized lines is a person's name.
             let chosen = navigation.first {
-                !expected.isEmpty && PersonaStore.normalizedName($0.text) == expected
+                !expected.isEmpty
+                    && PersonaStore.normalizedScreenshotTitle($0.text) == expected
             } ?? navigation.first
             guard let selected = chosen,
                   let nameBox = recognized.first(where: {
