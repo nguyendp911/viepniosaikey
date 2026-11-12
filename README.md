@@ -64,8 +64,9 @@ Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa 
 3. Kiểm tra nhãn người nói, xóa mật khẩu/số điện thoại/thông tin nhạy cảm rồi bấm **Lưu lịch sử**. Lưu tối đa 150 lượt cho mỗi hồ sơ, tổng cộng 1.000 lượt trên thiết bị; nhập trùng không tăng số lượt.
 4. Bấm **Gợi ý trả lời** nếu lượt mới nhất là tin từ người kia; bấm **Nhắn gì hôm nay?** để nhận ba gợi ý chủ động bắt chuyện (không tự gửi).
 5. Trên bàn phím ViePN, **nhấn giữ AI → Hôm nay nhắn gì? · Theo lịch sử**, xem ba gợi ý rồi chọn/chỉnh trước khi dùng.
+6. Trong Trợ lý, có thể **tìm kiếm, sửa hoặc xóa riêng từng tin nhắn**; **Vì sao AI gợi ý?** hiển thị những đoạn hội thoại được chọn làm căn cứ. Có thể bật khóa giao diện bằng Face ID/mật mã.
 
-ViePN không tự đọc hay theo dõi Zalo, Messenger hoặc bất kỳ ứng dụng khác. Lịch sử chỉ được lưu **khi bạn bấm Lưu**, tách theo hồ sơ đang chọn và có chức năng **Xóa toàn bộ lịch sử người này**. Khi bạn chủ động dùng AI online, tối đa 14 lượt gần nhất được gửi cho nhà cung cấp AI đã cấu hình, cùng ghi chú và hồ sơ liên quan. Dữ liệu lịch sử đang lưu trong App Group UserDefaults **chưa mã hóa chuyên dụng**; không lưu bí mật hoặc cuộc trò chuyện nhạy cảm. Các tin nhắn đã lưu là dữ liệu tham chiếu cho AI trong lần suy luận, **không phải huấn luyện trọng số mô hình**. Ứng dụng không tự lên lịch gửi tin nhắn.
+ViePN không tự đọc hay theo dõi Zalo, Messenger hoặc bất kỳ ứng dụng khác. Lịch sử chỉ được lưu **khi bạn bấm Lưu**, tách theo hồ sơ đang chọn và có chức năng **Xóa toàn bộ lịch sử người này**. Khi bạn chủ động dùng AI online, ViePN chọn tối đa 6 lượt hội thoại có liên quan làm ngữ cảnh; nếu bật học văn phong, có thể kèm tối đa 5 câu do bạn tự đánh dấu Tôi và các ghi chú tự lưu. Lịch sử và ghi chú trên iOS được chuyển sang tệp App Group dùng iOS Data Protection; đây không phải mã hóa đầu-cuối và không bảo vệ khỏi ứng dụng đang chạy được cấp quyền. Không lưu bí mật hoặc cuộc trò chuyện quá nhạy cảm. Các tin nhắn đã lưu là dữ liệu tham chiếu cho AI trong lần suy luận, **không phải huấn luyện trọng số mô hình**. Ứng dụng không tự lên lịch gửi tin nhắn.
 
 ### Thanh ngữ cảnh trong khoảng trống bên dưới 5 nút công cụ
 
