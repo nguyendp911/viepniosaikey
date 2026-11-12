@@ -26,10 +26,13 @@ private struct GeminiOutput {
 }
 
 enum AIService {
-    static func reply(to message: String) async throws -> [ReplySuggestion] {
+    static func reply(to message: String, openingToday: Bool = false) async throws -> [ReplySuggestion] {
         guard KeyboardSettings.allowCloudAI else { throw AIServiceError.missingConsent }
+        guard !openingToday || PersonaStore.active != nil else {
+            throw AIServiceError.malformedResponse("Hãy chọn hồ sơ người nhận trước khi gợi ý nhắn hôm nay.")
+        }
         if KeyboardSettings.provider == "openai" {
-            return try await OpenAIService.reply(to: message)
+            return try await OpenAIService.reply(to: message, openingToday: openingToday)
         }
         let key = KeyboardSettings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw AIServiceError.missingKey }
@@ -38,6 +41,22 @@ enum AIService {
         else { throw AIServiceError.invalidModel }
         let incoming = String(message.prefix(3000))
         let recipientContext = ConversationContextResolver.resolve(incoming)
+        let historyContext = ConversationHistory.prompt(for: PersonaStore.activeID)
+        let conversationTask = openingToday
+            ? """
+              Propose THREE different, low-pressure, natural Vietnamese first messages
+              that I could SEND TODAY to the selected contact. Use the saved
+              conversation history only as context for shared topics, tone
+              and previously mentioned plans. If the last saved message was
+              already sent by ME, avoid repeating it and do not push for a reply.
+              No invented events, dates, commitments or assumptions about their
+              feelings. Return send-ready lines, never claim to send them.
+              """
+            : """
+              Propose THREE answers to the most recent explicitly supplied
+              incoming message, consistent with the selected contact and
+              recent conversation. Distinguish the two speakers accurately.
+              """
         let coupleGuidance = recipientContext.romanticInstructionsAllowed
             ? CoupleReplyGuide.context : ""
         let coupleExamples = recipientContext.romanticInstructionsAllowed
@@ -49,10 +68,12 @@ enum AIService {
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
         \(ConversationMemory.prompt())
+        \(historyContext)
+        \(conversationTask)
         \(KeyboardSettings.personalStylePrompt)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         The recipient relationship is more important than any saved Couple style.
-        Suggest short, context-aware Vietnamese REPLIES to that message.
+        Suggest short, context-aware Vietnamese messages for the requested task.
         Never copy or quote the incoming message. Never claim to have sent a message.
         Each reply should be no longer than 180 Vietnamese characters.\n        Preferred tone: \(KeyboardSettings.preferredTone). Preferred length: \(KeyboardSettings.preferredLength).\n        Add at most one context-appropriate emoji to casual or warm replies; avoid emoji for formal, serious or sensitive conversations.
         \(coupleGuidance)
@@ -61,7 +82,9 @@ enum AIService {
         Output exactly three separate, ready-to-send reply suggestions in replies[]. Never merge all suggestions into one text.
         """
 
-        let prompt = "Incoming message:\n" + incoming
+        let prompt = openingToday
+            ? "TASK: Suggest a thoughtful, optional message to start a conversation today. Additional user note (optional):\n" + incoming
+            : "Incoming message:\n" + incoming
         let structured: GeminiOutput
         var activeModel = model
         do {
@@ -78,7 +101,7 @@ enum AIService {
                 key: key, model: backup, instruction: instruction, prompt: prompt, jsonMode: true
             )
         }
-        if let replies = parseReplies(structured.text, source: incoming, context: recipientContext), !replies.isEmpty {
+        if let replies = parseReplies(structured.text, source: openingToday ? "" : incoming, context: recipientContext), !replies.isEmpty {
             return replies
         }
 
@@ -91,7 +114,7 @@ enum AIService {
             instruction: instruction + "\nRespond with ONE reply only, as plain text. No JSON, quotes or markdown.",
             prompt: prompt, jsonMode: false
         )
-        if let replies = parseReplies(fallback.text, source: incoming, context: recipientContext), !replies.isEmpty {
+        if let replies = parseReplies(fallback.text, source: openingToday ? "" : incoming, context: recipientContext), !replies.isEmpty {
             return replies
         }
         let clean = ReplyTextCleaner.answerOnly(fallback.text, source: incoming)
