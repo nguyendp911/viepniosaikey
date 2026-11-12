@@ -143,7 +143,10 @@ enum KeyboardSettings {
     }
     static func recordGlideChoice(_ word: String) {
         guard glideLearningEnabled else { return }
-        let key = SmartTyping.glideUsageKey(word)
+        let plain = word.lowercased()
+            .folding(options: [.diacriticInsensitive], locale: Locale(identifier: "vi_VN"))
+            .replacingOccurrences(of: "đ", with: "d")
+        let key = plain + "|" + word.lowercased()
         var counts = glideUsageCounts
         counts[key] = min(10000, (counts[key] ?? 0) + 1)
         glideUsageCounts = counts
