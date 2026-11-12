@@ -95,24 +95,62 @@ enum ChatScreenshotReference {
     /// cropped title image, never chat bubbles, faces or full-screen images.
     /// The visual result MUST be confirmed: similar-looking names and UI can
     /// have a small feature distance without identifying the same person.
+    /// Resolve all OCR title matches before returning. A match in a later
+    /// candidate must not be ignored because an earlier OCR line resembles
+    /// another saved contact. Conflicts are explicitly ambiguous.
+    static func textMatches(
+        _ observations: [(text: String, midY: Double)],
+        profiles: [RecipientPersona],
+        references: [Reference]
+    ) -> [RecipientPersona] {
+        var ids = Set<String>()
+        for observation in observations where observation.midY >= 0.77
+            && observation.midY <= 0.967 {
+            let title = PersonaStore.normalizedScreenshotTitle(observation.text)
+            guard title.count >= 2,
+                  PersonaStore.isPlausibleHeaderTitle(observation.text) else { continue }
+            for person in profiles
+                where PersonaStore.normalizedName(person.name) == title {
+                ids.insert(person.id)
+            }
+            for ref in references
+                where PersonaStore.normalizedName(ref.headerTitle) == title
+                && profiles.contains(where: { $0.id == ref.personaID }) {
+                ids.insert(ref.personaID)
+            }
+        }
+        return profiles.filter { ids.contains($0.id) }
+    }
+
     static func recognize(_ scan: ScanResult) async -> Recognition? {
         let references = all
         let profiles = PersonaStore.all
-        let headerItems = scan.candidates.filter { $0.midY >= 0.66 }
-        for candidate in headerItems {
-            let text = PersonaStore.normalizedScreenshotTitle(candidate.title)
-            let refIDs = Set(references.filter {
-                PersonaStore.normalizedName($0.headerTitle) == text
-            }.map(\.personaID))
-            let matches = profiles.filter {
-                PersonaStore.normalizedName($0.name) == text
-                    || refIDs.contains($0.id)
-            }
-            if !matches.isEmpty {
-                return Recognition(title: candidate.title, matches: matches,
-                                   method: .titleOCR, visualDistance: nil)
-            }
+        // Only OCR candidates in the actual navigation-title band may
+        // identify a person. Chat bubbles below it are not evidence.
+        let headerItems = scan.candidates.filter {
+            $0.midY >= 0.77 && $0.midY <= 0.967
         }
+        let matches = textMatches(
+            headerItems.map { (text: $0.title, midY: $0.midY) },
+            profiles: profiles, references: references)
+        if !matches.isEmpty {
+            let title = headerItems.first(where: { item in
+                matches.contains {
+                    PersonaStore.normalizedName($0.name)
+                        == PersonaStore.normalizedScreenshotTitle(item.title)
+                } || references.contains { ref in
+                    matches.contains(where: { $0.id == ref.personaID })
+                        && PersonaStore.normalizedName(ref.headerTitle)
+                            == PersonaStore.normalizedScreenshotTitle(item.title)
+                }
+            })?.title ?? "Tiêu đề cuộc trò chuyện"
+            return Recognition(title: title, matches: matches,
+                               method: .titleOCR, visualDistance: nil)
+        }
+        // Similar typography, button icons, colors, and cropped regions
+        // make Vision feature-print distance unsuitable for identifying a
+        // person. Ranking below is ONLY a user-selectable shortlist, never
+        // an automatic match and never proof of the recipient.
         guard !references.isEmpty, !headerItems.isEmpty else { return nil }
         return await Task.detached(priority: .userInitiated) {
             var referencePrints: [(id: String, feature: VNFeaturePrintObservation)] = []
@@ -122,7 +160,7 @@ enum ChatScreenshotReference {
                 }
             }
             var results: [(id: String, title: String, distance: Float)] = []
-            for candidate in headerItems.prefix(12) {
+            for candidate in headerItems.prefix(8) {
                 guard let feature = imageFeature(candidate.png) else { continue }
                 for stored in referencePrints {
                     var distance: Float = .greatestFiniteMagnitude
@@ -136,15 +174,21 @@ enum ChatScreenshotReference {
                 .compactMap { _, items in
                     items.min { $0.distance < $1.distance }
                 }.sorted { $0.distance < $1.distance }
-            guard let best = bestByProfile.first,
-                  best.distance < 0.30,
-                  (bestByProfile.count == 1
-                    || (bestByProfile[1].distance - best.distance) > 0.12),
-                  let person = profiles.first(where: { $0.id == best.id })
-            else { return nil }
-            return Recognition(title: best.title, matches: [person],
+            // Suppress weak visual matches and single-profile bias. A single
+            // reference can be shown for manual confirmation, but an image
+            // alone must never activate a persona.
+            let shortlist = Array(bestByProfile.filter {
+                $0.distance < 0.20
+            }.prefix(3))
+            guard !shortlist.isEmpty else { return nil }
+            let suggestions = shortlist.compactMap { result in
+                profiles.first(where: { $0.id == result.id })
+            }
+            guard !suggestions.isEmpty else { return nil }
+            return Recognition(title: shortlist[0].title,
+                               matches: suggestions,
                                method: .imageReference,
-                               visualDistance: best.distance)
+                               visualDistance: shortlist[0].distance)
         }.value
     }
 
