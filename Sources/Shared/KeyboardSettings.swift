@@ -45,6 +45,13 @@ enum KeyboardSettings {
         }
         set { defaults.set(newValue, forKey: prefix + "geminiModel") }
     }
+    /// Optional privacy gate for viewing personal chat history in the
+    /// containing app. Face ID/passcode unlock is a UI guard, not encryption.
+    static var historyScreenLockEnabled: Bool {
+        get { defaults.bool(forKey: prefix + "historyScreenLockEnabled") }
+        set { defaults.set(newValue, forKey: prefix + "historyScreenLockEnabled") }
+    }
+
     static var allowCloudAI: Bool {
         get { defaults.bool(forKey: prefix + "allowCloudAI") }
         set { defaults.set(newValue, forKey: prefix + "allowCloudAI") }
