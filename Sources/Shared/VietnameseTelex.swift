@@ -191,7 +191,17 @@ enum VietnameseTelex {
         }
         guard let vowel = base(chars[chosen]), let sequence = vowels[vowel] else { return nil }
         var output = chars
-        let marked = Array(sequence)[targetTone]
+        let forms = Array(sequence)
+        // A repeated tone key escapes the previous tone, allowing literal
+        // English text even in Vietnamese-only mode: o+r => ỏ, ỏ+r => or.
+        // Keep the second physical key as the literal suffix; otherwise the
+        // user cannot recover "or" by pressing r again.
+        if forms[targetTone] == Character(String(chars[chosen]).lowercased()) {
+            output[chosen] = String(chars[chosen]).uppercased() == String(chars[chosen])
+                ? Character(String(vowel).uppercased()) : vowel
+            return String(output) + key
+        }
+        let marked = forms[targetTone]
         output[chosen] = String(chars[chosen]).uppercased() == String(chars[chosen])
             ? Character(String(marked).uppercased()) : marked
         if output[chosen] == chars[chosen] { return nil }
