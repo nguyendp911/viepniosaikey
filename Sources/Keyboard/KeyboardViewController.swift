@@ -108,11 +108,9 @@ final class KeyboardViewController: UIInputViewController {
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         if currentTheme != KeyboardSettings.theme { applyTheme() }
-        // The host may switch fields or move its insertion point. Never
-        // reuse a cached composition across a host input-context change.
-        resetBilingualComposition()
-        knownWordBoundary = false
-        // Avoid erasing the reply when the host app changes text focus.
+        // Do not reset composition here: iOS may call textDidChange for
+        // normal inserts made by this keyboard, not only external edits.
+        // Destructive rewrites are independently guarded by host suffix checks.
     }
 
     override func viewWillAppear(_ animated: Bool) {
