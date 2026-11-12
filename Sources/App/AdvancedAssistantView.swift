@@ -651,11 +651,12 @@ struct AdvancedAssistantView: View {
     }
 
     private func conversationExport(for personaID: String) -> String {
+        // Preserve the same labeled format accepted by the manual importer,
+        // so users can restore this export without editing every line.
+        // Imported chat timestamps are not reliable original send times.
         ConversationHistory.turns(for: personaID).map { turn in
             let who = turn.speaker == .me ? "Tôi" : "Bạn ấy"
-            let date = DateFormatter.localizedString(
-                from: turn.createdAt, dateStyle: .short, timeStyle: .short)
-            return "[" + date + "] " + who + ": " + turn.text
+            return who + ": " + turn.text
         }.joined(separator: "\n")
     }
 
