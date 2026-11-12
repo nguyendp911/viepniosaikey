@@ -55,6 +55,8 @@ struct ContentView: View {
     @State private var pendingHeaderPNG: Data?
     @State private var scannedTitleOptions: [ChatScreenshotReference.ScannedTitle] = []
     @State private var headerDiagnosticPreview: Data?
+    @State private var manualScreenshotData: Data?
+    @State private var manualHeaderTop = 0.075
     @State private var screenshotReferenceStatus = ""
     @State private var autoMatchPersona = PersonaStore.automaticNameMatch
     @State private var transcriptPreview = ""
@@ -1557,11 +1559,13 @@ struct ContentView: View {
         pendingHeaderPNG = nil
         scannedTitleOptions = []
         headerDiagnosticPreview = nil
+        manualScreenshotData = nil
         do {
             guard let data = try await picker.loadTransferable(type: Data.self) else {
                 screenshotReferenceStatus = "Không tải được ảnh từ Thư viện."
                 return
             }
+            manualScreenshotData = data
             let scan = try await ChatScreenshotReference.scan(
                 data, preferredName: personaName)
             scannedTitleOptions = scan.candidates
@@ -1697,6 +1701,42 @@ struct ContentView: View {
                             .font(.system(size: 12))
                         }
                         .buttonStyle(.bordered)
+                    }
+                }
+                if let source = manualScreenshotData {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("Không thấy tên? Chọn thủ công vị trí dòng tên trên ảnh:")
+                            .font(.system(size: 11, weight: .semibold))
+                        HStack {
+                            Text("Vị trí từ mép trên")
+                                .font(.system(size: 10)).foregroundStyle(muted)
+                            Slider(value: $manualHeaderTop, in: 0.035...0.34)
+                                .tint(violet)
+                            Text(String(Int(manualHeaderTop * 100)) + "%")
+                                .font(.system(size: 10)).foregroundStyle(cyan)
+                        }
+                        if let cropped = ChatScreenshotReference.manualHeaderCrop(
+                            source, topFraction: manualHeaderTop),
+                           let preview = UIImage(data: cropped) {
+                            Image(uiImage: preview)
+                                .resizable().scaledToFit()
+                                .frame(maxWidth: 320)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            Button {
+                                pendingHeaderPNG = cropped
+                                pendingHeaderTitle = personaName.trimmingCharacters(
+                                    in: .whitespacesAndNewlines)
+                                screenshotReferenceStatus =
+                                    "Đã chọn vùng ảnh thủ công. Kiểm tra tên và vùng cắt trước khi lưu."
+                            } label: {
+                                Label("Dùng vùng ảnh này làm mẫu", systemImage: "crop")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(personaName.trimmingCharacters(
+                                in: .whitespacesAndNewlines).isEmpty)
+                            Text("Chỉ chọn khi vùng cắt chứa tên người nhận, không chứa tin nhắn. Tên sử dụng là tên hồ sơ bạn nhập.")
+                                .font(.system(size: 10)).foregroundStyle(muted)
+                        }
                     }
                 }
                 if let png = pendingHeaderPNG, let preview = UIImage(data: png) {
