@@ -73,6 +73,14 @@ final class KeyboardViewController: UIInputViewController {
     }
     private let candidateBar = UIStackView()
     private let candidateScroll = UIScrollView()
+    // One fixed-height region beneath the five tool buttons. It switches
+    // between idle shortcuts and in-progress word predictions without
+    // moving the character rows or resizing the keyboard.
+    private let contextSlot = UIView()
+    private let idleScroll = UIScrollView()
+    private let idleBar = UIStackView()
+    private var idleActions: [(title: String, insert: String, emoji: Bool)] = []
+    private var isComposingInteraction = false
     private var candidateButtons: [UIButton] = []
     // Swipe suggestions remain visible even when ordinary predictions are off.
     private var isGlideSuggestionVisible = false
@@ -145,7 +153,6 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
-        candidateScroll.isHidden = !useSuggestions && !isGlideSuggestionVisible
         applyTheme()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -155,6 +162,8 @@ final class KeyboardViewController: UIInputViewController {
         installWritingActions()
         installClipboardMenu()
         updateCandidates()
+        refreshIdleActions()
+        updateContextVisibility()
     }
 
     override func viewDidLayoutSubviews() {
@@ -278,7 +287,42 @@ final class KeyboardViewController: UIInputViewController {
             candidateBar.bottomAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.bottomAnchor),
             candidateBar.heightAnchor.constraint(equalTo: candidateScroll.frameLayoutGuide.heightAnchor)
         ])
-        container.addArrangedSubview(candidateScroll)
+        // Both modes occupy exactly the same persistent slot.
+        contextSlot.translatesAutoresizingMaskIntoConstraints = false
+        contextSlot.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        contextSlot.addSubview(candidateScroll)
+        candidateScroll.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            candidateScroll.leadingAnchor.constraint(equalTo: contextSlot.leadingAnchor),
+            candidateScroll.trailingAnchor.constraint(equalTo: contextSlot.trailingAnchor),
+            candidateScroll.centerYAnchor.constraint(equalTo: contextSlot.centerYAnchor)
+        ])
+        idleScroll.showsHorizontalScrollIndicator = false
+        idleScroll.alwaysBounceHorizontal = true
+        idleScroll.translatesAutoresizingMaskIntoConstraints = false
+        contextSlot.addSubview(idleScroll)
+        NSLayoutConstraint.activate([
+            idleScroll.leadingAnchor.constraint(equalTo: contextSlot.leadingAnchor),
+            idleScroll.trailingAnchor.constraint(equalTo: contextSlot.trailingAnchor),
+            idleScroll.topAnchor.constraint(equalTo: contextSlot.topAnchor),
+            idleScroll.bottomAnchor.constraint(equalTo: contextSlot.bottomAnchor)
+        ])
+        idleBar.axis = .horizontal
+        idleBar.spacing = 8
+        idleBar.alignment = .center
+        idleBar.distribution = .fill
+        idleBar.translatesAutoresizingMaskIntoConstraints = false
+        idleScroll.addSubview(idleBar)
+        NSLayoutConstraint.activate([
+            idleBar.leadingAnchor.constraint(equalTo: idleScroll.contentLayoutGuide.leadingAnchor, constant: 4),
+            idleBar.trailingAnchor.constraint(equalTo: idleScroll.contentLayoutGuide.trailingAnchor, constant: -4),
+            idleBar.topAnchor.constraint(equalTo: idleScroll.contentLayoutGuide.topAnchor),
+            idleBar.bottomAnchor.constraint(equalTo: idleScroll.contentLayoutGuide.bottomAnchor),
+            idleBar.heightAnchor.constraint(equalTo: idleScroll.frameLayoutGuide.heightAnchor)
+        ])
+        container.addArrangedSubview(contextSlot)
+        refreshIdleActions()
+        updateContextVisibility()
 
         let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         for (rowIndex, letters) in rows.enumerated() {
@@ -1177,10 +1221,91 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardHeight()
     }
 
+    /// Refresh when the keyboard becomes visible or the user taps an emoji.
+    /// A contact's saved chat is never inspected or sent to AI in this idle
+    /// path. Conversation starters are editable, optional local templates.
+    private func refreshIdleActions() {
+        let defaults = ["❤️", "😂", "😊", "🥰", "👍", "🙏", "😍", "✨", "🎉", "😅"]
+        let usage = KeyboardSettings.frequentlyUsedEmoji
+        let emoji = defaults.sorted {
+            let a = usage[$0] ?? 0, b = usage[$1] ?? 0
+            if a != b { return a > b }
+            return (defaults.firstIndex(of: $0) ?? 0)
+                < (defaults.firstIndex(of: $1) ?? 0)
+        }
+        let person = PersonaStore.active
+        let greeting = person == nil ? "Hôm nay bạn thế nào?"
+            : "Hôm nay \(person!.name) thế nào?"
+        idleActions = emoji.map { (title: $0, insert: $0, emoji: true) }
+        idleActions.append(contentsOf: [
+            (title: "💬 Hỏi thăm", insert: greeting, emoji: false),
+            (title: "☀️ Chào ngày mới", insert: "Chúc bạn một ngày tốt lành nhé!", emoji: false),
+            (title: "✨ Gợi chuyện", insert: "Dạo này bạn có gì mới không?", emoji: false)
+        ])
+        for child in idleBar.arrangedSubviews {
+            idleBar.removeArrangedSubview(child)
+            child.removeFromSuperview()
+        }
+        for (index, item) in idleActions.enumerated() {
+            let chip = UIButton(type: .system)
+            chip.tag = index
+            chip.setTitle(item.title, for: .normal)
+            chip.titleLabel?.font = .systemFont(
+                ofSize: item.emoji ? 23 : 12,
+                weight: item.emoji ? .regular : .medium)
+            chip.setTitleColor(.label, for: .normal)
+            chip.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
+            chip.layer.cornerRadius = 13
+            chip.contentEdgeInsets = UIEdgeInsets(
+                top: 8, left: item.emoji ? 11 : 13,
+                bottom: 8, right: item.emoji ? 11 : 13)
+            chip.widthAnchor.constraint(greaterThanOrEqualToConstant:
+                item.emoji ? 49 : 110).isActive = true
+            chip.accessibilityLabel = item.emoji ? "Chèn emoji " + item.title
+                : "Chèn câu gợi ý " + item.title
+            chip.addTarget(self, action: #selector(idleActionTapped(_:)),
+                           for: .touchUpInside)
+            idleBar.addArrangedSubview(chip)
+        }
+    }
+
+    @objc private func idleActionTapped(_ sender: UIButton) {
+        guard idleActions.indices.contains(sender.tag) else { return }
+        let item = idleActions[sender.tag]
+        // An explicit selection is the only action that inserts anything.
+        // Never overwrite text already typed in the host application.
+        resetBilingualComposition()
+        textDocumentProxy.insertText(item.insert)
+        if item.emoji {
+            KeyboardSettings.recordEmojiSelection(item.insert)
+            refreshIdleActions()
+        }
+        knownWordBoundary = true
+        recentWord = ""
+        tactileFeedback()
+        updateCandidates()
+    }
+
+    private func updateContextVisibility() {
+        let showWords = isComposingInteraction && (useSuggestions || isGlideSuggestionVisible)
+        idleScroll.isHidden = showWords
+        candidateScroll.isHidden = !showWords
+        // Keep contextSlot permanently visible and fixed height.
+        // Mode transitions must never cause row reflow.
+    }
+
     private func updateCandidates(_ override: [String]? = nil) {
         if override == nil && pendingGlideWord == nil {
             isGlideSuggestionVisible = false
         }
+        if override != nil && !(override?.isEmpty ?? true) {
+            isComposingInteraction = true
+        } else if !recentWord.isEmpty || pendingGlideWord != nil {
+            isComposingInteraction = true
+        } else if !glideIsActive {
+            isComposingInteraction = false
+        }
+        updateContextVisibility()
         // Prediction sorting and keyboard-height changes happen after a
         // short typing pause, not synchronously for every physical key.
         // A direct swipe prediction is shown immediately.
@@ -1195,6 +1320,9 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let word = recentWord
+        // Show the physical word immediately; async candidate scoring can
+        // replace it later without ever exposing an empty suggestion strip.
+        renderCandidates([word])
         let generation = candidateGeneration
         // Keep dictionary scanning and sorting off the keyboard UI thread.
         // Debounce the background work, then return only the final 3 labels.
@@ -1216,14 +1344,13 @@ final class KeyboardViewController: UIInputViewController {
     private func renderCandidates(_ results: [String]) {
         // Only a settings change may hide the row; predictions arriving
         // or disappearing must not resize the whole keyboard.
-        let shouldHide = !useSuggestions && !isGlideSuggestionVisible
+        let shouldHide = !isComposingInteraction
         let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
         if results == candidateWords && candidateScroll.isHidden == shouldHide,
            candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
         candidateWords = results
         if candidateScroll.isHidden != shouldHide {
             candidateScroll.isHidden = shouldHide
-            updateKeyboardHeight()
         }
         for view in candidateBar.arrangedSubviews {
             candidateBar.removeArrangedSubview(view)
@@ -1503,6 +1630,8 @@ final class KeyboardViewController: UIInputViewController {
         let point = recognizer.location(in: view)
         switch recognizer.state {
         case .began:
+            isComposingInteraction = true
+            updateContextVisibility()
             glideResultGeneration &+= 1
             glidePath = ""
             glideLastKey = ""
@@ -1553,6 +1682,8 @@ final class KeyboardViewController: UIInputViewController {
                     // Keep swipe options visible whether general predictions
                     // are enabled or not; these are separate user features.
                     self.isGlideSuggestionVisible = true
+                    self.isComposingInteraction = true
+                    self.updateContextVisibility()
                     let before = self.textDocumentProxy.documentContextBeforeInput ?? ""
                     let current = String(before.reversed()
                         .prefix(while: { $0.isLetter }).reversed())
@@ -1601,14 +1732,15 @@ final class KeyboardViewController: UIInputViewController {
     private func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
         let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
-        heightConstraint?.constant = base +
-            (candidateScroll.isHidden ? 0 : 36) +
+        heightConstraint?.constant = base + 61 +
             (statusLabel.isHidden ? 0 : 22) +
             (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()
     }
 
     private func beginTyping() {
+        isComposingInteraction = true
+        updateContextVisibility()
         // When the user continues after accepting the automatically chosen
         // word, record one real usage. Explicitly picking a different tone
         // records only that chosen tone, never the abandoned auto-choice.
