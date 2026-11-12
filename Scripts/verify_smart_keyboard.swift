@@ -64,7 +64,7 @@ struct VerifySmartKeyboard {
         assert(completeMinh.count >= 6, "all six visible before learning")
         let usage: [String: Int] = [
             SmartTyping.glideUsageKey("mình"): 9,
-            SmartTyping.glideUsageKey("minh"): 2
+            SmartTyping.glideUsageKey("minh"): 3
         ]
         let preferred = SmartTyping.glideOptions(minh, language: "vi", usage: usage)
         assert(preferred.first == "mình", "most-used tone rises to first")
