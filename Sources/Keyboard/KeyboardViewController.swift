@@ -34,6 +34,7 @@ final class KeyboardViewController: UIInputViewController {
     private var useSmartBilingual = KeyboardSettings.smartBilingual
     private var useSuggestions = KeyboardSettings.predictionsEnabled
     private var useGlide = KeyboardSettings.glideEnabled
+    private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
     private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     private var lastWordReplacement: (original: String, corrected: String)?
     private var learnedWords: [String: Int] = [:]
@@ -77,6 +78,13 @@ final class KeyboardViewController: UIInputViewController {
     private var glideRecognizer: UIPanGestureRecognizer?
     private var glideTouchOrigin: CGPoint?
     private var glideLastPoint: CGPoint?
+    // Transparent, non-interactive Core Animation layers. The gesture path
+    // is drawn in keyboard-view coordinates; no image assets or network calls.
+    private let glideGlowLayer = CAShapeLayer()
+    private let glideTrailLayer = CAShapeLayer()
+    private let glideTipLayer = CAShapeLayer()
+    private var glideTrailPath = UIBezierPath()
+    private var glideTrailPointCount = 0
     private var cursorSteps = 0
 
     private func refreshTypingPreferences() {
@@ -91,6 +99,7 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = false
         useSuggestions = KeyboardSettings.predictionsEnabled
         useGlide = KeyboardSettings.glideEnabled
+        glideTrailEnabled = KeyboardSettings.glideTrailEnabled
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
         cachedSnippets = KeyboardSettings.textSnippets
@@ -127,6 +136,7 @@ final class KeyboardViewController: UIInputViewController {
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
         configureGlideRecognizer()
+        if !glideTrailEnabled { hideGlideTrail() }
         updateCoupleTool()
         installWritingActions()
         installClipboardMenu()
@@ -136,6 +146,9 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
+        for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
+            layer.frame = view.bounds
+        }
     }
 
     private func buildKeyboard() {
@@ -332,6 +345,7 @@ final class KeyboardViewController: UIInputViewController {
         // Install once regardless of the setting's initial value. A user
         // enabling swipe later must not need a fresh keyboard controller.
         configureGlideRecognizer()
+        installGlideTrailLayers()
         updateKeys()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -1268,6 +1282,86 @@ final class KeyboardViewController: UIInputViewController {
         glideLastPoint = point
     }
 
+    private func installGlideTrailLayers() {
+        // Draw above key caps, below no touch target: CAShapeLayer cannot
+        // intercept UIKit events. Two strokes produce a soft neon track.
+        for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
+            layer.frame = view.bounds
+            layer.opacity = 0
+            layer.fillColor = UIColor.clear.cgColor
+            view.layer.addSublayer(layer)
+        }
+        glideGlowLayer.strokeColor = cyanColor.withAlphaComponent(0.27).cgColor
+        glideGlowLayer.lineWidth = 13
+        glideGlowLayer.lineCap = .round
+        glideGlowLayer.lineJoin = .round
+        glideTrailLayer.strokeColor = cyanColor.withAlphaComponent(0.95).cgColor
+        glideTrailLayer.lineWidth = 4.5
+        glideTrailLayer.lineCap = .round
+        glideTrailLayer.lineJoin = .round
+        glideTrailLayer.shadowColor = cyanColor.cgColor
+        glideTrailLayer.shadowOpacity = 0.55
+        glideTrailLayer.shadowRadius = 5
+        glideTrailLayer.shadowOffset = .zero
+        glideTipLayer.fillColor = UIColor.white.cgColor
+        glideTipLayer.shadowColor = cyanColor.cgColor
+        glideTipLayer.shadowOpacity = 0.95
+        glideTipLayer.shadowRadius = 8
+        glideTipLayer.shadowOffset = .zero
+    }
+
+    private func startGlideTrail(at point: CGPoint) {
+        guard glideTrailEnabled else { return }
+        for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
+            layer.removeAllAnimations()
+            layer.opacity = 1
+        }
+        glideTrailPath = UIBezierPath()
+        glideTrailPath.move(to: point)
+        glideTrailPointCount = 0
+        drawGlideTrail(to: point)
+    }
+
+    private func drawGlideTrail(to point: CGPoint) {
+        guard glideTrailEnabled, glideTrailPointCount < 300 else { return }
+        glideTrailPointCount += 1
+        glideTrailPath.addLine(to: point)
+        // Avoid implicit Core Animation transitions on every finger move.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let path = glideTrailPath.cgPath
+        glideGlowLayer.path = path
+        glideTrailLayer.path = path
+        glideTipLayer.path = UIBezierPath(
+            ovalIn: CGRect(x: point.x - 5.5, y: point.y - 5.5,
+                           width: 11, height: 11)).cgPath
+        CATransaction.commit()
+    }
+
+    private func finishGlideTrail() {
+        guard glideTrailEnabled else { return }
+        for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
+            layer.removeAllAnimations()
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = layer.presentation()?.opacity ?? 1
+            fade.toValue = 0
+            fade.duration = 0.24
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.opacity = 0
+            CATransaction.commit()
+            layer.add(fade, forKey: "glideFade")
+        }
+    }
+
+    private func hideGlideTrail() {
+        for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
+            layer.removeAllAnimations()
+            layer.opacity = 0
+        }
+    }
+
     private func configureGlideRecognizer() {
         if glideRecognizer == nil {
             let pan = UIPanGestureRecognizer(target: self,
@@ -1281,6 +1375,7 @@ final class KeyboardViewController: UIInputViewController {
             glideRecognizer = pan
         }
         glideRecognizer?.isEnabled = useGlide && !isNumbers
+        if !useGlide || isNumbers { hideGlideTrail() }
     }
 
     @objc private func glidePanned(_ recognizer: UIPanGestureRecognizer) {
@@ -1295,11 +1390,16 @@ final class KeyboardViewController: UIInputViewController {
             glideLastPoint = origin
             captureGlidePoint(origin)
             captureGlideSegment(to: point)
+            startGlideTrail(at: origin)
+            drawGlideTrail(to: point)
         case .changed:
             captureGlideSegment(to: point)
+            drawGlideTrail(to: point)
             if glidePath.count >= 2 { glideIsActive = true }
         case .ended:
             captureGlideSegment(to: point)
+            drawGlideTrail(to: point)
+            finishGlideTrail()
             let trace = glidePath
             let isWordSwipe = trace.count >= 2 && (glideIsActive || trace.count >= 2)
             glidePath = ""
@@ -1309,12 +1409,13 @@ final class KeyboardViewController: UIInputViewController {
             glideLastPoint = nil
             guard isWordSwipe else { return }
             let personalWords = learnedWords
+            let language = useSmartBilingual ? bilingualPreference.rawValue : "vi"
             let generation = candidateGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let suggestions = SmartTyping.glideCandidates(
-                    trace: trace, learned: personalWords)
+                    trace: trace, learned: personalWords, language: language)
                 DispatchQueue.main.async { [weak self] in
                     guard let self, !suggestions.isEmpty,
                           self.candidateGeneration == generation,
@@ -1346,6 +1447,7 @@ final class KeyboardViewController: UIInputViewController {
             glideIsActive = false
             glideTouchOrigin = nil
             glideLastPoint = nil
+            hideGlideTrail()
         }
     }
 
