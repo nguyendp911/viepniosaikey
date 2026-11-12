@@ -671,6 +671,7 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         guard let character = sender.title(for: .normal) else { return }
         tactileFeedback()
+        resetBilingualComposition()
         textDocumentProxy.insertText(character)
         recentWord = ""
         updateCandidates()
@@ -746,10 +747,19 @@ final class KeyboardViewController: UIInputViewController {
                     tactileFeedback()
                     return
                 }
+                // A literal key must never disappear just because the
+                // composer returned an unchanged rendering (for example,
+                // repeated tone keys or an already-accented syllable).
+                // This branch previously swallowed the touch entirely.
+                textDocumentProxy.insertText(key)
                 rawComposingWord = rawNext
-                telexCandidateWord = nextTelex
-                displayedComposingWord = newWord
-                recentWord = newWord
+                telexCandidateWord = nextTelex + key
+                displayedComposingWord += key
+                recentWord = displayedComposingWord
+                if isUppercase && !isShiftLocked {
+                    isUppercase = false
+                    updateKeys()
+                }
                 updateCandidates()
                 tactileFeedback()
                 return
@@ -995,16 +1005,20 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let word = recentWord
+        // Keep dictionary scanning and sorting off the keyboard UI thread.
+        // Debounce the background work, then return only the final 3 labels.
         let personalWords = learnedWords
         let job = DispatchWorkItem { [weak self] in
-            guard let self, self.recentWord == word else { return }
             let results = SmartTyping.predictions(
                 prefix: word, learned: personalWords)
-            self.renderCandidates(results)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.recentWord == word else { return }
+                self.renderCandidates(results)
+            }
         }
         candidateUpdateWork = job
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(65),
-                                      execute: job)
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + .milliseconds(65), execute: job)
     }
 
     private func renderCandidates(_ results: [String]) {
