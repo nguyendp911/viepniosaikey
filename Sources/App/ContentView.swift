@@ -34,6 +34,7 @@ struct ContentView: View {
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
     @State private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
+    @State private var glideLearningEnabled = KeyboardSettings.glideLearningEnabled
     @State private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
@@ -964,8 +965,29 @@ struct ContentView: View {
                         .onChange(of: glideTrailEnabled) {
                             KeyboardSettings.glideTrailEnabled = $0
                         }
+                    keyboardDivider()
+                    keyboardToggleRow("Tự học từ tôi thường chọn khi vuốt",
+                                      symbol: "brain.head.profile",
+                                      isOn: $glideLearningEnabled)
+                        .onChange(of: glideLearningEnabled) {
+                            KeyboardSettings.glideLearningEnabled = $0
+                        }
+                    if glideLearningEnabled {
+                        Button(role: .destructive) {
+                            KeyboardSettings.glideUsageCounts = [:]
+                        } label: {
+                            Label("Xóa lịch sử học từ vuốt", systemImage: "trash")
+                                .font(.system(size: 11))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
-                Text("Vuốt qua các phím để chèn từ tiếng Việt có dấu hoặc tiếng Anh. Với từ có nhiều cách đặt dấu, chọn phương án đúng trên thanh gợi ý. Nếu bàn phím đang mở, chuyển bàn phím khác rồi chọn lại ViePN để cập nhật.")
+                Text("Lần đầu vuốt minh, thanh gợi ý cuộn ngang hiện minh, mình, mính, mĩnh, mỉnh, mịnh. Chọn từ bạn cần; sau vài lần sử dụng, bàn phím ưu tiên những từ chọn nhiều. Nút Tất cả luôn mở lại mọi dấu. Dữ liệu học chỉ lưu trên thiết bị.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Nếu bàn phím đang mở, chuyển sang bàn phím khác rồi chọn lại ViePN để cập nhật.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
