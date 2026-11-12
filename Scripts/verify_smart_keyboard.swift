@@ -372,6 +372,26 @@ struct VerifySmartKeyboard {
         KeyboardSettings.frequentlyUsedEmoji = [:]
         assert(KeyboardSettings.frequentlyUsedEmoji.isEmpty,
                "emoji learning can be cleared independently of chat history")
+        let savedTheme = KeyboardSettings.theme
+        let savedEffect = KeyboardSettings.keypressEffect
+        for theme in KeyboardSettings.availableThemes {
+            KeyboardSettings.theme = theme
+            assert(KeyboardSettings.theme == theme,
+                   "keyboard theme saved and restored: " + theme)
+        }
+        KeyboardSettings.theme = "unknown-theme"
+        assert(KeyboardSettings.theme == "system",
+               "unknown keyboard theme safely falls back to system")
+        for effect in KeyboardSettings.availableKeyEffects {
+            KeyboardSettings.keypressEffect = effect
+            assert(KeyboardSettings.keypressEffect == effect,
+                   "keypress effect saved and restored: " + effect)
+        }
+        KeyboardSettings.keypressEffect = "unknown-effect"
+        assert(KeyboardSettings.keypressEffect == "off",
+               "invalid keyboard animation falls back to no effect")
+        KeyboardSettings.theme = savedTheme
+        KeyboardSettings.keypressEffect = savedEffect
         KeyboardSettings.writingSamples = ["Xin chào, cảm ơn bạn."]
         assert(KeyboardSettings.personalStylePrompt.contains("cảm ơn"),
                "explicit style examples included for AI")
