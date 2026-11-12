@@ -136,7 +136,7 @@ enum PersonaStore {
         let statuses = ["dang hoat dong", "vua truy cap", "hoat dong",
                         "online", "active now", "truy cap gan day"]
         for suffix in statuses {
-            for delimiter in [" · ", " • ", " - ", "  ", "\n"] {
+            for delimiter in [" · ", " • ", " - ", "  ", " ", "\n"] {
                 let ending = delimiter + suffix
                 if normalized.hasSuffix(ending) {
                     return String(normalized.dropLast(ending.count))
