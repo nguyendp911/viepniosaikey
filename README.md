@@ -36,6 +36,16 @@ Bật **Vuốt chữ để nhập từ**, **Hiệu ứng vệt sáng khi vuốt*
 
 Không thể biết dấu tiếng Việt chỉ từ tọa độ ngón tay trong mọi tình huống; từ điển offline và ưu tiên ngôn ngữ được dùng để xếp hạng. Nếu có nhiều từ trùng đường vuốt, **chạm phương án đúng trên thanh gợi ý trước khi tiếp tục gõ**. Chế độ **Chỉ tiếng Anh** không trả từ tiếng Việt có dấu; chế độ **Ưu tiên tiếng Việt** xếp từ tiếng Việt trước. Phải chuyển sang bàn phím khác rồi quay lại ViePN để tải lại thiết lập.
 
+### Tự học lựa chọn dấu sau khi vuốt
+
+Ví dụ: vuốt đường phím `m-i-n-h`. Bàn phím hiển thị thanh lựa chọn cuộn ngang gồm **minh, mình, mính, mĩnh, mỉnh, mịnh** (và các gợi ý khác nếu phù hợp). Bạn có thể chạm chọn đúng biến thể; bàn phím chỉ sửa đoạn từ vừa được tạo bởi lần vuốt và giữ khoảng trắng cuối từ.
+
+- Ban đầu hiển thị đủ sáu kiểu dấu. Từ dự đoán theo từ điển có thể được điền trước nhưng bạn luôn có thể chọn phương án khác.
+- Mỗi lần **chạm chọn** một phương án, hệ thống ghi nhận một lượt cho từ chính xác đó. Nếu tiếp tục gõ mà không đổi từ vừa vuốt, hệ thống tính từ đã được chấp nhận một lượt.
+- Sau khi ghi nhận ít nhất 5 lần và một lựa chọn đạt ít nhất 3 lần, thanh gợi ý rút còn **những biến thể dùng thường xuyên** (tối đa 3). Nhấn **Tất cả ···** để xem lại mọi biến thể, kể cả những từ chưa từng chọn.
+- Tần suất được lưu **trên thiết bị trong App Group**, chỉ là số lượt cho các từ, không lưu đường vuốt hay tọa độ. Bật/tắt ở **Bàn phím → Tự học từ tôi thường chọn khi vuốt**; có nút **Xóa lịch sử học từ vuốt**.
+- Các biến thể được tạo theo dấu tiếng Việt, có thể gồm những cách viết rất ít dùng; bàn phím không mặc định khẳng định chúng đều là từ đúng trong mọi ngữ cảnh.
+
 ### Ví dụ Telex/song ngữ
 
 - **Tự động**: `or` → `or`; `store` → `store`; `tooi` → `tôi`; `thuongw` → `thương`.
