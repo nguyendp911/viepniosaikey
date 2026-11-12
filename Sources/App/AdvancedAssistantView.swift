@@ -694,7 +694,11 @@ struct AdvancedAssistantView: View {
             }.value
             sourceText = String(
                 observations.map(\.text).joined(separator: "\n").prefix(3000))
-            screenshotMatch = PersonaStore.matchScreenshotTitle(observations)
+            // Enrolled navigation-title references take precedence over
+            // contact display-name matching. A nickname in Zalo may differ
+            // from the user's saved contact name.
+            screenshotMatch = ChatScreenshotReference.match(observations)
+                ?? PersonaStore.matchScreenshotTitle(observations)
             if let match = screenshotMatch {
                 if PersonaStore.automaticNameMatch,
                    let uniquePerson = match.uniqueMatch {
