@@ -48,6 +48,8 @@ enum OpenAIService {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
         }
+        let contactStyle = ConversationIntelligence.stylePrompt(
+            for: PersonaStore.activeID)
         let conversationTask = openingToday
             ? """
               Offer THREE optional, natural, low-pressure Vietnamese conversation
@@ -73,6 +75,7 @@ enum OpenAIService {
         \(PersonaStore.prompt)
         \(ConversationMemory.prompt())
         \(historyContext)
+        \(contactStyle)
         \(conversationTask)
         If you use past details, ground them in the selected excerpts.
         Do not claim you have access to other chats, contacts or live app data.
