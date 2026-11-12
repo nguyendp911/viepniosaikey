@@ -64,8 +64,9 @@ enum ConversationMemory {
                 }
                 return
             }
-            #endif
+            #else
             defaults.set(bytes, forKey: key)
+            #endif
         }
     }
 
@@ -178,8 +179,9 @@ enum ConversationHistory {
                 }
                 return
             }
-            #endif
+            #else
             defaults.set(bytes, forKey: key)
+            #endif
         }
     }
 
@@ -225,8 +227,9 @@ enum ConversationHistory {
         let existing = Set(old.filter { $0.personaID == personaID }.map {
             $0.speaker.rawValue + ":" + $0.text
         })
+        var encountered = existing
         let unique = items.filter {
-            !existing.contains($0.0.rawValue + ":" + $0.1)
+            encountered.insert($0.0.rawValue + ":" + $0.1).inserted
         }
         let now = Date()
         for (index, item) in unique.enumerated() {
