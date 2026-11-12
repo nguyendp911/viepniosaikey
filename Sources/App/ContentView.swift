@@ -954,9 +954,12 @@ struct ContentView: View {
                                   isOn: $predictionsEnabled)
                     .onChange(of: predictionsEnabled) { KeyboardSettings.predictionsEnabled = $0 }
                 keyboardDivider()
-                keyboardToggleRow("Vuốt chữ trên bàn phím (thử nghiệm)",
+                keyboardToggleRow("Vuốt chữ để nhập từ",
                                   symbol: "hand.draw", isOn: $glideEnabled)
                     .onChange(of: glideEnabled) { KeyboardSettings.glideEnabled = $0 }
+                Text("Giữ ngón tay trên phím đầu rồi vuốt qua các chữ, thả tay để chèn từ và dấu cách. Nếu bàn phím đang mở, hãy chuyển sang bàn phím khác rồi chọn lại ViePN sau khi đổi cài đặt.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
                 keyboardToggleRow("Vùng chạm phím rộng hơn",
                                   symbol: "hand.point.up.left.fill",
