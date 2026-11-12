@@ -58,6 +58,96 @@ enum ChatScreenshotReference {
         return !all.contains { $0.personaID == personaID }
     }
 
+    /// Explanation about how a user-supplied screenshot matched a saved
+    /// conversation. On-device Vision image features are not face recognition
+    /// or a claim of the person's real-world identity.
+    struct Recognition {
+        enum Method {
+            case titleOCR
+            case imageReference
+        }
+        let title: String
+        let matches: [RecipientPersona]
+        let method: Method
+        let visualDistance: Float?
+        var uniqueMatch: RecipientPersona? {
+            matches.count == 1 ? matches.first : nil
+        }
+        var mayAutoSelect: Bool {
+            method == .titleOCR && matches.count == 1
+        }
+    }
+
+    private static func imageFeature(_ data: Data)
+        -> VNFeaturePrintObservation? {
+        guard let cgImage = UIImage(data: data)?.cgImage else { return nil }
+        let request = VNGenerateImageFeaturePrintRequest()
+        do {
+            try VNImageRequestHandler(cgImage: cgImage, options: [:])
+                .perform([request])
+            return request.results?.first
+        } catch {
+            return nil
+        }
+    }
+
+    /// Compare only OCR-confirmed navigation names or a deliberately saved
+    /// cropped title image, never chat bubbles, faces or full-screen images.
+    /// The visual result MUST be confirmed: similar-looking names and UI can
+    /// have a small feature distance without identifying the same person.
+    static func recognize(_ scan: ScanResult) async -> Recognition? {
+        let references = all
+        let profiles = PersonaStore.all
+        let headerItems = scan.candidates.filter { $0.midY >= 0.66 }
+        for candidate in headerItems {
+            let text = PersonaStore.normalizedScreenshotTitle(candidate.title)
+            let refIDs = Set(references.filter {
+                PersonaStore.normalizedName($0.headerTitle) == text
+            }.map(\.personaID))
+            let matches = profiles.filter {
+                PersonaStore.normalizedName($0.name) == text
+                    || refIDs.contains($0.id)
+            }
+            if !matches.isEmpty {
+                return Recognition(title: candidate.title, matches: matches,
+                                   method: .titleOCR, visualDistance: nil)
+            }
+        }
+        guard !references.isEmpty, !headerItems.isEmpty else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            var referencePrints: [(id: String, feature: VNFeaturePrintObservation)] = []
+            for record in references {
+                if let feature = imageFeature(record.headerPNG) {
+                    referencePrints.append((record.personaID, feature))
+                }
+            }
+            var results: [(id: String, title: String, distance: Float)] = []
+            for candidate in headerItems.prefix(12) {
+                guard let feature = imageFeature(candidate.png) else { continue }
+                for stored in referencePrints {
+                    var distance: Float = .greatestFiniteMagnitude
+                    guard (try? feature.computeDistance(
+                        &distance, to: stored.feature)) != nil,
+                        distance.isFinite else { continue }
+                    results.append((stored.id, candidate.title, distance))
+                }
+            }
+            let bestByProfile = Dictionary(grouping: results, by: \.id)
+                .compactMap { _, items in
+                    items.min { $0.distance < $1.distance }
+                }.sorted { $0.distance < $1.distance }
+            guard let best = bestByProfile.first,
+                  best.distance < 0.30,
+                  (bestByProfile.count == 1
+                    || (bestByProfile[1].distance - best.distance) > 0.12),
+                  let person = profiles.first(where: { $0.id == best.id })
+            else { return nil }
+            return Recognition(title: best.title, matches: [person],
+                               method: .imageReference,
+                               visualDistance: best.distance)
+        }.value
+    }
+
     /// OCR text from a newly user-supplied screenshot is compared to the
     /// enrolled header for each profile. Duplicates are returned for user
     /// disambiguation; nothing is guessed from the message-body content.
