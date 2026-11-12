@@ -493,6 +493,20 @@ enum SmartTyping {
         return output
     }
 
+    /// Build the immutable stroke shapes once, not for every swipe. This
+    /// removes repeated diacritic-folding, path resampling and allocations
+    /// across the offline dictionary on each finger gesture.
+    private static let cachedGlideStrokes: [String: [(Double, Double)]] = {
+        var entries: [String: [(Double, Double)]] = [:]
+        for word in englishWords + vietnameseWords {
+            guard entries[word] == nil, let points = strokePoints(word) else {
+                continue
+            }
+            entries[word] = resampleStroke(points)
+        }
+        return entries
+    }()
+
     private static func geometryGlideCandidates(
         trace: String, dictionary: [String], learned: [String: Int],
         language: String, limit: Int
@@ -505,9 +519,17 @@ enum SmartTyping {
         for word in dictionary {
             guard let wordSpelling = glideSpelling(word),
                   wordSpelling.first == first,
-                  wordSpelling.last == last,
-                  let wordPoints = strokePoints(word) else { continue }
-            let ideal = resampleStroke(wordPoints)
+                  wordSpelling.last == last else { continue }
+            let ideal: [(Double, Double)]
+            if let cached = cachedGlideStrokes[word] {
+                ideal = cached
+            } else if let points = strokePoints(word) {
+                // Newly learned personal words are not part of the static
+                // lexicon, and remain eligible without restarting the app.
+                ideal = resampleStroke(points)
+            } else {
+                continue
+            }
             var squared: Double = 0
             for (a, b) in zip(observed, ideal) {
                 let dx = a.0 - b.0
