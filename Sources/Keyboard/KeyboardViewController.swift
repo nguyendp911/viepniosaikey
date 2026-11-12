@@ -1161,6 +1161,16 @@ final class KeyboardViewController: UIInputViewController {
             } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
                 let normalized = word.lowercased()
                 learnedWords[normalized, default: 0] += 1
+                if learnedWords.count > 360 {
+                    // The active session can last hours. Keep the dictionary
+                    // bounded in RAM instead of scanning unbounded learned
+                    // words and inflating every prediction job.
+                    learnedWords = Dictionary(uniqueKeysWithValues:
+                        learnedWords.sorted {
+                            if $0.value != $1.value { return $0.value > $1.value }
+                            return $0.key < $1.key
+                        }.prefix(300).map { ($0.key, $0.value) })
+                }
                 scheduleLearnedWordsFlush()
             }
         }
