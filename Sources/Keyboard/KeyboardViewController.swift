@@ -76,6 +76,7 @@ final class KeyboardViewController: UIInputViewController {
     private var glideIsActive = false
     private var glideRecognizer: UIPanGestureRecognizer?
     private var glideTouchOrigin: CGPoint?
+    private var glideLastPoint: CGPoint?
     private var cursorSteps = 0
 
     private func refreshTypingPreferences() {
@@ -1249,6 +1250,24 @@ final class KeyboardViewController: UIInputViewController {
         glidePath += key
     }
 
+    private func captureGlideSegment(to point: CGPoint) {
+        guard let previous = glideLastPoint else {
+            captureGlidePoint(point)
+            glideLastPoint = point
+            return
+        }
+        let dx = point.x - previous.x
+        let dy = point.y - previous.y
+        let distance = hypot(dx, dy)
+        let steps = max(1, min(80, Int(ceil(distance / 7))))
+        for index in 1...steps {
+            let t = CGFloat(index) / CGFloat(steps)
+            captureGlidePoint(CGPoint(x: previous.x + dx * t,
+                                     y: previous.y + dy * t))
+        }
+        glideLastPoint = point
+    }
+
     private func configureGlideRecognizer() {
         if glideRecognizer == nil {
             let pan = UIPanGestureRecognizer(target: self,
@@ -1273,19 +1292,21 @@ final class KeyboardViewController: UIInputViewController {
             glideLastKey = ""
             glideIsActive = false
             let origin = glideTouchOrigin ?? point
+            glideLastPoint = origin
             captureGlidePoint(origin)
-            captureGlidePoint(point)
+            captureGlideSegment(to: point)
         case .changed:
-            captureGlidePoint(point)
-            if glidePath.count >= 3 { glideIsActive = true }
+            captureGlideSegment(to: point)
+            if glidePath.count >= 2 { glideIsActive = true }
         case .ended:
-            captureGlidePoint(point)
+            captureGlideSegment(to: point)
             let trace = glidePath
-            let isWordSwipe = glideIsActive && trace.count >= 3
+            let isWordSwipe = trace.count >= 2 && (glideIsActive || trace.count >= 2)
             glidePath = ""
             glideLastKey = ""
             glideIsActive = false
             glideTouchOrigin = nil
+            glideLastPoint = nil
             guard isWordSwipe else { return }
             let personalWords = learnedWords
             let generation = candidateGeneration
@@ -1324,6 +1345,7 @@ final class KeyboardViewController: UIInputViewController {
             glideLastKey = ""
             glideIsActive = false
             glideTouchOrigin = nil
+            glideLastPoint = nil
         }
     }
 
