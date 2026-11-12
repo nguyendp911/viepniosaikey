@@ -200,6 +200,25 @@ struct VerifySmartKeyboard {
                && PersonaStore.matchScreenshotTitle(headerBoxes)?.uniqueMatch == nil,
                "ambiguous duplicate OCR header never silently chooses a person")
         PersonaStore.all = PersonaStore.all.filter { $0.id == oldPersona }
+        PersonaStore.add(name: "Cô Lan", role: "aunt",
+                         selfAddress: "cháu", tone: "Lịch sự")
+        let personA = PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.88)
+        ])
+        let personB = PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Cô Lan", midX: 0.5, midY: 0.88)
+        ])
+        assert(personA?.uniqueMatch?.name == "Chú Tư"
+            && personB?.uniqueMatch?.name == "Cô Lan",
+            "screenshots from different people must resolve to different profiles")
+        let mixed = PersonaStore.matchScreenshotTitle([
+            PersonaStore.ScreenshotTextBox(text: "Cô Lan", midX: 0.5, midY: 0.87),
+            PersonaStore.ScreenshotTextBox(text: "Chú Tư", midX: 0.5, midY: 0.89)
+        ])
+        assert(mixed?.matches.count == 2 && mixed?.uniqueMatch == nil,
+            "conflicting headers must not select whichever profile matched first")
+        PersonaStore.all = PersonaStore.all.filter { $0.id == oldPersona }
+        PersonaStore.select(oldPersona)
 
         assert(PersonaStore.nameFromSharedTranscript("Người gửi: Chú Tư\nChú về chưa?") == "Chú Tư",
                "sender labeled transcript parsing")
