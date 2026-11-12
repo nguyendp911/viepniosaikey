@@ -56,6 +56,10 @@ struct VerifySmartKeyboard {
                "zero-limit predictions return nothing")
 
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
+        let minhPath = SmartTyping.glideCandidates(
+            trace: "mkijnh", language: "vi", limit: 12)
+        assert(minhPath.contains("mình"),
+               "interpolated physical swipe from M through I N H returns Vietnamese")
         let minh = SmartTyping.glideCandidates(trace: "minh", language: "vi", limit: 12)
         let completeMinh = SmartTyping.glideOptions(minh, language: "vi", showAll: true)
         for tone in ["minh", "mình", "mính", "mĩnh", "mỉnh", "mịnh"] {
