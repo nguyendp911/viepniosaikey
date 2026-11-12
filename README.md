@@ -10,7 +10,8 @@
 | Tốc độ | Xử lý phím ngay khi chạm, từ điển theo tiền tố, gợi ý tính ở nền | Bàn phím |
 | Vùng chạm | Mở rộng vùng chạm sang nửa khe trống giữa hai phím, không đổi nội dung gõ tự động | Bàn phím → Gõ thông minh → Vùng chạm phím rộng hơn |
 | Sửa lỗi | Gợi ý từ tiếng Anh khi lỡ nhấn phím kề bên; **không tự thay thế** | Thanh gợi ý |
-| Vuốt | Nhận diện vệt vuốt offline; dùng từ điển và từ cá nhân đã học | Bàn phím → Gõ thông minh → Vuốt chữ |
+| Vuốt song ngữ | Vuốt qua phím QWERTY để nhập từ tiếng Việt có dấu hoặc tiếng Anh; gợi ý các dấu khác nhau | Bàn phím → Gõ thông minh → Vuốt chữ |
+| Vệt vuốt | Vệt sáng xanh cyan, quầng sáng và điểm sáng bám ngón tay, tự mờ khi nhấc tay | Bàn phím → Hiệu ứng vệt sáng khi vuốt |
 | Hoàn tác | Backspace lùi theo phím Telex; sau khi chạm một gợi ý từ, nhấn giữ **AI → Hoàn tác sửa từ** | Bàn phím |
 | AI viết lại | Nhấn giữ **AI → Viết lại · 3 phiên bản** để lấy 3 cách viết; chọn mẫu rồi chèn hoặc sao chép | Bàn phím, cần quyền và API |
 | Giọng văn | Tự lưu tối đa 8 câu mẫu, có thể xóa; chỉ tham khảo giọng văn khi bạn chủ động dùng AI | Ứng dụng → Bàn phím → Phong cách viết cá nhân |
@@ -22,6 +23,18 @@
 | Keyboard Studio | Chủ đề, chiều cao và khoảng cách phím, rung, một tay, gợi ý, ngôn ngữ | Ứng dụng → Bàn phím |
 
 Tính năng `{recipient}` **chỉ** chèn tên hồ sơ đã được người dùng chọn. Nếu chưa chọn, biến giữ nguyên để tránh đoán sai. Lệnh `;ten` được thêm một lần khi nâng cấp; người dùng có thể xóa hoặc sửa.
+
+### Vuốt tiếng Việt có dấu
+
+Bật **Vuốt chữ để nhập từ**, **Hiệu ứng vệt sáng khi vuốt** và **Tự phân biệt Việt – Anh**. Vuốt trên phím không dấu theo hình dạng từ, thả ngón tay để chèn từ và khoảng trắng:
+
+- Vuốt `c-h-a-o` → đề xuất `chào`.
+- Vuốt `t-o-i` → đề xuất `tôi`.
+- Vuốt `t-h-u-o-n-g` → đề xuất `thương` hoặc `thường`.
+- Vuốt `b-a-n` → có thể chọn `bạn`, `bàn`, `bán` trên thanh gợi ý.
+- Vuốt `o-r` → `or` trong tiếng Anh.
+
+Không thể biết dấu tiếng Việt chỉ từ tọa độ ngón tay trong mọi tình huống; từ điển offline và ưu tiên ngôn ngữ được dùng để xếp hạng. Nếu có nhiều từ trùng đường vuốt, **chạm phương án đúng trên thanh gợi ý trước khi tiếp tục gõ**. Chế độ **Chỉ tiếng Anh** không trả từ tiếng Việt có dấu; chế độ **Ưu tiên tiếng Việt** xếp từ tiếng Việt trước. Phải chuyển sang bàn phím khác rồi quay lại ViePN để tải lại thiết lập.
 
 ### Ví dụ Telex/song ngữ
 
