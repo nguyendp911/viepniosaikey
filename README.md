@@ -76,6 +76,19 @@ Trong **AI & API → Hồ sơ người nhận**, chọn ảnh từ Thư viện. 
 - Ở **AI & API → Hồ sơ người nhận**, sau khi chọn ảnh, bạn có thể **sửa tên OCR đã đọc** trước khi gắn ảnh mẫu. Hãy xem vùng ảnh cắt có đúng tên không. Không lưu ảnh chứa nội dung trò chuyện khi bạn chưa kiểm tra.
 - Ảnh không có tiêu đề nhìn thấy, OCR không đọc được chữ, hoặc ảnh quá mờ vẫn có thể không khớp. Khi đó dùng hồ sơ thủ công hoặc ảnh khác. OCR không thể tự nhìn màn hình Zalo đang mở; bạn phải chủ động chọn ảnh.
 
+## AI nhận diện người nhận bằng ảnh mẫu đã lưu
+
+**Đã triển khai trong ứng dụng ViePN chính → Trợ lý → Ảnh chụp hội thoại:**
+
+- Tại **AI & API → Hồ sơ người nhận**, chọn hoặc tạo hồ sơ rồi **Kèm ảnh chụp màn hình**. Ứng dụng chỉ lưu ảnh cắt của tiêu đề sau khi bạn xác nhận, không lưu toàn ảnh chat.
+- Khi bạn chủ động chọn một ảnh chat mới trong **Trợ lý**, iPhone quét chữ trên ảnh (Apple Vision OCR) và đối chiếu với tên hồ sơ **hoặc tên tiêu đề của ảnh mẫu đã lưu**, kể cả khi biệt danh Zalo khác tên trong danh bạ.
+- Nếu OCR xác nhận chính xác tên tiêu đề **và** chỉ trùng một hồ sơ, tùy chọn **Tự khớp tên khi Dán hội thoại** cho phép tự áp dụng hồ sơ đó, dùng ngay ghi chú và lịch sử tương ứng trong phần AI soạn tin.
+- Nếu OCR không đọc được tên, ViePN thử **đặc trưng hình ảnh** của vùng tiêu đề đã cắt bằng Vision Feature Print. Đặc trưng hình ảnh chỉ là chứng cứ tương đồng; không xác minh danh tính và **không tự đổi hồ sơ khi chỉ khớp bằng hình ảnh**. Người dùng phải xác nhận.
+- Khi không có bằng chứng tin cậy hoặc có nhiều hồ sơ trùng tên, ứng dụng yêu cầu chọn thủ công, không suy đoán người nhận từ nội dung tin nhắn. Toàn bộ xử lý nhận diện ảnh nằm trên iPhone, không cần gửi ảnh tới Gemini/OpenAI.
+- Sau khi xác nhận/tự chọn hồ sơ, người dùng có thể mở **Gợi ý trả lời** hoặc **Nhắn gì hôm nay?**; gọi AI tạo câu là thao tác riêng và tuân thủ chế độ đồng ý/ẩn thông tin nhạy cảm.
+
+**Giới hạn iOS:** Không có API công khai để ViePN hoặc AI tự chụp màn hình, đọc tiêu đề Zalo/Messenger hoặc theo dõi thay đổi người nhận khi người dùng chỉ mở khung chat. Ảnh mới phải được người dùng **chọn hoặc chia sẻ có chủ đích**. Ảnh mẫu đã lưu không thể tự nhận diện trạng thái màn hình nếu không có ảnh đầu vào mới.
+
 ## Nhận diện người nhận từ ảnh chụp Zalo, Messenger
 
 Trong **Trợ lý → Ảnh chụp hội thoại**, chọn một ảnh chụp do bạn chủ động cung cấp. ViePN dùng **Apple Vision OCR offline trên iPhone** và chỉ xét chữ ở vùng tiêu đề điều hướng phía trên màn hình để tìm tên người đang trò chuyện.
