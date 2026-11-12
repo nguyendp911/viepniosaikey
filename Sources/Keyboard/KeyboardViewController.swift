@@ -56,6 +56,11 @@ final class KeyboardViewController: UIInputViewController {
     // every touch (formerly replayed Telex over its entire history).
     private var telexCandidateWord = ""
     private var candidateUpdateWork: DispatchWorkItem?
+    // A single worker keeps consecutive prediction requests from competing
+    // for CPU and starving keystrokes during long chats.
+    private let predictionQueue = DispatchQueue(
+        label: "com.viepn.keyboard.predictions", qos: .utility)
+    private var candidateExpandButton: UIButton?
     // A monotonically increasing generation prevents stale suggestions from
     // appearing after deletion or when the same prefix is typed again.
     private var candidateGeneration: UInt64 = 0
@@ -1449,78 +1454,91 @@ final class KeyboardViewController: UIInputViewController {
         // Keep dictionary scanning and sorting off the keyboard UI thread.
         // Debounce the background work, then return only the final 3 labels.
         let personalWords = learnedWords
+        // Debounce on main before scheduling any CPU work. Previously each
+        // touch scheduled a global-queue worker (even if soon cancelled),
+        // causing contention after sustained fast typing.
         let job = DispatchWorkItem { [weak self] in
-            let results = SmartTyping.predictions(
-                prefix: word, learned: personalWords)
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.candidateGeneration == generation,
-                      self.recentWord == word else { return }
-                self.renderCandidates(results)
+            guard let self, self.candidateGeneration == generation,
+                  self.recentWord == word else { return }
+            self.predictionQueue.async { [weak self] in
+                let results = SmartTyping.predictions(
+                    prefix: word, learned: personalWords)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.candidateGeneration == generation,
+                          self.recentWord == word else { return }
+                    self.renderCandidates(results)
+                }
             }
         }
         candidateUpdateWork = job
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(
-            deadline: .now() + .milliseconds(65), execute: job)
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(95), execute: job)
     }
 
     private func renderCandidates(_ results: [String]) {
-        // Only a settings change may hide the row; predictions arriving
-        // or disappearing must not resize the whole keyboard.
+        // Reuse word chips for the entire keyboard lifetime. The old version
+        // destroyed and recreated 1-3 Auto Layout-backed UIButtons on nearly
+        // every keypress: [typed] -> [three predictions] -> [typed] -> ...
+        // Repeated allocations and constraints eventually stuttered.
         let shouldHide = !isComposingInteraction
             || (!useSuggestions && !isGlideSuggestionVisible)
-        let needsExpand = pendingGlideWord != nil && fullGlideOptions.count > results.count
-        if results == candidateWords && candidateScroll.isHidden == shouldHide,
-           candidateButtons.count == results.count + (needsExpand ? 1 : 0) { return }
-        let canUpdateInPlace = !needsExpand && candidateButtons.count == results.count
-            && candidateBar.arrangedSubviews.count == results.count
-        if canUpdateInPlace {
-            candidateWords = results
-            if candidateScroll.isHidden != shouldHide {
-                candidateScroll.isHidden = shouldHide
-            }
-            for (index, word) in results.enumerated()
-                where candidateButtons[index].title(for: .normal) != word {
-                candidateButtons[index].setTitle(word, for: .normal)
-            }
-            updateContextVisibility()
-            return
-        }
+        let needsExpand = pendingGlideWord != nil
+            && fullGlideOptions.count > results.count
+        if results == candidateWords,
+           candidateScroll.isHidden == shouldHide,
+           candidateExpandButton?.isHidden == !needsExpand { return }
+
         candidateWords = results
         if candidateScroll.isHidden != shouldHide {
             candidateScroll.isHidden = shouldHide
         }
-        for view in candidateBar.arrangedSubviews {
-            candidateBar.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
-        candidateButtons.removeAll(keepingCapacity: true)
-        for (index, title) in results.enumerated() {
+        while candidateButtons.count < results.count {
+            let index = candidateButtons.count
             let button = UIButton(type: .system)
             button.tag = index
-            button.setTitle(title, for: .normal)
             button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
             button.setTitleColor(.label, for: .normal)
             button.backgroundColor = UIColor.secondarySystemBackground
             button.layer.cornerRadius = 11
-            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 13, bottom: 6, right: 13)
-            button.accessibilityLabel = "Chọn từ " + title
-            button.addTarget(self, action: #selector(candidateTapped(_:)), for: .touchUpInside)
-            button.widthAnchor.constraint(greaterThanOrEqualToConstant: 62).isActive = true
+            button.contentEdgeInsets = UIEdgeInsets(
+                top: 6, left: 13, bottom: 6, right: 13)
+            button.addTarget(self, action: #selector(candidateTapped(_:)),
+                             for: .touchUpInside)
+            button.widthAnchor.constraint(
+                greaterThanOrEqualToConstant: 62).isActive = true
             candidateButtons.append(button)
-            candidateBar.addArrangedSubview(button)
+            candidateBar.insertArrangedSubview(button, at: index)
         }
-        if needsExpand {
+        for (index, button) in candidateButtons.enumerated() {
+            let visible = index < results.count
+            if visible {
+                let word = results[index]
+                if button.title(for: .normal) != word {
+                    button.setTitle(word, for: .normal)
+                    button.accessibilityLabel = "Chọn từ " + word
+                }
+            }
+            if button.isHidden == visible {
+                button.isHidden = !visible
+            }
+        }
+        if needsExpand && candidateExpandButton == nil {
             let more = UIButton(type: .system)
             more.setTitle("Tất cả  ···", for: .normal)
             more.setTitleColor(cyanColor, for: .normal)
             more.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
             more.backgroundColor = UIColor.tertiarySystemBackground
             more.layer.cornerRadius = 11
-            more.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
-            more.addTarget(self, action: #selector(expandGlideCandidates), for: .touchUpInside)
+            more.contentEdgeInsets = UIEdgeInsets(
+                top: 6, left: 12, bottom: 6, right: 12)
+            more.addTarget(self, action: #selector(expandGlideCandidates),
+                           for: .touchUpInside)
+            candidateExpandButton = more
             candidateBar.addArrangedSubview(more)
         }
-        candidateScroll.setContentOffset(.zero, animated: false)
+        if let more = candidateExpandButton {
+            more.isHidden = !needsExpand
+        }
         updateContextVisibility()
     }
 
