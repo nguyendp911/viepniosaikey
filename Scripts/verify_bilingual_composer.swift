@@ -118,6 +118,37 @@ struct VerifyBilingualComposer {
         }
         print("PASS [Bilingual] keyboard touch stream regression")
 
+        // Backspace removes one physical key, not merely one visible scalar.
+        // This makes "tôi" -> "too" and "thương" -> "thuong" reversible.
+        func testBackspace(_ raw: String, preference: BilingualComposer.Preference = .automatic) {
+            var keys = raw
+            var rendered = BilingualComposer.compose(keys, preference: preference).rendered
+            while !keys.isEmpty {
+                let prior = BilingualComposer.removingLastKey(
+                    from: keys, preference: preference).rendered
+                guard let edit = FastTyping.edit(from: rendered, to: prior) else {
+                    fatalError("Backspace did not change rendered text for \\(keys)")
+                }
+                let actual = String(rendered.dropLast(edit.deleteCount)) + edit.insertion
+                guard actual == prior else {
+                    fatalError("Backspace edit mismatch: \\(keys)")
+                }
+                keys.removeLast()
+                rendered = actual
+                guard rendered == BilingualComposer.compose(
+                    keys, preference: preference).rendered else {
+                    fatalError("Backspace composition mismatch for \\(keys)")
+                }
+            }
+            print("PASS [Bilingual] reversible backspace \\(raw)")
+        }
+        for raw in ["tooi", "thuongw", "thuongwf", "vieets", "banf",
+                    "store", "book", "boos", "ddaay", "tool"] {
+            testBackspace(raw)
+        }
+        testBackspace("tooi", preference: .vietnamese)
+        testBackspace("store", preference: .english)
+
         // Fast path must be bit-for-bit identical to full composition on every
         // intermediate key, including Telex removal and language reversals.
         let samples = [
