@@ -55,6 +55,18 @@ struct VerifySmartKeyboard {
         assert(SmartTyping.predictions(prefix: "th", learned: personal, limit: 0).isEmpty,
                "zero-limit predictions return nothing")
 
+        assert(!SmartTyping.isIntentionalGlide(
+            trace: "co", travelPoints: 8, keyHeight: 43),
+            "tiny accidental touch drift must not insert a glide word")
+        assert(!SmartTyping.isIntentionalGlide(
+            trace: "co", travelPoints: 30, keyHeight: 43),
+            "neighboring-key jitter cannot trigger a swipe")
+        assert(SmartTyping.isIntentionalGlide(
+            trace: "co", travelPoints: 44, keyHeight: 43),
+            "deliberate short two-key swipe remains supported")
+        assert(SmartTyping.isIntentionalGlide(
+            trace: "thuong", travelPoints: 185, keyHeight: 43),
+            "full Vietnamese glide passes movement threshold")
         assert(SmartTyping.glideCandidates(trace: "helo").contains("hello"), "offline swipe candidate")
         let minhPath = SmartTyping.glideCandidates(
             trace: "mkijnh", language: "vi", limit: 12)
