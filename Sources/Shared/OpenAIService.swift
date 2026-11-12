@@ -49,7 +49,9 @@ enum OpenAIService {
         // transmitting the full recent conversation at every AI request.
         let historyContext = ConversationIntelligence.prompt(
             for: PersonaStore.activeID, query: incoming, openingToday: openingToday)
-        guard MessageSafety.warnings(in: historyContext).isEmpty else {
+        let approvedNoteContext = ConversationMemory.prompt()
+        guard MessageSafety.warnings(in: historyContext).isEmpty,
+              MessageSafety.warnings(in: approvedNoteContext).isEmpty else {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
         }
@@ -78,7 +80,7 @@ enum OpenAIService {
         FIRST determine who is speaking, who receives the reply and the relationship, THEN compose.
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
-        \(ConversationMemory.prompt())
+        \(approvedNoteContext)
         \(historyContext)
         \(contactStyle)
         \(conversationTask)
