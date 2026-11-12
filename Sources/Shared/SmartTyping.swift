@@ -215,9 +215,16 @@ enum SmartTyping {
     static func glideCandidates(trace raw: String, learned: [String: Int] = [:],
                                 limit: Int = 3) -> [String] {
         let trace = collapseRepeats(raw.lowercased())
-        guard trace.count >= 3, trace.count <= 30, limit > 0 else { return [] }
-        let threshold = max(2, trace.count / 2)
+        guard trace.count >= 2, trace.count <= 30, limit > 0 else { return [] }
         let dictionary = englishWords + vietnameseWords + Array(learned.keys)
+        // Two-key swipes are ambiguous; accept only exact dictionary hits.
+        if trace.count == 2 {
+            var seen = Set<String>()
+            return Array(dictionary.filter {
+                $0.lowercased() == trace && seen.insert($0).inserted
+            }.prefix(limit))
+        }
+        let threshold = max(2, trace.count / 2)
         let matches = dictionary.compactMap { word -> (String, Int)? in
             let letters = collapseRepeats(word.lowercased())
             guard abs(letters.count - trace.count) <= threshold,
