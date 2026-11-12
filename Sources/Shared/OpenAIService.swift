@@ -51,6 +51,7 @@ enum OpenAIService {
         \(recipientContext.instruction)
         \(PersonaStore.prompt)
         \(ConversationMemory.prompt())
+        \(KeyboardSettings.personalStylePrompt)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         These relationship rules override romantic Couple styles or generic anh/em examples.
         Return only JSON: {"replies":[{"tone":"Dịu dàng","text":"..."},{"tone":"Tự nhiên","text":"..."},{"tone":"Quan tâm","text":"..."}]}.
