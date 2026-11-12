@@ -1724,8 +1724,10 @@ struct ContentView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                             Button {
                                 pendingHeaderPNG = cropped
-                                pendingHeaderTitle = personaName.trimmingCharacters(
+                                let entered = personaName.trimmingCharacters(
                                     in: .whitespacesAndNewlines)
+                                pendingHeaderTitle = !entered.isEmpty ? entered :
+                                    (personas.first(where: { $0.id == activePersonaID })?.name ?? "")
                                 screenshotReferenceStatus =
                                     "Đã chọn vùng ảnh thủ công. Kiểm tra tên và vùng cắt trước khi lưu."
                             } label: {
@@ -1733,7 +1735,8 @@ struct ContentView: View {
                             }
                             .buttonStyle(.bordered)
                             .disabled(personaName.trimmingCharacters(
-                                in: .whitespacesAndNewlines).isEmpty)
+                                in: .whitespacesAndNewlines).isEmpty
+                                && !personas.contains(where: { $0.id == activePersonaID }))
                             Text("Chỉ chọn khi vùng cắt chứa tên người nhận, không chứa tin nhắn. Tên sử dụng là tên hồ sơ bạn nhập.")
                                 .font(.system(size: 10)).foregroundStyle(muted)
                         }
