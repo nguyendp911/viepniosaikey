@@ -41,6 +41,10 @@ enum OpenAIService {
         let incoming = String(message.prefix(3000))
         let recipientContext = ConversationContextResolver.resolve(incoming)
         let historyContext = ConversationHistory.prompt(for: PersonaStore.activeID)
+        guard MessageSafety.warnings(in: historyContext).isEmpty else {
+            throw AIServiceError.malformedResponse(
+                "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
+        }
         let conversationTask = openingToday
             ? """
               Offer THREE optional, natural, low-pressure Vietnamese conversation
