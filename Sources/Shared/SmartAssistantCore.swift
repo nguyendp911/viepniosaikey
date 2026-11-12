@@ -68,25 +68,77 @@ enum ConversationHistory {
     private static let key = "viepnaikey.savedChatTurns.v1"
     private static var defaults: UserDefaults { KeyboardSettings.defaults }
 
+    // On a signed iOS installation, keep sensitive history in the shared
+    // container's device-protected file, not as plaintext UserDefaults.
+    // Data Protection is unlocked after the first device unlock; this is NOT
+    // end-to-end encryption and is not protection from the running app itself.
+    #if os(iOS)
+    private static var protectedURL: URL? {
+        FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: KeyboardSettings.groupID)?
+            .appendingPathComponent("conversation-history-v2.json")
+    }
+    #endif
+
     static var all: [SavedChatTurn] {
         get {
+            #if os(iOS)
+            if let url = protectedURL {
+                if FileManager.default.fileExists(atPath: url.path) {
+                    guard let bytes = try? Data(contentsOf: url),
+                          let saved = try? JSONDecoder().decode(
+                            [SavedChatTurn].self, from: bytes)
+                    else { return [] }
+                    return saved
+                }
+                // One-time migration of an earlier plaintext preferences copy.
+                if let old = defaults.data(forKey: key),
+                   let saved = try? JSONDecoder().decode([SavedChatTurn].self,
+                                                          from: old) {
+                    all = saved
+                    if FileManager.default.fileExists(atPath: url.path) {
+                        defaults.removeObject(forKey: key)
+                    }
+                    return saved
+                }
+                return []
+            }
+            #endif
             guard let data = defaults.data(forKey: key),
-                  let saved = try? JSONDecoder().decode([SavedChatTurn].self, from: data)
+                  let saved = try? JSONDecoder().decode([SavedChatTurn].self,
+                                                         from: data)
             else { return [] }
             return saved
         }
         set {
-            // Retain at most 150 turns per conversation / 1000 total.
+            // Limit to newest 150 per contact, 1000 overall. Stable ordering.
             var byPersona: [String: Int] = [:]
-            let bounded = newValue.suffix(1000).filter { turn in
+            let bounded = newValue.suffix(1000).reversed().filter { turn in
                 let count = byPersona[turn.personaID] ?? 0
                 guard count < 150 else { return false }
                 byPersona[turn.personaID] = count + 1
                 return true
+            }.reversed()
+            guard let bytes = try? JSONEncoder().encode(Array(bounded)) else {
+                return
             }
-            if let data = try? JSONEncoder().encode(bounded) {
-                defaults.set(data, forKey: key)
+            #if os(iOS)
+            if let url = protectedURL {
+                do {
+                    try bytes.write(to: url, options: .atomic)
+                    try FileManager.default.setAttributes([
+                        .protectionKey:
+                            FileProtectionType.completeUntilFirstUserAuthentication
+                    ], ofItemAtPath: url.path)
+                    defaults.removeObject(forKey: key)
+                } catch {
+                    // Never silently fall back to saving sensitive messages
+                    // unprotected. The app must report a failed import.
+                }
+                return
             }
+            #endif
+            defaults.set(bytes, forKey: key)
         }
     }
 
