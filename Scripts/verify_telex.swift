@@ -32,6 +32,15 @@ struct VerifyVietnameseTelex {
         test("thuwowng", expected: "thương")
         test("ddaay", expected: "đây")
         test("a", expected: "a")
+        // In Vietnamese-only mode a tone key may produce a single accented
+        // vowel, but pressing the same key again must escape to literal text.
+        test("or", expected: "ỏ")
+        test("orr", expected: "or")
+        test("ỏr", expected: "or")
+        test("Or", expected: "Ỏ")
+        test("Orr", expected: "Or")
+        test("banrr", expected: "banr")
+        test("banff", expected: "banf")
         test("vietnam", expected: "vietnam")
         // Regressions: Telex tone letters are literal in English-looking
         // consonant clusters or final consonants that Vietnamese cannot have.
