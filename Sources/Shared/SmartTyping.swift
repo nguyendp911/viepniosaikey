@@ -238,7 +238,7 @@ enum SmartTyping {
     static func glideCandidates(trace raw: String, learned: [String: Int] = [:],
                                 language: String = "auto", limit: Int = 3) -> [String] {
         let trace = collapseRepeats(raw.lowercased())
-        guard trace.count >= 2, trace.count <= 65, limit > 0,
+        guard trace.count >= 2, trace.count <= 140, limit > 0,
               trace.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
         // English-only mode must never insert an accented Vietnamese word.
         // Learned plain ASCII words are still eligible in that mode.
