@@ -310,11 +310,18 @@ enum ConversationIntelligence {
     static func topics(for personaID: String, limit: Int = 4) -> [(name: String, count: Int)] {
         let messages = ConversationHistory.turns(for: personaID)
         guard !messages.isEmpty else { return [] }
-        let text = messages.map { normalized($0.text) }
+        // Whole-word boundaries prevent false topics such as "ốm" inside
+        // "hôm" or "ăn" inside "bạn".
+        let text = messages.map { msg -> String in
+            let words = normalized(msg.text)
+                .components(separatedBy: CharacterSet.letters.inverted)
+                .filter { !$0.isEmpty }
+            return " " + words.joined(separator: " ") + " "
+        }
         return Array(categories.enumerated().compactMap { index, group
             -> (order: Int, name: String, count: Int)? in
             let count = text.filter { line in
-                group.1.contains(where: { line.contains($0) })
+                group.1.contains(where: { line.contains(" " + $0 + " ") })
             }.count
             return count == 0 ? nil : (index, group.0, count)
         }.sorted { left, right in
