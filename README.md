@@ -121,6 +121,14 @@ xcodebuild -project ViePNAIKeyboard.xcodeproj -scheme ViePNAIKeyboard \
 
 Sau khi cài, mở **Cài đặt iOS → Cài đặt chung → Bàn phím → Các bàn phím → Thêm bàn phím mới** và bật ViePN AI Keyboard. Khi cài IPA ký bằng chứng chỉ Ad Hoc, **cả ứng dụng chính lẫn keyboard extension** phải có provisioning profile tương ứng; App Group phải khớp.
 
+## Hoàn thiện trải nghiệm và ổn định
+
+- **Sao lưu hội thoại:** Trong **Trợ lý → Hội thoại riêng cho từng người**, bấm **Xuất hội thoại người này** để mở Share Sheet của iOS. Bản xuất là **văn bản thuần không mã hóa**, chỉ chia sẻ với nơi đáng tin cậy. Nội dung xuất có nhãn `Tôi:` / `Bạn ấy:` và có thể dán trở lại đúng ô nhập lịch sử để khôi phục; không mang theo thời gian gửi gốc.
+- **Kiểm tra ghi dữ liệu:** Khi lưu lịch sử hoặc ghi chú, ViePN xác nhận nội dung tồn tại trong vùng lưu trữ trước khi báo thành công. Nếu không lưu được vì tệp được bảo vệ đang khóa hoặc App Group không khả dụng, nội dung nhập được giữ lại để bạn thử lại.
+- **Cập nhật hồ sơ:** Khi mở lại Trợ lý sau khi chọn người nhận khác, giao diện tải lại đúng ký ức và loại bỏ bản nháp gợi ý còn thuộc hồ sơ cũ. Kết quả AI đang chạy cũng được bỏ qua nếu người dùng đổi hồ sơ giữa chừng.
+- **Vuốt mượt hơn:** Đường vuốt theo hình dạng từ điển tiếng Việt–Anh được tính sẵn và tái sử dụng để giảm công việc CPU khi nhận diện lần sau.
+- **Giới hạn kiểm chứng:** Các tính năng cần được thử với IPA đã ký trên iPhone. CI thành công chỉ chứng minh các kiểm thử và biên dịch trên môi trường GitHub; không bảo đảm tốc độ, quyền chia sẻ hay cảm giác vuốt trên máy thật.
+
 ## GitHub Actions / IPA
 
 Mỗi push lên `main` chạy kiểm thử Swift và build iOS qua workflow [iOS Build](.github/workflows/ios.yml). Vào Actions → run mới nhất → Artifacts để tải sản phẩm nếu job tạo artifact. Workflow có đường ký Ad Hoc thủ công theo môi trường và secrets `ios-signing`; IPA chưa ký không thể cài trực tiếp.
