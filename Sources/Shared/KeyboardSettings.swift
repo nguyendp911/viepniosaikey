@@ -116,6 +116,11 @@ enum KeyboardSettings {
         set { defaults.set(newValue, forKey: prefix + "glideEnabled") }
     }
     // Optional touch-area expansion into the gap between neighboring keys.
+    static var glideTrailEnabled: Bool {
+        get { defaults.object(forKey: prefix + "glideTrailEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "glideTrailEnabled") }
+    }
+
     static var adaptiveTouchEnabled: Bool {
         get { defaults.object(forKey: prefix + "adaptiveTouchEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "adaptiveTouchEnabled") }
