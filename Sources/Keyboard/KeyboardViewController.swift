@@ -443,6 +443,7 @@ final class KeyboardViewController: UIInputViewController {
             let item = UIAction(title: person.name) { [weak self] _ in
                 PersonaStore.select(person.id)
                 self?.installWritingActions()
+                self?.refreshIdleActions()
                 self?.showStatus("Hồ sơ: " + person.name)
             }
             item.state = PersonaStore.activeID == person.id ? .on : .off
@@ -454,6 +455,7 @@ final class KeyboardViewController: UIInputViewController {
             children: [UIAction(title: "Tắt hồ sơ") { [weak self] _ in
                 PersonaStore.clearSelection()
                 self?.installWritingActions()
+                self?.refreshIdleActions()
                 self?.showStatus("Đã tắt hồ sơ người nhận")
             }] + personaActions
         )
@@ -1234,8 +1236,10 @@ final class KeyboardViewController: UIInputViewController {
                 < (defaults.firstIndex(of: $1) ?? 0)
         }
         let person = PersonaStore.active
-        let greeting = person == nil ? "Hôm nay bạn thế nào?"
-            : "Hôm nay \(person!.name) thế nào?"
+        let greeting = person.flatMap {
+            ConversationIntelligence.offlineStarter(for: $0.id)
+        } ?? (person == nil ? "Hôm nay bạn thế nào?"
+            : "Hôm nay \(person!.name) thế nào?")
         let topEmoji = Array(emoji.prefix(4))
         idleActions = topEmoji.map { (title: $0, insert: $0, emoji: true) }
         // Keep a useful conversation starter in the visible portion of the
