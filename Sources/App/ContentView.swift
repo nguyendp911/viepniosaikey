@@ -132,6 +132,8 @@ struct ContentView: View {
                             personalization
                         } else if selectedPage == "assistant" {
                             AdvancedAssistantView()
+                        } else if selectedPage == "owner" {
+                            OwnerInformationView()
                         } else {
                             activationGuide
                             keyboardDiagnostics
@@ -198,14 +200,15 @@ struct ContentView: View {
     }
 
     private var bottomNavigation: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             tabItem("Couple", symbol: "heart.fill", page: "couple")
             tabItem("AI & API", symbol: "sparkles", page: "ai")
             tabItem("Bàn phím", symbol: "keyboard", page: "keyboard")
             tabItem("Trợ lý", symbol: "wand.and.stars", page: "assistant")
             tabItem("Công cụ", symbol: "square.grid.2x2", page: "tools")
+            tabItem("Sở hữu", symbol: "person.crop.circle.badge.checkmark", page: "owner")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 7)
         .padding(.top, 9)
         .padding(.bottom, 4)
         .background {
@@ -226,9 +229,9 @@ struct ContentView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: active ? .semibold : .regular))
+                    .font(.system(size: 16, weight: active ? .semibold : .regular))
                 Text(title)
-                    .font(.system(size: 10, weight: active ? .bold : .medium))
+                    .font(.system(size: 9, weight: active ? .bold : .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
             }
