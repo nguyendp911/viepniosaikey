@@ -120,6 +120,7 @@ enum VietnameseTelex {
                 rendered = converted
             } else {
                 rendered.append(char)
+                rendered = normalizedTonePosition(rendered) ?? rendered
             }
         }
         return rendered
