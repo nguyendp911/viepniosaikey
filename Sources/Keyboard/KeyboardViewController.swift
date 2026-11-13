@@ -33,6 +33,7 @@ final class KeyboardViewController: UIInputViewController {
     private var hapticsEnabled = KeyboardSettings.hapticEnabled
     private var hapticsStyle = KeyboardSettings.hapticStyle
     private var useSmartBilingual = KeyboardSettings.smartBilingual
+    private var useSentenceSuggestions = KeyboardSettings.sentenceSuggestionsEnabled
     private var useSuggestions = KeyboardSettings.predictionsEnabled
     private var useGlide = KeyboardSettings.glideEnabled
     private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
@@ -133,6 +134,7 @@ final class KeyboardViewController: UIInputViewController {
             rawValue: KeyboardSettings.bilingualPreference) ?? .automatic
         resetBilingualComposition()
         knownWordBoundary = false
+        useSentenceSuggestions = KeyboardSettings.sentenceSuggestionsEnabled && !performanceMode
         useSuggestions = KeyboardSettings.predictionsEnabled && !performanceMode
         useGlide = KeyboardSettings.glideEnabled && !performanceMode
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
@@ -1233,7 +1235,7 @@ final class KeyboardViewController: UIInputViewController {
         tactileFeedback()
         if let context = textDocumentProxy.documentContextBeforeInput {
             let token = String(context.reversed().prefix(while: {
-                $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_"
+                $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_" || $0 == "/"
             }).reversed())
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
             if let snippet = cachedSnippets[token], !token.isEmpty {
@@ -1589,8 +1591,14 @@ final class KeyboardViewController: UIInputViewController {
             guard let self, self.candidateGeneration == generation,
                   self.recentWord == word else { return }
             self.predictionQueue.async { [weak self] in
-                let results = SmartTyping.predictions(
+                var results = SmartTyping.predictions(
                     prefix: word, learned: personalWords)
+                if self.useSentenceSuggestions {
+                    let completions = OfflineSentenceSuggestions.suggestions(for: word)
+                    // Word corrections stay first; clearly labeled whole sentences
+                    // remain an explicit tap rather than an automatic replacement.
+                    results.append(contentsOf: completions.filter { !results.contains($0) })
+                }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
                           self.recentWord == word else { return }
@@ -1711,6 +1719,13 @@ final class KeyboardViewController: UIInputViewController {
         }
         resetBilingualComposition()
         replaceCurrentWord(chosen)
+        if chosen.contains(" ") {
+            // A full phrase is a committed suggestion, not a single word
+            // to re-enter the predictive keyboard pipeline.
+            knownWordBoundary = true
+            recentWord = ""
+            updateCandidates()
+        }
         tactileFeedback()
     }
 
