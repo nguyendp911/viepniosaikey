@@ -233,6 +233,20 @@ enum KeyboardSettings {
                     defaults.set(result, forKey: prefix + "textSnippets")
                 }
             }
+            // Slash commands are explicit templates, never automatic AI actions.
+            // Migrate once so deleting a default command remains permanent.
+            if !defaults.bool(forKey: prefix + "slashSnippetMigrationV1") {
+                let builtins: [String: String] = [
+                    "/date": "{date}", "/time": "{time}", "/ten": "{recipient}",
+                    "/camon": "Cảm ơn bạn rất nhiều!",
+                    "/lich": "Mình hẹn trao đổi vào {date} nhé."
+                ]
+                for (command, template) in builtins where result[command] == nil {
+                    result[command] = template
+                }
+                defaults.set(result, forKey: prefix + "textSnippets")
+                defaults.set(true, forKey: prefix + "slashSnippetMigrationV1")
+            }
             return result
         }
         set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(70))
