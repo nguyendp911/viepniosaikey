@@ -588,7 +588,7 @@ enum KeyboardStability {
     static func report() -> String {
         let rows = ["paste", "couple", "offline", "ai", "phrases", "typing"].map { name in
             let count = defaults.integer(forKey: prefix + name + ".count")
-            return "\(name): \(count) mẫu, trung bình \(Int(defaults.double(forKey: prefix + name + ".averageMs")))ms"
+            return "\(name): \(count) lần, trung bình \(Int(defaults.double(forKey: prefix + name + ".averageMs")))ms"
         }
         let hist = defaults.array(forKey: prefix + "typing.histogram") as? [Int] ?? []
         guard hist.count == 6, hist.reduce(0, +) > 0 else {
