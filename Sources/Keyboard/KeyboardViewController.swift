@@ -1207,6 +1207,8 @@ final class KeyboardViewController: UIInputViewController {
             resetBilingualComposition()
         }
         if isNumbers && typingMode == "vni",
+           (textDocumentProxy.selectedText?.isEmpty ?? true),
+           textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
            let before = textDocumentProxy.documentContextBeforeInput {
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
             if !word.isEmpty,
@@ -1239,7 +1241,11 @@ final class KeyboardViewController: UIInputViewController {
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
-        if let context = textDocumentProxy.documentContextBeforeInput {
+        // Space-triggered text expansions must never rewrite text when a
+        // selection is active or the insertion point lies inside another word.
+        if (textDocumentProxy.selectedText?.isEmpty ?? true),
+           textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+           let context = textDocumentProxy.documentContextBeforeInput {
             let token = String(context.reversed().prefix(while: {
                 $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_" || $0 == "/"
             }).reversed())
