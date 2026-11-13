@@ -130,6 +130,11 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "predictionsEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "predictionsEnabled") }
     }
+    /// Entirely on-device phrase suggestions, independently switchable.
+    static var sentenceSuggestionsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "sentenceSuggestionsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "sentenceSuggestionsEnabled") }
+    }
     static var glideEnabled: Bool {
         // Swipe typing is available by default; preserve an explicit opt-out
         // from existing users rather than forcing their setting back on.
