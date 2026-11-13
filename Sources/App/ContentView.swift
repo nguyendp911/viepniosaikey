@@ -1157,10 +1157,10 @@ struct ContentView: View {
     private var snippetsCard: some View {
         keyboardPanel("Mẫu gõ nhanh", icon: "text.insert") {
             VStack(spacing: 10) {
-                Text("Gõ ;date, ;time hoặc ;ten rồi nhấn dấu cách. Hỗ trợ {date}, {time}, {recipient} (tên hồ sơ người nhận đã chọn).")
+                Text("Gõ /date, /time, /ten, /camon hoặc ;date rồi nhấn dấu cách. Hỗ trợ {date}, {time}, {recipient} (hồ sơ đã chọn).")
                     .font(.system(size: 11)).foregroundStyle(muted)
                 HStack(spacing: 6) {
-                    TextField(";phimtat", text: $newSnippetKey)
+                    TextField("/phimtat", text: $newSnippetKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .frame(width: 90)
@@ -1168,7 +1168,7 @@ struct ContentView: View {
                     Button {
                         let key = newSnippetKey.trimmingCharacters(in: .whitespacesAndNewlines)
                         let value = newSnippetValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard key.hasPrefix(";"), key.count >= 2, key.count <= 30,
+                        guard (key.hasPrefix(";") || key.hasPrefix("/")), key.count >= 2, key.count <= 30,
                               !key.contains(" "), !value.isEmpty else { return }
                         snippets[key] = String(value.prefix(500))
                         KeyboardSettings.textSnippets = snippets
