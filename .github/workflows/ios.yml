@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+# Only build the newest main-branch revision. A rapid series of source fixes
+# must not leave the final IPA blocked behind obsolete build jobs.
+concurrency:
+  group: viepn-ios-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     name: Compile and package unsigned IPA
