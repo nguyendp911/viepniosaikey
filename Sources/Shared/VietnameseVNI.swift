@@ -22,14 +22,28 @@ enum VietnameseVNI {
 
     static func transformed(word: String, key: String) -> String? {
         guard word.count <= 40, let digit = key.first, key.count == 1,
-              "123456789".contains(digit) else { return nil }
+              "0123456789".contains(digit) else { return nil }
         var chars = Array(word)
         let vowelIndices = chars.indices.filter { base(chars[$0]) != nil }
-        if digit == "9", let index = chars.indices.last, String(chars[index]).lowercased() == "d" {
-            chars[index] = String(chars[index]).uppercased() == String(chars[index]) ? "Đ" : "đ"
-            return String(chars)
+        if digit == "9" {
+            // VNI 9 can be entered after the complete word: da9 -> đa.
+            // Only modify a leading d; never alter an arbitrary middle letter.
+            if let index = chars.indices.first, String(chars[index]).lowercased() == "d" {
+                chars[index] = String(chars[index]).uppercased() == String(chars[index]) ? "Đ" : "đ"
+                return String(chars)
+            }
+            return nil
         }
         guard !vowelIndices.isEmpty else { return nil }
+        if digit == "0" {
+            // 0 removes a tone while keeping its vowel shape (VNI convention).
+            guard let index = vowelIndices.first(where: { (base(chars[$0])?.1 ?? 0) > 0 }),
+                  let (group, _) = base(chars[index]) else { return nil }
+            let plain = Array(vowelGroups[group])[0]
+            chars[index] = String(chars[index]).uppercased() == String(chars[index])
+                ? Character(String(plain).uppercased()) : plain
+            return String(chars)
+        }
         let index: Int
         let shaped = vowelIndices.filter { base(chars[$0]).map { [1, 2, 4, 7, 8, 10].contains($0.0) } ?? false }
         if let selected = shaped.last { index = selected }
