@@ -35,6 +35,7 @@ struct ContentView: View {
     @State private var bilingualPreference = KeyboardSettings.bilingualPreference
     @State private var performanceMode = KeyboardSettings.performanceMode
     @State private var predictionsEnabled = KeyboardSettings.predictionsEnabled
+    @State private var sentenceSuggestionsEnabled = KeyboardSettings.sentenceSuggestionsEnabled
     @State private var glideEnabled = KeyboardSettings.glideEnabled
     @State private var glideTrailEnabled = KeyboardSettings.glideTrailEnabled
     @State private var glideLearningEnabled = KeyboardSettings.glideLearningEnabled
@@ -981,6 +982,15 @@ struct ContentView: View {
                 keyboardToggleRow("Gợi ý ba từ offline", symbol: "text.word.spacing",
                                   isOn: $predictionsEnabled)
                     .onChange(of: predictionsEnabled) { KeyboardSettings.predictionsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Gợi ý câu hoàn chỉnh offline",
+                                  symbol: "text.bubble", isOn: $sentenceSuggestionsEnabled)
+                    .onChange(of: sentenceSuggestionsEnabled) {
+                        KeyboardSettings.sentenceSuggestionsEnabled = $0
+                    }
+                Text("Gợi ý câu chỉ xuất hiện khi bạn gõ một từ kích hoạt và chọn thủ công; không đọc hội thoại hoặc gửi dữ liệu lên mạng.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
                 keyboardToggleRow("Vuốt chữ để nhập từ",
                                   symbol: "hand.draw", isOn: $glideEnabled)
