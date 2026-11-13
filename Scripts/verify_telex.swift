@@ -11,6 +11,7 @@ struct VerifyVietnameseTelex {
                     word = output
                 } else {
                     word += input
+                    word = VietnameseTelex.normalizedTonePosition(word) ?? word
                 }
             }
             guard word == expected else {
@@ -27,6 +28,10 @@ struct VerifyVietnameseTelex {
         test("cow", expected: "cơ")
         test("banw", expected: "băn")
         test("thuongwf", expected: "thường")
+        test("thuongfw", expected: "thường")
+        test("thuowngf", expected: "thường")
+        test("thuowfng", expected: "thường")
+        test("hof a".replacingOccurrences(of: " ", with: ""), expected: "hòa")
         test("thuongws", expected: "thướng")
         test("nguoifw", expected: "người")
         test("thuwowng", expected: "thương")
