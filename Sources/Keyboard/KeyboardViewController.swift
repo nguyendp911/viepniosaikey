@@ -1499,6 +1499,15 @@ final class KeyboardViewController: UIInputViewController {
             (title: "☀️ Chào ngày mới", insert: "Chúc bạn một ngày tốt lành nhé!", emoji: false),
             (title: "✨ Gợi chuyện", insert: "Dạo này bạn có gì mới không?", emoji: false)
         ])
+        // User-saved phrases are displayed only in the idle strip, and only
+        // inserted after an explicit tap. Avoid loading large history or AI
+        // context on the keyboard's keystroke path.
+        for phrase in KeyboardSettings.savedPhrases.prefix(3) {
+            let clean = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !clean.isEmpty, clean.count <= 240 else { continue }
+            idleActions.append((title: "📌 " + String(clean.prefix(18)),
+                                insert: clean, emoji: false))
+        }
         for child in idleBar.arrangedSubviews {
             idleBar.removeArrangedSubview(child)
             child.removeFromSuperview()
