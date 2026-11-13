@@ -1608,7 +1608,11 @@ final class KeyboardViewController: UIInputViewController {
                     let completions = OfflineSentenceSuggestions.suggestions(for: word, tone: sentenceTone)
                     // Word corrections stay first; clearly labeled whole sentences
                     // remain an explicit tap rather than an automatic replacement.
-                    results.append(contentsOf: completions.filter { !results.contains($0) })
+                    // Keep the typed word first, then show one explicit
+                    // sentence choice without hiding it behind word predictions.
+                    if let phrase = completions.first, !results.contains(phrase) {
+                        results.insert(phrase, at: min(1, results.count))
+                    }
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
