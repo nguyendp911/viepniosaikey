@@ -15,6 +15,10 @@ struct VerifySentenceSuggestions {
                          "Unexpected suggestion: \(unsafe)")
         }
         precondition(OfflineSentenceSuggestions.suggestions(for: "xin", limit: 0).isEmpty)
+        let formal = OfflineSentenceSuggestions.suggestions(for: "cam", tone: "Lịch sự")
+        precondition(formal == ["Xin chân thành cảm ơn anh/chị!"])
+        let casual = OfflineSentenceSuggestions.suggestions(for: "cam", tone: "Tự nhiên")
+        precondition(casual == ["Cảm ơn bạn rất nhiều!"])
         print("PASS [Sentence] deterministic and bounded offline completions")
     }
 }
