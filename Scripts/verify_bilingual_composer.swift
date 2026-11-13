@@ -184,5 +184,57 @@ struct VerifyBilingualComposer {
             }
             print("PASS [Bilingual] fast-path parity \\(raw)")
         }
+
+        // 1,200 reproducible touch streams with diacritic keys, ordinary
+        // English letters and backspaces. Check actual incremental edits
+        // against the reference composer on each physical key.
+        var seed: UInt64 = 0x564945504E
+        let alphabet = Array("abcdeghiklmnooprstuvwxyz")
+        for caseNumber in 0..<1200 {
+            let wordLength = 3 + (caseNumber % 10)
+            var raw = ""
+            var candidate = ""
+            var visible = ""
+            for _ in 0..<wordLength {
+                seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                let key = String(alphabet[Int((seed >> 24) % UInt64(alphabet.count))])
+                raw += key
+                candidate = BilingualComposer.appendCandidate(candidate, key: key)
+                let expected = BilingualComposer.compose(raw, preference: .vietnamese).rendered
+                let next = BilingualComposer.choose(
+                    raw: raw, vietnameseCandidate: candidate,
+                    preference: .vietnamese).rendered
+                guard expected == next else {
+                    fatalError("Stress parity mismatch for \\(raw)")
+                }
+                if let edit = FastTyping.edit(from: visible, to: next) {
+                    guard edit.deleteCount <= visible.count else {
+                        fatalError("Invalid deletion count for \\(raw)")
+                    }
+                    visible = String(visible.dropLast(edit.deleteCount)) + edit.insertion
+                } else {
+                    // Correctly unchanged transformations are not missing keys.
+                    // A physical key may be consumed by the composer.
+                    visible = next
+                }
+                guard visible == expected else {
+                    fatalError("Stress edit mismatch for \\(raw)")
+                }
+            }
+            // Check that backspacing through every key restores exact states.
+            while !raw.isEmpty {
+                let restored = BilingualComposer.removingLastKey(from: raw,
+                    preference: .vietnamese).rendered
+                guard let edit = FastTyping.edit(from: visible, to: restored) else {
+                    if visible != restored { fatalError("Stress backspace mismatch") }
+                    raw.removeLast()
+                    continue
+                }
+                visible = String(visible.dropLast(edit.deleteCount)) + edit.insertion
+                raw.removeLast()
+                guard visible == restored else { fatalError("Stress backspace mismatch") }
+            }
+        }
+        print("PASS [Bilingual] 1,200 deterministic typing/backspace streams")
     }
 }
