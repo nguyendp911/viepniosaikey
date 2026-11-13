@@ -33,11 +33,12 @@ enum BilingualComposer {
     /// Hot-path API: the UI already has the last Vietnamese candidate, so
     /// append one Telex key to it instead of replaying all previous keys.
     static func appendCandidate(_ candidate: String, key: String) -> String {
-        guard FastTyping.isTelexModifier(key) else {
-            let appended = candidate + key
-            return VietnameseTelex.normalizedTonePosition(appended) ?? appended
+        if FastTyping.isTelexModifier(key),
+           let transformed = VietnameseTelex.transformed(word: candidate, key: key) {
+            return transformed
         }
-        return VietnameseTelex.transformed(word: candidate, key: key) ?? (candidate + key)
+        let appended = candidate + key
+        return VietnameseTelex.normalizedTonePosition(appended) ?? appended
     }
 
     static func choose(raw: String, vietnameseCandidate vi: String,
