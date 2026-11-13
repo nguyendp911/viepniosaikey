@@ -125,6 +125,54 @@ enum VietnameseTelex {
         return rendered
     }
 
+    /// Keep a previously typed tone on the correct vowel when more letters
+    /// are appended. This makes early and late Telex tone keys equivalent.
+    /// Only touch a single existing tone in a plausible Vietnamese syllable.
+    static func normalizedTonePosition(_ word: String) -> String? {
+        let chars = Array(word)
+        guard chars.count > 1, chars.count <= 40,
+              plausibleVietnameseSyllable(chars) else { return nil }
+        var marked: [(index: Int, tone: Int)] = []
+        let vowelIndices = chars.indices.filter { base(chars[$0]) != nil }
+        for index in vowelIndices {
+            guard let vowel = base(chars[index]), let forms = vowels[vowel],
+                  let offset = Array(forms).firstIndex(of: Character(String(chars[index]).lowercased())),
+                  offset > 0 else { continue }
+            marked.append((index, offset))
+        }
+        guard marked.count == 1 else { return nil }
+        let old = marked[0]
+        // In ươ, the tone belongs to ơ, not ư.
+        let preferred = vowelIndices.filter { index in
+            guard let vowel = base(chars[index]) else { return false }
+            return "ăâêôơư".contains(vowel) &&
+                !(vowel == "ư" && index + 1 < chars.count && base(chars[index + 1]) == "ơ")
+        }
+        let target: Int
+        if let shaped = preferred.last {
+            target = shaped
+        } else if vowelIndices.count > 1,
+                  let last = vowelIndices.last,
+                  "iuy".contains(base(chars[last]) ?? " "),
+                  let previous = vowelIndices.dropLast().last {
+            target = previous
+        } else {
+            target = vowelIndices.last!
+        }
+        guard target != old.index, let targetBase = base(chars[target]),
+              let targetForms = vowels[targetBase],
+              let oldBase = base(chars[old.index]) else { return nil }
+        var result = chars
+        result[old.index] = restyle(chars[old.index], as: oldBase)
+        let plain = Array(vowels[oldBase]!)[0]
+        result[old.index] = String(chars[old.index]).uppercased() == String(chars[old.index])
+            ? Character(String(plain).uppercased()) : plain
+        let replacement = Array(targetForms)[old.tone]
+        result[target] = String(chars[target]).uppercased() == String(chars[target])
+            ? Character(String(replacement).uppercased()) : replacement
+        return String(result)
+    }
+
     /// Returns nil when the typed key should be inserted literally.
     static func transformed(word: String, key: String) -> String? {
         guard word.count <= 40, let letter = key.first, key.count == 1 else { return nil }
@@ -135,7 +183,7 @@ enum VietnameseTelex {
         // Telex W can be typed at the end of the whole syllable, not just
         // immediately after the vowel: "thuongw" -> "thương".
         if code == "w", let shifted = shiftedW(in: chars) {
-            return shifted
+            return normalizedTonePosition(shifted) ?? shifted
         }
 
         // Other Telex double-letter shape keys still work as before.
@@ -176,7 +224,8 @@ enum VietnameseTelex {
         // is a glide so the tone belongs on a rather than i.
         let shaped = indices.filter { index in
             guard let vowel = base(chars[index]) else { return false }
-            return "ăâêôơư".contains(vowel)
+            return "ăâêôơư".contains(vowel) &&
+                !(vowel == "ư" && index + 1 < chars.count && base(chars[index + 1]) == "ơ")
         }
         let chosen: Int
         if let marked = shaped.last {
