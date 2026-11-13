@@ -39,6 +39,12 @@ jobs:
             Sources/Shared/OfflineSentenceSuggestions.swift \
             Scripts/verify_sentence_suggestions.swift
           "$RUNNER_TEMP/verify-sentences"
+      - name: Verify VNI numeric composition
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-vni" \
+            Sources/Shared/VietnameseVNI.swift Scripts/verify_vni.swift
+          "$RUNNER_TEMP/verify-vni"
       - name: Verify fast keyboard input edits
         run: |
           set -euo pipefail
