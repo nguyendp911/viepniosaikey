@@ -27,6 +27,13 @@ jobs:
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-telex" \
             Sources/Shared/VietnameseTelex.swift Scripts/verify_telex.swift
           "$RUNNER_TEMP/verify-telex"
+      - name: Verify offline whole-sentence completions
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-sentences" \
+            Sources/Shared/OfflineSentenceSuggestions.swift \
+            Scripts/verify_sentence_suggestions.swift
+          "$RUNNER_TEMP/verify-sentences"
       - name: Verify fast keyboard input edits
         run: |
           set -euo pipefail
