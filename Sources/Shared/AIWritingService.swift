@@ -3,6 +3,9 @@ import Foundation
 enum AIWritingAction: String, CaseIterable {
     case rewrite = "Viết tự nhiên hơn"
     case shorter = "Viết ngắn hơn"
+    case expand = "Mở rộng ý"
+    case empathetic = "Đồng cảm hơn"
+    case clarify = "Rõ ràng, dễ hiểu"
     case polite = "Lịch sự hơn"
     case warmer = "Dễ thương hơn"
     case proofread = "Sửa chính tả"
@@ -15,6 +18,9 @@ enum AIWritingAction: String, CaseIterable {
         switch self {
         case .rewrite: return "Rewrite the text naturally in Vietnamese without adding claims or changing meaning."
         case .shorter: return "Shorten the text in Vietnamese while keeping its exact meaning."
+        case .expand: return "Expand the text into a complete, natural Vietnamese message. Preserve every known fact; do not invent dates, names, promises or events."
+        case .empathetic: return "Rewrite the text in empathetic, tactful Vietnamese while preserving factual meaning and boundaries. Avoid emotional pressure or manipulation."
+        case .clarify: return "Rewrite the text for clarity in plain Vietnamese, preserving factual details and intended meaning without inventing information."
         case .polite: return "Make the Vietnamese text more polite, respectful and natural."
         case .warmer: return "Make the Vietnamese text friendly and warm; add at most one suitable emoji."
         case .proofread: return "Fix Vietnamese spelling and punctuation. Preserve original meaning, names and facts."
