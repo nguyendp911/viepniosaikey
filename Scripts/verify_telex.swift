@@ -31,7 +31,7 @@ struct VerifyVietnameseTelex {
         test("thuongfw", expected: "thường")
         test("thuowngf", expected: "thường")
         test("thuowfng", expected: "thường")
-        test("hof a".replacingOccurrences(of: " ", with: ""), expected: "hòa")
+        test("hofa", expected: "hoà")
         test("thuongws", expected: "thướng")
         test("nguoifw", expected: "người")
         test("thuwowng", expected: "thương")
