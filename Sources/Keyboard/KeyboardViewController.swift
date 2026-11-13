@@ -1584,6 +1584,7 @@ final class KeyboardViewController: UIInputViewController {
         // Keep dictionary scanning and sorting off the keyboard UI thread.
         // Debounce the background work, then return only the final 3 labels.
         let personalWords = learnedWords
+        let sentenceSuggestionsEnabled = useSentenceSuggestions
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
         // causing contention after sustained fast typing.
@@ -1593,7 +1594,7 @@ final class KeyboardViewController: UIInputViewController {
             self.predictionQueue.async { [weak self] in
                 var results = SmartTyping.predictions(
                     prefix: word, learned: personalWords)
-                if self.useSentenceSuggestions {
+                if sentenceSuggestionsEnabled {
                     let completions = OfflineSentenceSuggestions.suggestions(for: word)
                     // Word corrections stay first; clearly labeled whole sentences
                     // remain an explicit tap rather than an automatic replacement.
