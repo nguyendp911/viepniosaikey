@@ -65,6 +65,8 @@ final class KeyboardViewController: UIInputViewController {
     // for CPU and starving keystrokes during long chats.
     private let predictionQueue = DispatchQueue(
         label: "com.viepn.keyboard.predictions", qos: .utility)
+    private let typingDiagnosticsQueue = DispatchQueue(
+        label: "com.viepn.keyboard.diagnostics", qos: .utility)
     private let glideRecognitionQueue = DispatchQueue(
         label: "com.viepn.keyboard.glide", qos: .utility)
     private var candidateExpandButton: UIButton?
@@ -1107,8 +1109,12 @@ final class KeyboardViewController: UIInputViewController {
         let startedAt = sample ? CACurrentMediaTime() : 0
         defer {
             if sample {
-                KeyboardStability.note("typing", durationMs:
-                    (CACurrentMediaTime() - startedAt) * 1000)
+                let elapsed = (CACurrentMediaTime() - startedAt) * 1000
+                // Writing diagnostic preferences can block the keyboard's main
+                // thread. Store only aggregate timing from a serial queue.
+                typingDiagnosticsQueue.async {
+                    KeyboardStability.note("typing", durationMs: elapsed)
+                }
             }
         }
         beginTyping()
@@ -1745,9 +1751,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func replaceCurrentWord(_ replacement: String) {
-        guard let before = textDocumentProxy.documentContextBeforeInput else { return }
+        // Do not rewrite a selected range or the left half of a word when
+        // the caret is moved into the middle of an existing sentence.
+        guard (textDocumentProxy.selectedText?.isEmpty ?? true),
+              textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+              let before = textDocumentProxy.documentContextBeforeInput else { return }
         let current = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
-        guard current.count <= 40 else { return }
+        guard current.count <= 40, replacement.count <= 240 else { return }
         if let edit = FastTyping.edit(from: current, to: replacement) {
             for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
             if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
