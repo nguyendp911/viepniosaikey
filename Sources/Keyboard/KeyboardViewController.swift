@@ -1155,6 +1155,8 @@ final class KeyboardViewController: UIInputViewController {
                         let current = textDocumentProxy.documentContextBeforeInput ?? ""
                         // Never delete text that is no longer the composing word.
                         guard !displayedComposingWord.isEmpty,
+                              (textDocumentProxy.selectedText?.isEmpty ?? true),
+                              textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
                               current.hasSuffix(displayedComposingWord) else {
                             resetBilingualComposition()
                             textDocumentProxy.insertText(key)
@@ -1316,6 +1318,8 @@ final class KeyboardViewController: UIInputViewController {
                 // ends with the exact word this keyboard previously inserted.
                 // Plain single-character backspace keeps the native fast path.
                 let safe = !displayedComposingWord.isEmpty
+                    && (textDocumentProxy.selectedText?.isEmpty ?? true)
+                    && textDocumentProxy.documentContextAfterInput?.first?.isLetter != true
                     && (textDocumentProxy.documentContextBeforeInput ?? "")
                         .hasSuffix(displayedComposingWord)
                 if safe {
