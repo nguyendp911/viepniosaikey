@@ -35,6 +35,23 @@ enum VietnameseVNI {
             return nil
         }
         guard !vowelIndices.isEmpty else { return nil }
+        if digit == "7" && chars.count >= 2 {
+            // In VNI, a trailing 7 shapes the complete "uo" nucleus:
+            // duong7 -> dương, thuong7 -> thương. A single trailing 7
+            // should not be consumed a second time when already shaped.
+            for index in 0..<(chars.count - 1) {
+                guard let left = base(chars[index]),
+                      let right = base(chars[index + 1]),
+                      left.0 == 9, right.0 == 6 else { continue }
+                let leftForm = Array(vowelGroups[10])[left.1]
+                let rightForm = Array(vowelGroups[8])[right.1]
+                chars[index] = String(chars[index]).uppercased() == String(chars[index])
+                    ? Character(String(leftForm).uppercased()) : leftForm
+                chars[index + 1] = String(chars[index + 1]).uppercased() == String(chars[index + 1])
+                    ? Character(String(rightForm).uppercased()) : rightForm
+                return String(chars)
+            }
+        }
         if digit == "0" {
             // 0 removes a tone while keeping its vowel shape (VNI convention).
             guard let index = vowelIndices.first(where: { (base(chars[$0])?.1 ?? 0) > 0 }),
