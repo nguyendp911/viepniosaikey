@@ -929,6 +929,12 @@ struct ContentView: View {
                         telexEnabled = newValue == "telex"
                         KeyboardSettings.telexEnabled = telexEnabled
                     }
+                if typingMode == "vni" {
+                    Text("VNI: bấm 123 để nhập số dấu (1–5), 6/7/8 để đổi nguyên âm, 9 đổi d thành đ và 0 bỏ dấu thanh. Ví dụ: da9 → đa; duong7 → dương.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 keyboardDivider()
                 keyboardMenuRow("Giọng điệu AI", symbol: "bubble.left",
                                 value: $preferredTone,
