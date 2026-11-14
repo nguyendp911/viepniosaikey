@@ -1569,7 +1569,8 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateContextVisibility() {
-        let showWords = isComposingInteraction && (useSuggestions || isGlideSuggestionVisible)
+        let showWords = isComposingInteraction
+            && (useSuggestions || useSentenceSuggestions || isGlideSuggestionVisible)
         idleScroll.isHidden = showWords
         candidateScroll.isHidden = !showWords
         // Keep contextSlot permanently visible and fixed height.
@@ -1597,7 +1598,7 @@ final class KeyboardViewController: UIInputViewController {
             renderCandidates(override)
             return
         }
-        guard useSuggestions, !recentWord.isEmpty else {
+        guard (useSuggestions || useSentenceSuggestions), !recentWord.isEmpty else {
             renderCandidates([])
             return
         }
@@ -1610,6 +1611,7 @@ final class KeyboardViewController: UIInputViewController {
         // Debounce the background work, then return only the final 3 labels.
         let personalWords = learnedWords
         let sentenceSuggestionsEnabled = useSentenceSuggestions
+        let wordSuggestionsEnabled = useSuggestions
         let sentenceTone = KeyboardSettings.preferredTone
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
@@ -1618,8 +1620,9 @@ final class KeyboardViewController: UIInputViewController {
             guard let self, self.candidateGeneration == generation,
                   self.recentWord == word else { return }
             self.predictionQueue.async { [weak self] in
-                var results = SmartTyping.predictions(
-                    prefix: word, learned: personalWords)
+                var results = wordSuggestionsEnabled
+                    ? SmartTyping.predictions(prefix: word, learned: personalWords)
+                    : [word]
                 if sentenceSuggestionsEnabled {
                     let completions = OfflineSentenceSuggestions.suggestions(for: word, tone: sentenceTone)
                     // Word corrections stay first; clearly labeled whole sentences
@@ -1648,7 +1651,7 @@ final class KeyboardViewController: UIInputViewController {
         // every keypress: [typed] -> [three predictions] -> [typed] -> ...
         // Repeated allocations and constraints eventually stuttered.
         let shouldHide = !isComposingInteraction
-            || (!useSuggestions && !isGlideSuggestionVisible)
+            || (!useSuggestions && !useSentenceSuggestions && !isGlideSuggestionVisible)
         let needsExpand = pendingGlideWord != nil
             && fullGlideOptions.count > results.count
         if results == candidateWords,
@@ -1728,7 +1731,9 @@ final class KeyboardViewController: UIInputViewController {
             // the previous swipe, including its trailing space. Only touch
             // the host field when the exact suffix is still present.
             let current = textDocumentProxy.documentContextBeforeInput ?? ""
-            if current.hasSuffix(committed + " ") {
+            if (textDocumentProxy.selectedText?.isEmpty ?? true),
+               textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+               current.hasSuffix(committed + " ") {
                 for _ in 0..<(committed.count + 1) {
                     textDocumentProxy.deleteBackward()
                 }
@@ -1787,7 +1792,9 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         lastWordReplacement = nil
-        guard let context = textDocumentProxy.documentContextBeforeInput,
+        guard (textDocumentProxy.selectedText?.isEmpty ?? true),
+              textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+              let context = textDocumentProxy.documentContextBeforeInput,
               context.hasSuffix(stored.corrected),
               let edit = FastTyping.edit(from: stored.corrected, to: stored.original) else {
             showStatus("Văn bản đã thay đổi, không thể hoàn tác an toàn")
