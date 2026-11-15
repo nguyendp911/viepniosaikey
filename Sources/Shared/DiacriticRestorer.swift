@@ -55,13 +55,13 @@ enum DiacriticRestorer {
     sáu sau sâu sấu sẩu sầu \
     nặng nắng nâng nằng nẵng năng \
     ngay ngày ngáy ngây ngẩy ngấy ngầy \
-    tuổi tuối tuôi tuổi \
+    tuổi   tuổi \
     nên nến nện nền \
     quả quá qua quạ quã quà \
     hay hãy hẩy hày hậy \
     dạ dà dã da dả dá \
-    còn con cón cọn cổn \
-    cả cá cà cạ cã cầ \
+    còn con    \
+    cả cá cà cạ cã  \
     khỏe khoẻ khoe khóe khỏa khoả \
     mới mời mỡi mởi mối mồi mỗi mội \
     đã đá đả đạ đa đà đã \
@@ -83,7 +83,7 @@ enum DiacriticRestorer {
     xuống xuông xuống xương xướng xưởng \
     uống ướng ương uồng uông \
     cười cưới cửa cưa cứ cừ cự cứu cựu cứng cừng \
-    được dược đước đuợc \
+    được dược   \
     nước nức nứt nừ nữ nữa nửa nữa \
     phải phái phải phai phài phãi phái \
     cơm cớm cờm cởm \
@@ -121,7 +121,7 @@ enum DiacriticRestorer {
     lỗi lối lỗi lồi lội lôi lối \
     chào cháo chảo chạo chạo \
     tạm tâm tám tằm tẩm tầm tấm \
-    biệt biết biêt biếc biện \
+    biệt biết  biếc biện
     """
 
     /// accent-free key -> accented forms, best first. Built once from the
