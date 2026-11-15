@@ -64,6 +64,38 @@ enum NextWordPredictor {
         return collected.reversed().map(normalize)
     }
 
+    /// Like `words(in:)` but keeps the letters exactly as typed (case and
+    /// accents), and reports whether the scan reached the start of the
+    /// sentence. When `reachedStart` is true, `words.first` begins the sentence.
+    static func rawWords(in text: String, maxWords: Int = 4)
+        -> (words: [String], reachedStart: Bool) {
+        guard maxWords > 0 else { return ([], false) }
+        var collected: [String] = []
+        var current: [Character] = []
+        var scanned = 0
+        var ended = true
+        scan: for ch in text.reversed() {
+            scanned += 1
+            if scanned > scanLimit { ended = false; break scan }
+            if ch.isLetter {
+                current.append(ch)
+                continue
+            }
+            if !current.isEmpty {
+                collected.append(String(current.reversed()))
+                current.removeAll(keepingCapacity: true)
+                if collected.count == maxWords { ended = false; break scan }
+            }
+            if ch == "." || ch == "!" || ch == "?" || ch == "…" || ch.isNewline {
+                break scan
+            }
+        }
+        if !current.isEmpty && ended && collected.count < maxWords {
+            collected.append(String(current.reversed()))
+        }
+        return (words: Array(collected.reversed()), reachedStart: ended)
+    }
+
     static func normalize(_ word: String) -> String {
         word.lowercased().precomposedStringWithCanonicalMapping
     }

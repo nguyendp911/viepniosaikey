@@ -50,7 +50,22 @@ final class KeyboardViewController: UIInputViewController {
     // Next-word prediction: "em ăn " -> cơm / chưa / gì ...
     private var nextWordModel = NextWordModel()
     private var nextWordDirty = false
-    private var nextWordMode = false
+    // What each suggestion chip does when tapped (empty = plain word chips).
+    private enum CandidateAction {
+        case nextWord(String)
+        case emoji(String)
+        case expandShorthand(original: String, expansion: String)
+        case restoreDiacritics(original: String, restored: String)
+    }
+    private var candidateActions: [CandidateAction] = []
+    private var emojiSuggestionsEnabled = true
+    private var shorthandEnabled = true
+    private var restoreDiacriticsEnabled = true
+    private var longPressDigitsEnabled = true
+    private var properNounsEnabled = true
+    private var properNouns = ProperNounMemory()
+    private var properNounDirty = false
+    private var digitHintLabels: [UILabel] = []
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -147,6 +162,13 @@ final class KeyboardViewController: UIInputViewController {
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
         nextWordModel = NextWordModel.decode(KeyboardSettings.nextWordModelData)
+        properNouns = ProperNounMemory.decode(KeyboardSettings.properNounData)
+        emojiSuggestionsEnabled = KeyboardSettings.emojiSuggestionsEnabled
+        shorthandEnabled = KeyboardSettings.shorthandSuggestionsEnabled
+        restoreDiacriticsEnabled = KeyboardSettings.restoreDiacriticsEnabled
+        longPressDigitsEnabled = KeyboardSettings.longPressDigitsEnabled
+        properNounsEnabled = KeyboardSettings.properNounsEnabled
+        updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
         cachedSnippets = KeyboardSettings.textSnippets
@@ -161,6 +183,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewDidLoad()
         refreshTypingPreferences()
         buildKeyboard()
+        installDigitHints()
         applyTheme()
         if hapticsEnabled && hapticsStyle == "light" { haptic.prepare() }
         // Build dictionaries off the main thread so the first keys are not slow.
@@ -204,6 +227,10 @@ final class KeyboardViewController: UIInputViewController {
         if nextWordDirty {
             nextWordDirty = false
             KeyboardSettings.nextWordModelData = nextWordModel.encoded()
+        }
+        if properNounDirty {
+            properNounDirty = false
+            KeyboardSettings.properNounData = properNouns.encoded()
         }
         guard learnedWordDirty else { return }
         learnedWordDirty = false
@@ -1042,6 +1069,7 @@ final class KeyboardViewController: UIInputViewController {
                 toolButtons[index].configuration = config
             }
         }
+        for label in digitHintLabels { label.textColor = primary.withAlphaComponent(0.5) }
         previewLabel.backgroundColor = keyColor
         previewLabel.textColor = primary
         statusLabel.textColor = primary
@@ -1264,12 +1292,13 @@ final class KeyboardViewController: UIInputViewController {
         // for auto-capitalisation so a space does not pay for another
         // synchronous round trip to the host app (slow in long chats).
         var contextBeforeSpace: String?
+        var shorthandHit: (original: String, expansion: String)?
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
            textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
            let context = textDocumentProxy.documentContextBeforeInput {
-            contextBeforeSpace = context
+            contextBeforeSpace = String(context.suffix(300))
             let token = String(context.reversed().prefix(while: {
                 $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_" || $0 == "/"
             }).reversed())
@@ -1299,6 +1328,20 @@ final class KeyboardViewController: UIInputViewController {
                 }
                 scheduleLearnedWordsFlush()
             }
+            // Plain word (no snippet / replacement ran): proper nouns and
+            // chat shorthand.
+            if let tail = contextBeforeSpace {
+                if let updated = applyLearnedProperNoun(to: tail) {
+                    contextBeforeSpace = updated
+                }
+                learnProperNoun(from: contextBeforeSpace ?? tail)
+                if shorthandEnabled,
+                   let lastWord = NextWordPredictor.rawWords(
+                       in: contextBeforeSpace ?? tail, maxWords: 1).words.last,
+                   let expansion = ChatShorthand.expansion(for: lastWord) {
+                    shorthandHit = (original: lastWord, expansion: expansion)
+                }
+            }
         }
         textDocumentProxy.insertText(" ")
         knownWordBoundary = true
@@ -1308,7 +1351,7 @@ final class KeyboardViewController: UIInputViewController {
         // (not after a snippet expansion or a second space).
         if let finished = contextBeforeSpace, finished.last?.isLetter == true {
             learnNextWord(from: finished)
-            showNextWordSuggestions(afterContext: finished)
+            showSmartStrip(afterContext: finished, shorthand: shorthandHit)
         }
         if autocapitalizeEnabled && !isShiftLocked {
             // If a snippet/replacement expanded, the text changed: re-read.
@@ -1440,6 +1483,7 @@ final class KeyboardViewController: UIInputViewController {
         if let bottom = secondaryRow, let numeric = bottom.arrangedSubviews.first as? UIButton {
             numeric.setTitle(isNumbers ? "ABC" : "123", for: .normal)
         }
+        updateDigitHints()
     }
 
     @objc private func globeTapped() {
@@ -1618,9 +1662,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCandidates(_ override: [String]? = nil) {
-        // Any normal refresh leaves next-word mode; showNextWordSuggestions
-        // re-enters it right after rendering its own list.
-        nextWordMode = false
+        // Any normal refresh drops special chip actions; showSmartStrip sets
+        // them again right after rendering its own list.
+        candidateActions = []
         if override == nil && pendingGlideWord == nil {
             isGlideSuggestionVisible = false
         }
@@ -1688,7 +1732,7 @@ final class KeyboardViewController: UIInputViewController {
             deadline: .now() + .milliseconds(95), execute: job)
     }
 
-    // MARK: Next-word prediction
+    // MARK: Smart suggestion strip (next word, emoji, shorthand, accents)
 
     /// Remember that the last word of `context` followed the words before it.
     /// Opt-in on-device learning only; persisted lazily with learned words.
@@ -1701,37 +1745,186 @@ final class KeyboardViewController: UIInputViewController {
         scheduleLearnedWordsFlush()
     }
 
-    /// After a completed word, show likely next words in the suggestion strip.
-    /// A tap inserts the word plus a space; nothing is inserted automatically.
-    private func showNextWordSuggestions(afterContext context: String) {
-        guard useSuggestions, pendingGlideWord == nil else { return }
-        let words = NextWordPredictor.words(in: context)
-        let predictions = NextWordPredictor.predict(after: words, model: nextWordModel)
-        guard !predictions.isEmpty else { return }
-        updateCandidates(predictions)
-        nextWordMode = true
+    /// Remember names the user capitalised in the middle of a sentence.
+    private func learnProperNoun(from context: String) {
+        guard learnWordsEnabled, properNounsEnabled else { return }
+        let scan = NextWordPredictor.rawWords(in: context, maxWords: 4)
+        guard !scan.words.isEmpty else { return }
+        let before = properNouns
+        properNouns.learn(words: scan.words, reachedSentenceStart: scan.reachedStart)
+        if properNouns != before {
+            properNounDirty = true
+            scheduleLearnedWordsFlush()
+        }
     }
 
-    private func applyNextWordSuggestion(_ word: String) {
-        // Only act while the caret still follows the space we inserted.
+    /// Fix a learned name typed in lower case ("hà nội" -> "Hà Nội").
+    /// Returns the updated text before the caret, or nil if nothing changed.
+    private func applyLearnedProperNoun(to context: String) -> String? {
+        guard properNounsEnabled, !properNouns.entries.isEmpty else { return nil }
+        let scan = NextWordPredictor.rawWords(in: context, maxWords: ProperNounMemory.maxWordsPerName)
+        guard let hit = properNouns.match(words: scan.words) else { return nil }
+        let typed = scan.words.suffix(hit.wordCount).joined(separator: " ")
+        guard context.hasSuffix(typed) else { return nil }
+        for _ in 0..<typed.count { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(hit.display)
+        return String(context.dropLast(typed.count)) + hit.display
+    }
+
+    /// After a completed word, fill the suggestion strip: a shorthand
+    /// expansion, an "add accents" chip for accent-free sentences, likely
+    /// next words and matching emoji. A tap runs the chip's action; nothing
+    /// is inserted automatically.
+    private func showSmartStrip(afterContext context: String,
+                                shorthand: (original: String, expansion: String)?) {
+        guard useSuggestions, pendingGlideWord == nil else { return }
+        var titles: [String] = []
+        var actions: [CandidateAction] = []
+        if let hit = shorthand {
+            titles.append(hit.original + " → " + hit.expansion)
+            actions.append(.expandShorthand(original: hit.original, expansion: hit.expansion))
+        } else {
+            if restoreDiacriticsEnabled {
+                let sentence = DiacriticRestorer.sentenceTail(of: context)
+                if let restored = DiacriticRestorer.suggestion(
+                    for: sentence, model: nextWordModel,
+                    isProtected: { SmartTyping.isEnglishWord($0) }) {
+                    titles.append("✨ Thêm dấu")
+                    actions.append(.restoreDiacritics(original: sentence, restored: restored))
+                }
+            }
+            let words = NextWordPredictor.words(in: context)
+            for word in NextWordPredictor.predict(after: words, model: nextWordModel) {
+                titles.append(word)
+                actions.append(.nextWord(word))
+            }
+            if emojiSuggestionsEnabled {
+                for emoji in EmojiSuggestions.suggest(afterWords: words) {
+                    titles.append(emoji)
+                    actions.append(.emoji(emoji))
+                }
+            }
+        }
+        guard !titles.isEmpty else { return }
+        updateCandidates(titles)
+        candidateActions = actions
+    }
+
+    private func performCandidateAction(_ action: CandidateAction) {
+        switch action {
+        case .nextWord(let word):
+            insertSuggestedText(word, isEmoji: false)
+        case .emoji(let emoji):
+            insertSuggestedText(emoji, isEmoji: true)
+        case .expandShorthand(let original, let expansion):
+            replaceTypedWords(original: original, with: expansion)
+        case .restoreDiacritics(let original, let restored):
+            replaceTypedWords(original: original, with: restored)
+        }
+    }
+
+    /// Text before the caret, but only while the caret still follows the
+    /// space this keyboard inserted and nothing is selected, so suggestion
+    /// taps never edit unrelated text.
+    private func textBeforeCaretIfSafe() -> String? {
         guard (textDocumentProxy.selectedText?.isEmpty ?? true),
               textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
               let before = textDocumentProxy.documentContextBeforeInput,
-              before.last == " " else {
+              before.last == " " else { return nil }
+        return before
+    }
+
+    private func insertSuggestedText(_ text: String, isEmoji: Bool) {
+        guard let before = textBeforeCaretIfSafe() else {
             updateCandidates()
             return
         }
         resetBilingualComposition()
-        textDocumentProxy.insertText(word + " ")
+        textDocumentProxy.insertText(text + " ")
         knownWordBoundary = true
         recentWord = ""
         lastWordReplacement = nil
-        // Only the tail matters; avoid copying a very long chat history.
-        let context = String(before.suffix(150)) + word
+        if isEmoji {
+            KeyboardSettings.recordEmojiSelection(text)
+            updateCandidates()
+        } else {
+            // Only the tail matters; avoid copying a very long chat history.
+            let context = String(before.suffix(150)) + text
+            updateCandidates()
+            learnNextWord(from: context)
+            showSmartStrip(afterContext: context, shorthand: nil)
+        }
+        tactileFeedback()
+    }
+
+    /// Replace the words just typed (`original`, followed by the space this
+    /// keyboard inserted) with `replacement`, rewriting only what differs.
+    private func replaceTypedWords(original: String, with replacement: String) {
+        guard let before = textBeforeCaretIfSafe(),
+              before.hasSuffix(original + " "),
+              let edit = FastTyping.edit(from: original, to: replacement) else {
+            updateCandidates()
+            return
+        }
+        resetBilingualComposition()
+        for _ in 0..<(edit.deleteCount + 1) { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(edit.insertion + " ")
+        knownWordBoundary = true
+        recentWord = ""
+        lastWordReplacement = nil
+        let tail = String(before.suffix(300))
+        let context = String(tail.dropLast(original.count + 1)) + replacement
         updateCandidates()
         learnNextWord(from: context)
-        showNextWordSuggestions(afterContext: context)
+        showSmartStrip(afterContext: context, shorthand: nil)
         tactileFeedback()
+    }
+
+    // MARK: Long-press digits on the top letter row
+
+    private func installDigitHints() {
+        guard digitHintLabels.isEmpty, letterButtons.count >= 10 else { return }
+        let digits = Array("1234567890")
+        for (index, key) in letterButtons.prefix(10).enumerated() {
+            let label = UILabel()
+            label.text = String(digits[index])
+            label.font = .systemFont(ofSize: 9, weight: .medium)
+            label.textColor = .secondaryLabel
+            label.isUserInteractionEnabled = false
+            label.translatesAutoresizingMaskIntoConstraints = false
+            key.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.topAnchor.constraint(equalTo: key.topAnchor, constant: 2),
+                label.trailingAnchor.constraint(equalTo: key.trailingAnchor, constant: -4)
+            ])
+            digitHintLabels.append(label)
+            let press = UILongPressGestureRecognizer(
+                target: self, action: #selector(digitLongPressed(_:)))
+            press.minimumPressDuration = 0.35
+            press.cancelsTouchesInView = false
+            key.addGestureRecognizer(press)
+        }
+        updateDigitHints()
+    }
+
+    private func updateDigitHints() {
+        let hidden = isNumbers || !longPressDigitsEnabled
+        for label in digitHintLabels { label.isHidden = hidden }
+    }
+
+    @objc private func digitLongPressed(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .began, longPressDigitsEnabled, !isNumbers,
+              let key = recognizer.view as? UIButton,
+              let index = letterButtons.firstIndex(of: key), index < 10 else { return }
+        let digit = String(Array("1234567890")[index])
+        // The letter was already typed on touch-down: take it back (this also
+        // unwinds any Telex change it caused), then type the digit instead.
+        deleteTapped()
+        resetBilingualComposition()
+        textDocumentProxy.insertText(digit)
+        knownWordBoundary = false
+        recentWord = ""
+        updateCandidates()
     }
 
     private func renderCandidates(_ results: [String]) {
@@ -1815,8 +2008,8 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
-        if nextWordMode && pendingGlideWord == nil {
-            applyNextWordSuggestion(chosen)
+        if pendingGlideWord == nil, candidateActions.indices.contains(sender.tag) {
+            performCandidateAction(candidateActions[sender.tag])
             return
         }
         if let committed = pendingGlideWord {

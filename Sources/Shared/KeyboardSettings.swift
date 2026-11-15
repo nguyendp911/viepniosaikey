@@ -227,6 +227,38 @@ enum KeyboardSettings {
             }
         }
     }
+    // Smart typing extras. Everything runs on the device.
+    static var emojiSuggestionsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "emojiSuggestionsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "emojiSuggestionsEnabled") }
+    }
+    static var shorthandSuggestionsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "shorthandSuggestionsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "shorthandSuggestionsEnabled") }
+    }
+    static var restoreDiacriticsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "restoreDiacriticsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "restoreDiacriticsEnabled") }
+    }
+    static var longPressDigitsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "longPressDigitsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "longPressDigitsEnabled") }
+    }
+    static var properNounsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "properNounsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "properNounsEnabled") }
+    }
+    /// Encoded `ProperNounMemory` (names the user capitalised). On-device only.
+    static var properNounData: Data? {
+        get { defaults.data(forKey: prefix + "properNounMemory") }
+        set {
+            if let newValue = newValue {
+                defaults.set(newValue, forKey: prefix + "properNounMemory")
+            } else {
+                defaults.removeObject(forKey: prefix + "properNounMemory")
+            }
+        }
+    }
     static var keyHeight: Int {
         get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
         set { defaults.set(min(49, max(40, newValue)), forKey: prefix + "keyHeight") }

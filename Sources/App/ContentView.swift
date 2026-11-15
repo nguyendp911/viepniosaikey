@@ -43,6 +43,11 @@ struct ContentView: View {
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
+    @State private var emojiSuggestionsEnabled = KeyboardSettings.emojiSuggestionsEnabled
+    @State private var shorthandSuggestionsEnabled = KeyboardSettings.shorthandSuggestionsEnabled
+    @State private var restoreDiacriticsEnabled = KeyboardSettings.restoreDiacriticsEnabled
+    @State private var longPressDigitsEnabled = KeyboardSettings.longPressDigitsEnabled
+    @State private var properNounsEnabled = KeyboardSettings.properNounsEnabled
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
     @State private var keyHeightValue = String(KeyboardSettings.keyHeight)
@@ -992,6 +997,32 @@ struct ContentView: View {
                                   isOn: $predictionsEnabled)
                     .onChange(of: predictionsEnabled) { KeyboardSettings.predictionsEnabled = $0 }
                 keyboardDivider()
+                keyboardToggleRow("Gợi ý emoji theo từ", symbol: "face.smiling",
+                                  isOn: $emojiSuggestionsEnabled)
+                    .onChange(of: emojiSuggestionsEnabled) { KeyboardSettings.emojiSuggestionsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Gợi ý viết tắt chat (ntn, vs, mn...)",
+                                  symbol: "text.badge.checkmark", isOn: $shorthandSuggestionsEnabled)
+                    .onChange(of: shorthandSuggestionsEnabled) { KeyboardSettings.shorthandSuggestionsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Gợi ý thêm dấu cho câu gõ không dấu",
+                                  symbol: "character.textbox", isOn: $restoreDiacriticsEnabled)
+                    .onChange(of: restoreDiacriticsEnabled) { KeyboardSettings.restoreDiacriticsEnabled = $0 }
+                Text("Gõ “toi di an com” rồi nhấn dấu cách, chạm “✨ Thêm dấu” để chuyển thành “tôi đi ăn cơm”. Chỉ gợi ý, không tự sửa.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
+                keyboardToggleRow("Giữ phím chữ hàng trên để gõ số",
+                                  symbol: "textformat.123", isOn: $longPressDigitsEnabled)
+                    .onChange(of: longPressDigitsEnabled) { KeyboardSettings.longPressDigitsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Tự viết hoa tên riêng đã học",
+                                  symbol: "person.text.rectangle", isOn: $properNounsEnabled)
+                    .onChange(of: properNounsEnabled) { KeyboardSettings.properNounsEnabled = $0 }
+                Text("Cần bật “Ghi nhớ từ đã gõ”. Tên bạn đã viết hoa từ 2 lần trở lên (ví dụ Hà Nội) sẽ được viết hoa khi bạn gõ thường.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
                 keyboardToggleRow("Gợi ý câu hoàn chỉnh offline",
                                   symbol: "text.bubble", isOn: $sentenceSuggestionsEnabled)
                     .onChange(of: sentenceSuggestionsEnabled) {
@@ -1056,6 +1087,7 @@ struct ContentView: View {
                     Button(role: .destructive) {
                         KeyboardSettings.learnedWords = [:]
                         KeyboardSettings.nextWordModelData = nil
+                        KeyboardSettings.properNounData = nil
                     } label: {
                         Label("Xóa từ cá nhân đã học", systemImage: "trash")
                             .font(.system(size: 11))
