@@ -218,6 +218,11 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
+        // Explicit shadow paths avoid per-frame off-screen shadow rendering.
+        for button in toolButtons where button.layer.shadowPath?.boundingBoxOfPath != button.bounds {
+            button.layer.shadowPath = UIBezierPath(
+                roundedRect: button.bounds, cornerRadius: 10).cgPath
+        }
         for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
             layer.frame = view.bounds
         }
@@ -1243,21 +1248,28 @@ final class KeyboardViewController: UIInputViewController {
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
+        // Text before the caret as it was read for the checks below. Reused
+        // for auto-capitalisation so a space does not pay for another
+        // synchronous round trip to the host app (slow in long chats).
+        var contextBeforeSpace: String?
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
            textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
            let context = textDocumentProxy.documentContextBeforeInput {
+            contextBeforeSpace = context
             let token = String(context.reversed().prefix(while: {
                 $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_" || $0 == "/"
             }).reversed())
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
             if let snippet = cachedSnippets[token], !token.isEmpty {
+                contextBeforeSpace = nil
                 for _ in token { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(SmartTyping.expandSnippet(
                     snippet, recipient: PersonaStore.active?.name))
             } else if let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
+                contextBeforeSpace = nil
                 for _ in word { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(replacement)
             } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
@@ -1281,9 +1293,19 @@ final class KeyboardViewController: UIInputViewController {
         recentWord = ""
         updateCandidates()
         if autocapitalizeEnabled && !isShiftLocked {
-            let before = textDocumentProxy.documentContextBeforeInput ?? ""
-            let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
-            let nextUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
+            // If a snippet/replacement expanded, the text changed: re-read.
+            // Otherwise the text is the pre-space context plus whitespace,
+            // which does not change the last non-whitespace character.
+            let before: String
+            if let known = contextBeforeSpace {
+                before = known
+            } else {
+                before = textDocumentProxy.documentContextBeforeInput ?? ""
+            }
+            // O(1) scan from the end instead of trimming the whole context.
+            let lastSignificant = before.reversed().first(where: { !$0.isWhitespace })
+            let nextUppercase = lastSignificant == nil
+                || lastSignificant == "." || lastSignificant == "!" || lastSignificant == "?"
             if nextUppercase != isUppercase {
                 isUppercase = nextUppercase
                 updateKeys()
@@ -1895,10 +1917,9 @@ final class KeyboardViewController: UIInputViewController {
         glideTrailLayer.lineWidth = 4.5
         glideTrailLayer.lineCap = .round
         glideTrailLayer.lineJoin = .round
-        glideTrailLayer.shadowColor = cyanColor.cgColor
-        glideTrailLayer.shadowOpacity = 0.55
-        glideTrailLayer.shadowRadius = 5
-        glideTrailLayer.shadowOffset = .zero
+        // No blurred shadow on the growing trail path: it was re-rasterised
+        // off-screen on every touch move. glideGlowLayer already supplies the
+        // soft halo as a plain wide stroke, which is far cheaper.
         glideTipLayer.fillColor = UIColor.white.cgColor
         glideTipLayer.shadowColor = cyanColor.cgColor
         glideTipLayer.shadowOpacity = 0.95
@@ -1932,9 +1953,11 @@ final class KeyboardViewController: UIInputViewController {
         let path = glideTrailPath.cgPath
         glideGlowLayer.path = path
         glideTrailLayer.path = path
-        glideTipLayer.path = UIBezierPath(
+        let tipPath = UIBezierPath(
             ovalIn: CGRect(x: point.x - 5.5, y: point.y - 5.5,
                            width: 11, height: 11)).cgPath
+        glideTipLayer.path = tipPath
+        glideTipLayer.shadowPath = tipPath
         CATransaction.commit()
     }
 
