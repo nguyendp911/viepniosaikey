@@ -240,6 +240,10 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "restoreDiacriticsEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "restoreDiacriticsEnabled") }
     }
+    static var spellingSuggestionsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "spellingSuggestionsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "spellingSuggestionsEnabled") }
+    }
     static var longPressDigitsEnabled: Bool {
         get { defaults.object(forKey: prefix + "longPressDigitsEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "longPressDigitsEnabled") }

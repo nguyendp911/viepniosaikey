@@ -61,6 +61,11 @@ jobs:
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-smart-extras"             Sources/Shared/NextWordPredictor.swift             Sources/Shared/EmojiSuggestions.swift             Sources/Shared/ChatShorthand.swift             Sources/Shared/ProperNounMemory.swift             Sources/Shared/DiacriticRestorer.swift             Scripts/verify_smart_extras.swift
           "$RUNNER_TEMP/verify-smart-extras"
+      - name: Verify amounts and spelling suggestions
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-typing-tools"             Sources/Shared/NextWordPredictor.swift             Sources/Shared/MoneyShorthand.swift             Sources/Shared/Misspellings.swift             Scripts/verify_typing_tools.swift
+          "$RUNNER_TEMP/verify-typing-tools"
       - name: Verify reversible bilingual Telex and English input
         run: |
           set -euo pipefail

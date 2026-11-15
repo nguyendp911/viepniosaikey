@@ -56,6 +56,7 @@ final class KeyboardViewController: UIInputViewController {
         case emoji(String)
         case expandShorthand(original: String, expansion: String)
         case restoreDiacritics(original: String, restored: String)
+        case undo(current: String, previous: String)
     }
     private var candidateActions: [CandidateAction] = []
     private var emojiSuggestionsEnabled = true
@@ -66,6 +67,11 @@ final class KeyboardViewController: UIInputViewController {
     private var properNouns = ProperNounMemory()
     private var properNounDirty = false
     private var digitHintLabels: [UILabel] = []
+    // Fields that expect literal text (email, URL, number, username...).
+    private var plainField = false
+    // The host field asked for no automatic capitalisation.
+    private var hostAutoCapNone = false
+    private var spellingEnabled = true
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -168,6 +174,7 @@ final class KeyboardViewController: UIInputViewController {
         restoreDiacriticsEnabled = KeyboardSettings.restoreDiacriticsEnabled
         longPressDigitsEnabled = KeyboardSettings.longPressDigitsEnabled
         properNounsEnabled = KeyboardSettings.properNounsEnabled
+        spellingEnabled = KeyboardSettings.spellingSuggestionsEnabled
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
@@ -195,6 +202,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        refreshFieldTraits()
         if currentTheme != KeyboardSettings.theme { applyTheme() }
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.
@@ -240,6 +248,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
+        refreshFieldTraits()
         applyTheme()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -1165,7 +1174,7 @@ final class KeyboardViewController: UIInputViewController {
         beginTyping()
         let key = isUppercase && !isNumbers ? title.uppercased() : title
 
-        if !isNumbers && typingMode == "telex" && telexEnabled,
+        if !isNumbers && typingMode == "telex" && telexEnabled && !plainField,
            key.count == 1, key.first?.isLetter == true {
             // If another app edited or moved the caret, do not touch its
             // existing text. Check the host suffix before destructive edits.
@@ -1288,11 +1297,24 @@ final class KeyboardViewController: UIInputViewController {
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
+        // Fields that expect literal text (email, URL, number, username): no
+        // rewriting, suggestions, learning or auto-capitalisation.
+        if plainField {
+            textDocumentProxy.insertText(" ")
+            knownWordBoundary = true
+            recentWord = ""
+            updateCandidates()
+            return
+        }
         // Text before the caret as it was read for the checks below. Reused
         // for auto-capitalisation so a space does not pay for another
         // synchronous round trip to the host app (slow in long chats).
         var contextBeforeSpace: String?
-        var shorthandHit: (original: String, expansion: String)?
+        // A tap-able replacement for the word just typed (shorthand, amount,
+        // spelling) and a way back after a change the keyboard made itself.
+        var replacementHit: (original: String, expansion: String)?
+        var undoHit: (current: String, previous: String)?
+        var ruleApplied = false
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
@@ -1310,9 +1332,13 @@ final class KeyboardViewController: UIInputViewController {
                     snippet, recipient: PersonaStore.active?.name))
             } else if let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
-                contextBeforeSpace = nil
                 for _ in word { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(replacement)
+                // Keep the strip's context current and offer an undo.
+                let recent = String(context.suffix(300))
+                contextBeforeSpace = String(recent.dropLast(word.count)) + replacement
+                undoHit = (current: replacement, previous: word)
+                ruleApplied = true
             } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
                 let normalized = word.lowercased()
                 learnedWords[normalized, default: 0] += 1
@@ -1328,18 +1354,30 @@ final class KeyboardViewController: UIInputViewController {
                 }
                 scheduleLearnedWordsFlush()
             }
-            // Plain word (no snippet / replacement ran): proper nouns and
-            // chat shorthand.
-            if let tail = contextBeforeSpace {
-                if let updated = applyLearnedProperNoun(to: tail) {
-                    contextBeforeSpace = updated
+            // Plain word (no snippet / replacement ran): proper nouns, amounts,
+            // chat shorthand and common spelling mistakes.
+            if !ruleApplied, let tail = contextBeforeSpace {
+                if let applied = applyLearnedProperNoun(to: tail) {
+                    contextBeforeSpace = applied.updated
+                    undoHit = (current: applied.display, previous: applied.typed)
                 }
                 learnProperNoun(from: contextBeforeSpace ?? tail)
-                if shorthandEnabled,
-                   let lastWord = NextWordPredictor.rawWords(
-                       in: contextBeforeSpace ?? tail, maxWords: 1).words.last,
-                   let expansion = ChatShorthand.expansion(for: lastWord) {
-                    shorthandHit = (original: lastWord, expansion: expansion)
+                let current = contextBeforeSpace ?? tail
+                if shorthandEnabled {
+                    if let amountToken = MoneyShorthand.lastToken(of: current),
+                       let amount = MoneyShorthand.suggestion(for: amountToken) {
+                        replacementHit = (original: amountToken, expansion: amount)
+                    } else if let lastWord = NextWordPredictor.rawWords(
+                                  in: current, maxWords: 1).words.last,
+                              let expansion = ChatShorthand.expansion(for: lastWord) {
+                        replacementHit = (original: lastWord, expansion: expansion)
+                    }
+                }
+                if replacementHit == nil, spellingEnabled {
+                    let rawWords = NextWordPredictor.rawWords(in: current, maxWords: 2).words
+                    if let fix = Misspellings.correction(forRawWords: rawWords) {
+                        replacementHit = (original: fix.original, expansion: fix.corrected)
+                    }
                 }
             }
         }
@@ -1347,13 +1385,17 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = true
         recentWord = ""
         updateCandidates()
-        // Only when the word just finished is still the text before the caret
-        // (not after a snippet expansion or a second space).
-        if let finished = contextBeforeSpace, finished.last?.isLetter == true {
-            learnNextWord(from: finished)
-            showSmartStrip(afterContext: finished, shorthand: shorthandHit)
+        if let finished = contextBeforeSpace {
+            let endsWithLetter = finished.last?.isLetter == true
+            if endsWithLetter || replacementHit != nil || undoHit != nil {
+                // An amount such as "50k" is not a word: do not learn from it.
+                let tokenHasDigit = finished.reversed()
+                    .prefix(while: { !$0.isWhitespace }).contains(where: { $0.isNumber })
+                if endsWithLetter && !tokenHasDigit { learnNextWord(from: finished) }
+                showSmartStrip(afterContext: finished, shorthand: replacementHit, undo: undoHit)
+            }
         }
-        if autocapitalizeEnabled && !isShiftLocked {
+        if autocapitalizeEnabled && !isShiftLocked && !hostAutoCapNone {
             // If a snippet/replacement expanded, the text changed: re-read.
             // Otherwise the text is the pre-space context plus whitespace,
             // which does not change the last non-whitespace character.
@@ -1381,7 +1423,7 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = true
         recentWord = ""
         updateCandidates()
-        if KeyboardSettings.autoCapitalize {
+        if KeyboardSettings.autoCapitalize && !hostAutoCapNone && !plainField {
             isUppercase = true
             updateKeys()
         }
@@ -1685,7 +1727,7 @@ final class KeyboardViewController: UIInputViewController {
             renderCandidates(override)
             return
         }
-        guard (useSuggestions || useSentenceSuggestions), !recentWord.isEmpty else {
+        guard (useSuggestions || useSentenceSuggestions), !recentWord.isEmpty, !plainField else {
             renderCandidates([])
             return
         }
@@ -1760,7 +1802,8 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Fix a learned name typed in lower case ("hà nội" -> "Hà Nội").
     /// Returns the updated text before the caret, or nil if nothing changed.
-    private func applyLearnedProperNoun(to context: String) -> String? {
+    private func applyLearnedProperNoun(to context: String)
+        -> (updated: String, typed: String, display: String)? {
         guard properNounsEnabled, !properNouns.entries.isEmpty else { return nil }
         let scan = NextWordPredictor.rawWords(in: context, maxWords: ProperNounMemory.maxWordsPerName)
         guard let hit = properNouns.match(words: scan.words) else { return nil }
@@ -1768,7 +1811,8 @@ final class KeyboardViewController: UIInputViewController {
         guard context.hasSuffix(typed) else { return nil }
         for _ in 0..<typed.count { textDocumentProxy.deleteBackward() }
         textDocumentProxy.insertText(hit.display)
-        return String(context.dropLast(typed.count)) + hit.display
+        return (updated: String(context.dropLast(typed.count)) + hit.display,
+                typed: typed, display: hit.display)
     }
 
     /// After a completed word, fill the suggestion strip: a shorthand
@@ -1776,10 +1820,15 @@ final class KeyboardViewController: UIInputViewController {
     /// next words and matching emoji. A tap runs the chip's action; nothing
     /// is inserted automatically.
     private func showSmartStrip(afterContext context: String,
-                                shorthand: (original: String, expansion: String)?) {
+                                shorthand: (original: String, expansion: String)?,
+                                undo: (current: String, previous: String)? = nil) {
         guard useSuggestions, pendingGlideWord == nil else { return }
         var titles: [String] = []
         var actions: [CandidateAction] = []
+        if let undo = undo {
+            titles.append("↩︎ Hoàn tác")
+            actions.append(.undo(current: undo.current, previous: undo.previous))
+        }
         if let hit = shorthand {
             titles.append(hit.original + " → " + hit.expansion)
             actions.append(.expandShorthand(original: hit.original, expansion: hit.expansion))
@@ -1820,7 +1869,27 @@ final class KeyboardViewController: UIInputViewController {
             replaceTypedWords(original: original, with: expansion)
         case .restoreDiacritics(let original, let restored):
             replaceTypedWords(original: original, with: restored)
+        case .undo(let current, let previous):
+            performUndo(current: current, previous: previous)
         }
+    }
+
+    /// Put back what the keyboard replaced, rewriting only what differs.
+    private func performUndo(current: String, previous: String) {
+        guard let before = textBeforeCaretIfSafe(),
+              before.hasSuffix(current + " "),
+              let edit = FastTyping.edit(from: current, to: previous) else {
+            updateCandidates()
+            return
+        }
+        resetBilingualComposition()
+        for _ in 0..<(edit.deleteCount + 1) { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(edit.insertion + " ")
+        knownWordBoundary = true
+        recentWord = ""
+        lastWordReplacement = nil
+        updateCandidates()
+        tactileFeedback()
     }
 
     /// Text before the caret, but only while the caret still follows the
@@ -1875,9 +1944,39 @@ final class KeyboardViewController: UIInputViewController {
         let tail = String(before.suffix(300))
         let context = String(tail.dropLast(original.count + 1)) + replacement
         updateCandidates()
-        learnNextWord(from: context)
-        showSmartStrip(afterContext: context, shorthand: nil)
+        // Amounts such as "50.000đ" are not words: do not learn from them.
+        if !replacement.contains(where: { $0.isNumber }) { learnNextWord(from: context) }
+        showSmartStrip(afterContext: context, shorthand: nil,
+                       undo: (current: replacement, previous: original))
         tactileFeedback()
+    }
+
+    // MARK: Respect the type of the text field
+
+    /// Email, URL, phone, number, username and password fields expect literal
+    /// text: no Telex, suggestions, learning or auto-capitalisation there.
+    private func refreshFieldTraits() {
+        let proxy = textDocumentProxy
+        let plainKeyboards: [UIKeyboardType] = [
+            UIKeyboardType.emailAddress, UIKeyboardType.URL, UIKeyboardType.phonePad,
+            UIKeyboardType.numberPad, UIKeyboardType.decimalPad,
+            UIKeyboardType.namePhonePad, UIKeyboardType.asciiCapableNumberPad
+        ]
+        let plainContent: [UITextContentType] = [
+            UITextContentType.username, UITextContentType.password,
+            UITextContentType.newPassword, UITextContentType.oneTimeCode,
+            UITextContentType.emailAddress, UITextContentType.URL,
+            UITextContentType.telephoneNumber
+        ]
+        var plain = proxy.isSecureTextEntry == true
+        if !plain { plain = plainKeyboards.contains(where: { proxy.keyboardType == $0 }) }
+        if !plain { plain = plainContent.contains(where: { proxy.textContentType == $0 }) }
+        plainField = plain
+        hostAutoCapNone = proxy.autocapitalizationType == UITextAutocapitalizationType.none
+        if (plain || hostAutoCapNone) && isUppercase && !isShiftLocked {
+            isUppercase = false
+            updateKeys()
+        }
     }
 
     // MARK: Long-press digits on the top letter row

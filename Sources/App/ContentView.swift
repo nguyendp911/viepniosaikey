@@ -48,6 +48,8 @@ struct ContentView: View {
     @State private var restoreDiacriticsEnabled = KeyboardSettings.restoreDiacriticsEnabled
     @State private var longPressDigitsEnabled = KeyboardSettings.longPressDigitsEnabled
     @State private var properNounsEnabled = KeyboardSettings.properNounsEnabled
+    @State private var spellingSuggestionsEnabled = KeyboardSettings.spellingSuggestionsEnabled
+    @State private var showLearnedData = false
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
     @State private var keyHeightValue = String(KeyboardSettings.keyHeight)
@@ -1001,9 +1003,13 @@ struct ContentView: View {
                                   isOn: $emojiSuggestionsEnabled)
                     .onChange(of: emojiSuggestionsEnabled) { KeyboardSettings.emojiSuggestionsEnabled = $0 }
                 keyboardDivider()
-                keyboardToggleRow("Gợi ý viết tắt chat (ntn, vs, mn...)",
+                keyboardToggleRow("Gợi ý viết tắt chat và số tiền (ntn, vs, 50k...)",
                                   symbol: "text.badge.checkmark", isOn: $shorthandSuggestionsEnabled)
                     .onChange(of: shorthandSuggestionsEnabled) { KeyboardSettings.shorthandSuggestionsEnabled = $0 }
+                keyboardDivider()
+                keyboardToggleRow("Gợi ý sửa lỗi chính tả hay gặp",
+                                  symbol: "checkmark.seal", isOn: $spellingSuggestionsEnabled)
+                    .onChange(of: spellingSuggestionsEnabled) { KeyboardSettings.spellingSuggestionsEnabled = $0 }
                 keyboardDivider()
                 keyboardToggleRow("Gợi ý thêm dấu cho câu gõ không dấu",
                                   symbol: "character.textbox", isOn: $restoreDiacriticsEnabled)
@@ -1093,6 +1099,16 @@ struct ContentView: View {
                             .font(.system(size: 11))
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                Button {
+                    showLearnedData = true
+                } label: {
+                    Label("Quản lý dữ liệu đã học", systemImage: "list.bullet.rectangle")
+                        .font(.system(size: 12))
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .sheet(isPresented: $showLearnedData) {
+                    LearnedDataView()
                 }
                 keyboardDivider()
                 keyboardMenuRow("Chế độ một tay", symbol: "hand.point.up.left",
