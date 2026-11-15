@@ -1049,9 +1049,13 @@ struct ContentView: View {
                 keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
                                   symbol: "book.closed", isOn: $autoLearnWords)
                     .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
+                Text("Bật để bàn phím học từ bạn hay gõ và dự đoán từ tiếp theo, ví dụ gõ “em ăn” gợi ý “cơm”, “chưa”, “gì”. Dữ liệu chỉ lưu trên máy bạn.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 if autoLearnWords {
                     Button(role: .destructive) {
                         KeyboardSettings.learnedWords = [:]
+                        KeyboardSettings.nextWordModelData = nil
                     } label: {
                         Label("Xóa từ cá nhân đã học", systemImage: "trash")
                             .font(.system(size: 11))

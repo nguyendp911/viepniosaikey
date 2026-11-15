@@ -51,6 +51,11 @@ jobs:
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-fast-typing" \
             Sources/Shared/FastTyping.swift Scripts/verify_fast_typing.swift
           "$RUNNER_TEMP/verify-fast-typing"
+      - name: Verify next-word prediction
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-next-word"             Sources/Shared/NextWordPredictor.swift Scripts/verify_next_word.swift
+          "$RUNNER_TEMP/verify-next-word"
       - name: Verify reversible bilingual Telex and English input
         run: |
           set -euo pipefail

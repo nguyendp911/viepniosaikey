@@ -215,6 +215,18 @@ enum KeyboardSettings {
                          forKey: prefix + "learnedWords")
         }
     }
+    /// Encoded `NextWordModel` (the user's own word-pair habits). Kept as raw
+    /// data so this file does not depend on the predictor. On-device only.
+    static var nextWordModelData: Data? {
+        get { defaults.data(forKey: prefix + "nextWordModel") }
+        set {
+            if let newValue = newValue {
+                defaults.set(newValue, forKey: prefix + "nextWordModel")
+            } else {
+                defaults.removeObject(forKey: prefix + "nextWordModel")
+            }
+        }
+    }
     static var keyHeight: Int {
         get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
         set { defaults.set(min(49, max(40, newValue)), forKey: prefix + "keyHeight") }

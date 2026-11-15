@@ -47,6 +47,10 @@ final class KeyboardViewController: UIInputViewController {
     private var learnedWords: [String: Int] = [:]
     private var learnedWordFlushWork: DispatchWorkItem?
     private var learnedWordDirty = false
+    // Next-word prediction: "em ăn " -> cơm / chưa / gì ...
+    private var nextWordModel = NextWordModel()
+    private var nextWordDirty = false
+    private var nextWordMode = false
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -142,6 +146,7 @@ final class KeyboardViewController: UIInputViewController {
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         learnedWords = KeyboardSettings.learnedWords
+        nextWordModel = NextWordModel.decode(KeyboardSettings.nextWordModelData)
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
         cachedSnippets = KeyboardSettings.textSnippets
@@ -159,7 +164,10 @@ final class KeyboardViewController: UIInputViewController {
         applyTheme()
         if hapticsEnabled && hapticsStyle == "light" { haptic.prepare() }
         // Build dictionaries off the main thread so the first keys are not slow.
-        DispatchQueue.global(qos: .userInitiated).async { SmartTyping.warmUp() }
+        DispatchQueue.global(qos: .userInitiated).async {
+            SmartTyping.warmUp()
+            NextWordPredictor.warmUp()
+        }
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -193,6 +201,10 @@ final class KeyboardViewController: UIInputViewController {
     private func flushLearnedWords() {
         learnedWordFlushWork?.cancel()
         learnedWordFlushWork = nil
+        if nextWordDirty {
+            nextWordDirty = false
+            KeyboardSettings.nextWordModelData = nextWordModel.encoded()
+        }
         guard learnedWordDirty else { return }
         learnedWordDirty = false
         KeyboardSettings.learnedWords = learnedWords
@@ -1292,6 +1304,12 @@ final class KeyboardViewController: UIInputViewController {
         knownWordBoundary = true
         recentWord = ""
         updateCandidates()
+        // Only when the word just finished is still the text before the caret
+        // (not after a snippet expansion or a second space).
+        if let finished = contextBeforeSpace, finished.last?.isLetter == true {
+            learnNextWord(from: finished)
+            showNextWordSuggestions(afterContext: finished)
+        }
         if autocapitalizeEnabled && !isShiftLocked {
             // If a snippet/replacement expanded, the text changed: re-read.
             // Otherwise the text is the pre-space context plus whitespace,
@@ -1600,6 +1618,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCandidates(_ override: [String]? = nil) {
+        // Any normal refresh leaves next-word mode; showNextWordSuggestions
+        // re-enters it right after rendering its own list.
+        nextWordMode = false
         if override == nil && pendingGlideWord == nil {
             isGlideSuggestionVisible = false
         }
@@ -1665,6 +1686,52 @@ final class KeyboardViewController: UIInputViewController {
         candidateUpdateWork = job
         DispatchQueue.main.asyncAfter(
             deadline: .now() + .milliseconds(95), execute: job)
+    }
+
+    // MARK: Next-word prediction
+
+    /// Remember that the last word of `context` followed the words before it.
+    /// Opt-in on-device learning only; persisted lazily with learned words.
+    private func learnNextWord(from context: String) {
+        guard learnWordsEnabled else { return }
+        let words = NextWordPredictor.words(in: context)
+        guard words.count >= 2 else { return }
+        NextWordPredictor.learn(words: words, into: &nextWordModel)
+        nextWordDirty = true
+        scheduleLearnedWordsFlush()
+    }
+
+    /// After a completed word, show likely next words in the suggestion strip.
+    /// A tap inserts the word plus a space; nothing is inserted automatically.
+    private func showNextWordSuggestions(afterContext context: String) {
+        guard useSuggestions, pendingGlideWord == nil else { return }
+        let words = NextWordPredictor.words(in: context)
+        let predictions = NextWordPredictor.predict(after: words, model: nextWordModel)
+        guard !predictions.isEmpty else { return }
+        updateCandidates(predictions)
+        nextWordMode = true
+    }
+
+    private func applyNextWordSuggestion(_ word: String) {
+        // Only act while the caret still follows the space we inserted.
+        guard (textDocumentProxy.selectedText?.isEmpty ?? true),
+              textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+              let before = textDocumentProxy.documentContextBeforeInput,
+              before.last == " " else {
+            updateCandidates()
+            return
+        }
+        resetBilingualComposition()
+        textDocumentProxy.insertText(word + " ")
+        knownWordBoundary = true
+        recentWord = ""
+        lastWordReplacement = nil
+        // Only the tail matters; avoid copying a very long chat history.
+        let context = String(before.suffix(150)) + word
+        updateCandidates()
+        learnNextWord(from: context)
+        showNextWordSuggestions(afterContext: context)
+        tactileFeedback()
     }
 
     private func renderCandidates(_ results: [String]) {
@@ -1748,6 +1815,10 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
+        if nextWordMode && pendingGlideWord == nil {
+            applyNextWordSuggestion(chosen)
+            return
+        }
         if let committed = pendingGlideWord {
             // An explicitly chosen alternate can replace the word created by
             // the previous swipe, including its trailing space. Only touch
