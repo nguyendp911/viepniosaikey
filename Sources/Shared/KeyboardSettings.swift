@@ -205,8 +205,15 @@ enum KeyboardSettings {
     }
     static var learnedWords: [String: Int] {
         get { defaults.dictionary(forKey: prefix + "learnedWords") as? [String: Int] ?? [:] }
-        set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(300))
-                        .map { ($0.key, $0.value) }), forKey: prefix + "learnedWords") }
+        set {
+            // Keep the 300 most-used words. Dictionary.prefix(300) is an
+            // arbitrary subset and could drop the user's favourite words.
+            let top = newValue.sorted {
+                $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key
+            }.prefix(300)
+            defaults.set(Dictionary(uniqueKeysWithValues: top.map { ($0.key, $0.value) }),
+                         forKey: prefix + "learnedWords")
+        }
     }
     static var keyHeight: Int {
         get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
