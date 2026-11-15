@@ -95,10 +95,15 @@ enum NextWordPredictor {
         for (rank, word) in (seedBigrams[last] ?? []).enumerated() {
             consider(word, 300 - rank * 10)
         }
-        return scores
-            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
-            .prefix(limit)
-            .map { $0.key }
+        var ranked: [(word: String, score: Int)] = []
+        for (word, score) in scores { ranked.append((word: word, score: score)) }
+        ranked.sort { (a: (word: String, score: Int), b: (word: String, score: Int)) -> Bool in
+            if a.score != b.score { return a.score > b.score }
+            return a.word < b.word
+        }
+        var result: [String] = []
+        for item in ranked.prefix(limit) { result.append(item.word) }
+        return result
     }
 
     /// Touch the lazily built tables so the first space press is not slower.
@@ -130,22 +135,37 @@ enum NextWordPredictor {
         entry[next] = min(NextWordModel.maxCount, (entry[next] ?? 0) + 1)
         if entry.count > NextWordModel.maxNextPerContext {
             // Evict the least-used other word so a new word can still enter.
-            let weakest = entry
-                .filter { $0.key != next }
-                .min { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }
-            if let weakest = weakest { entry.removeValue(forKey: weakest.key) }
+            var weakestKey: String?
+            var weakestCount = Int.max
+            for (word, count) in entry where word != next {
+                if count < weakestCount || (count == weakestCount && word > (weakestKey ?? "")) {
+                    weakestKey = word
+                    weakestCount = count
+                }
+            }
+            if let weakestKey = weakestKey { entry.removeValue(forKey: weakestKey) }
         }
         table[key] = entry
         if table.count > NextWordModel.maxContexts { prune(&table) }
     }
 
     private static func prune(_ table: inout [String: [String: Int]]) {
-        let ranked = table
-            .map { (key: $0.key, total: $0.value.values.reduce(0, +)) }
-            .sorted { $0.total != $1.total ? $0.total < $1.total : $0.key < $1.key }
+        var totals: [(key: String, total: Int)] = []
+        for (key, entry) in table {
+            var total = 0
+            for count in entry.values { total += count }
+            totals.append((key: key, total: total))
+        }
+        // Least-used contexts first; ties broken alphabetically (deterministic).
+        totals.sort { (a: (key: String, total: Int), b: (key: String, total: Int)) -> Bool in
+            if a.total != b.total { return a.total < b.total }
+            return a.key < b.key
+        }
         let excess = table.count - (NextWordModel.maxContexts - 40)
-        for item in ranked.prefix(max(0, excess)) {
-            table.removeValue(forKey: item.key)
+        if excess > 0 {
+            for item in totals.prefix(excess) {
+                table.removeValue(forKey: item.key)
+            }
         }
     }
 
