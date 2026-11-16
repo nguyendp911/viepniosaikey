@@ -1039,24 +1039,6 @@ struct ContentView: View {
 
     private var smartExtrasSection: some View {
         VStack(spacing: 9) {
-            keyboardToggleRow("Gợi ý thêm dấu cho câu gõ không dấu",
-                              symbol: "character.textbox", isOn: $restoreDiacriticsEnabled)
-                .onChange(of: restoreDiacriticsEnabled) { KeyboardSettings.restoreDiacriticsEnabled = $0 }
-            Text("Gõ “toi di an com” rồi nhấn dấu cách, chạm “✨ Thêm dấu” để chuyển thành “tôi đi ăn cơm”. Chỉ gợi ý, không tự sửa.")
-                .font(.system(size: 11)).foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
-            keyboardDivider()
-            keyboardToggleRow("Giữ phím chữ hàng trên để gõ số",
-                              symbol: "textformat.123", isOn: $longPressDigitsEnabled)
-                .onChange(of: longPressDigitsEnabled) { KeyboardSettings.longPressDigitsEnabled = $0 }
-            keyboardDivider()
-            keyboardToggleRow("Tự viết hoa tên riêng đã học",
-                              symbol: "person.text.rectangle", isOn: $properNounsEnabled)
-                .onChange(of: properNounsEnabled) { KeyboardSettings.properNounsEnabled = $0 }
-            Text("Cần bật “Ghi nhớ từ đã gõ”. Tên bạn đã viết hoa từ 2 lần trở lên (ví dụ Hà Nội) sẽ được viết hoa khi bạn gõ thường.")
-                .font(.system(size: 11)).foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
-            keyboardDivider()
             keyboardToggleRow("Gợi ý câu hoàn chỉnh offline",
                               symbol: "text.bubble", isOn: $sentenceSuggestionsEnabled)
                 .onChange(of: sentenceSuggestionsEnabled) {
