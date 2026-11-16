@@ -262,13 +262,13 @@ jobs:
         run: brew install xcodegen
       - name: Generate project and build the harness
         run: |
-          set -euo pipefail
+          set -eo pipefail
           xcodegen generate
           xcodebuild -project ViePNAIKeyboard.xcodeproj \
             -scheme KeyboardHarness -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/Harness" \
-            CODE_SIGNING_ALLOWED=NO build | tail -5
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -20
       - name: Run the keyboard and press every button
         run: |
           set +e
