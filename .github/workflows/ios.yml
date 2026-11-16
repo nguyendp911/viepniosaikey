@@ -231,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ios: ["16.4", "17.5"]
+        ios: ["26.0", "26.2"]
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -248,18 +248,13 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/SimData" \
             CODE_SIGNING_ALLOWED=NO build | tail -5
-      - name: Download the iOS ${{ matrix.ios }} simulator runtime
-        run: |
-          set +e
-          xcodebuild -downloadPlatform iOS -buildVersion "${{ matrix.ios }}" 2>&1 | tail -15
-          xcrun simctl list runtimes | grep -i "iOS ${{ matrix.ios }}"
       - name: Launch on the keyboard tab and look for a crash
         run: |
           set +e
           RT=$(xcrun simctl list runtimes | grep "iOS ${{ matrix.ios }}" | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+' | head -1)
           echo "runtime: $RT"
           [ -n "$RT" ] || { echo "RUNTIME NOT AVAILABLE"; exit 1; }
-          UDID=$(xcrun simctl create repro com.apple.CoreSimulator.SimDeviceType.iPhone-14 "$RT")
+          UDID=$(xcrun simctl create repro com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
           echo "device $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b >/dev/null
