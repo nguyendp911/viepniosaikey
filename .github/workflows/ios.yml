@@ -252,3 +252,37 @@ jobs:
           name: ViePN-AI-Keyboard-Signed-IPA
           path: artifacts/*.ipa
           if-no-files-found: error
+  smoke:
+    name: Keyboard smoke test (simulator)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project and build the harness
+        run: |
+          set -euo pipefail
+          xcodegen generate
+          xcodebuild -project ViePNAIKeyboard.xcodeproj \
+            -scheme KeyboardHarness -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/Harness" \
+            CODE_SIGNING_ALLOWED=NO build | tail -5
+      - name: Run the keyboard and press every button
+        run: |
+          set +e
+          RT=$(xcrun simctl list runtimes | grep "iOS 26.2" | grep -oE 'com'+BS+'.apple'+BS+'.CoreSimulator'+BS+'.SimRuntime'+BS+'.iOS-[0-9-]+' | head -1)
+          UDID=$(xcrun simctl create smoke com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b >/dev/null
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/Harness/Build/Products/Release-iphonesimulator/KeyboardHarness.app"
+          xcrun simctl launch --stdout="$RUNNER_TEMP/out.txt" --stderr="$RUNNER_TEMP/err.txt" "$UDID" com.viepn.harness
+          sleep 20
+          echo '=== output'; cat "$RUNNER_TEMP/out.txt"
+          echo '=== stderr (tail)'; tail -20 "$RUNNER_TEMP/err.txt"
+          echo '=== crash reports'
+          for f in ~/Library/Logs/DiagnosticReports/KeyboardHarness*; do
+            [ -f "$f" ] && { echo "--- $f"; head -c 6000 "$f"; }
+          done
+          grep -q 'HARNESS OK' "$RUNNER_TEMP/out.txt" && echo RESULT=PASS || echo RESULT=FAIL

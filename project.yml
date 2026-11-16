@@ -49,3 +49,15 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: $(KEYBOARD_PROFILE_NAME)
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
+  KeyboardHarness:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/Keyboard
+      - path: Sources/Shared
+      - path: Sources/Harness
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.viepn.harness
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
