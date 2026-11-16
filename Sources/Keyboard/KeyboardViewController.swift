@@ -1608,10 +1608,11 @@ final class KeyboardViewController: UIInputViewController {
             return action
         }
         var children: [UIMenuElement] = []
-        let quick = coupleQuickActions()
-        if !quick.isEmpty {
-            children.append(UIMenu(title: "", options: .displayInline, children: quick))
+        // Rebuilt each time the menu opens, so it follows the selected profile.
+        let quick = UIDeferredMenuElement.uncached { [weak self] completion in
+            completion(self?.coupleQuickActions() ?? [])
         }
+        children.append(UIMenu(title: "", options: .displayInline, children: [quick]))
         children.append(contentsOf: actions)
         toolButtons[1].menu = UIMenu(title: "Couple", children: children)
         toolButtons[1].showsMenuAsPrimaryAction = false
@@ -1993,6 +1994,11 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: Couple helpers (greetings, special dates, tone)
 
+    /// The special dates of the conversation (recipient profile) in use.
+    private func currentSpecialDates() -> [SpecialDate] {
+        SpecialDates.decode(KeyboardSettings.specialDatesData(for: PersonaStore.activeID))
+    }
+
     /// Fills {greeting}, {together} and {days}. Returns nil when a placeholder
     /// needs data the user has not entered (the start of the relationship).
     private func expandCoupleTokens(_ text: String) -> String? {
@@ -2009,9 +2015,9 @@ final class KeyboardViewController: UIInputViewController {
             result = result.replacingOccurrences(of: "{greeting}", with: pick.text)
         }
         if result.contains("{together}") || result.contains("{days}") {
-            let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
-            guard let days = SpecialDates.daysTogether(list, now: now) else {
-                showStatus("Chưa đặt ngày yêu · Mở ViePN → Bàn phím → Gõ thông minh nâng cao")
+            guard let days = SpecialDates.daysTogether(currentSpecialDates(), now: now) else {
+                let who = PersonaStore.active.map { " cho " + $0.name } ?? ""
+                showStatus("Chưa đặt ngày yêu" + who + " · Mở ViePN → Bàn phím → Gõ thông minh nâng cao")
                 return nil
             }
             result = result
@@ -2040,7 +2046,9 @@ final class KeyboardViewController: UIInputViewController {
             guard let self = self, let text = self.expandCoupleTokens("{greeting}") else { return }
             self.insertCoupleText(text)
         })
-        let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
+        let list = currentSpecialDates()
+        let who = PersonaStore.active?.name ?? "Chưa chọn hồ sơ người nhận"
+        items.append(UIAction(title: "💬 " + who, attributes: .disabled) { _ in })
         if let days = SpecialDates.daysTogether(list, now: now) {
             items.append(UIAction(title: "💞 Bên nhau \(days) ngày") { [weak self] _ in
                 self?.insertCoupleText(SpecialDates.togetherMessage(days: days))
@@ -2060,7 +2068,7 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Once a day, mention a special date that falls today.
     private func announceSpecialDateIfNeeded() {
-        let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
+        let list = currentSpecialDates()
         guard !list.isEmpty else { return }
         let now = Date()
         guard let entry = SpecialDates.upcoming(list, within: 0, now: now).first else { return }

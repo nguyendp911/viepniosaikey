@@ -3,6 +3,7 @@ import SwiftUI
 /// Add and remove the dates the keyboard should remember: the day a couple got
 /// together, birthdays and other occasions. Saved on this device only.
 struct SpecialDatesView: View {
+    @State private var profileID = PersonaStore.activeID
     @State private var items: [SpecialDate] = []
     @State private var kind = "anniversary"
     @State private var title = ""
@@ -16,6 +17,15 @@ struct SpecialDatesView: View {
 
     var body: some View {
         List {
+            Section(header: Text("Cuộc trò chuyện"),
+                    footer: Text("Mỗi hồ sơ người nhận có ngày yêu, sinh nhật và số ngày bên nhau riêng. Bàn phím dùng ngày của hồ sơ đang chọn (chọn hồ sơ hoặc dán tin nhắn để tự khớp tên).")) {
+                Picker("Hồ sơ", selection: $profileID) {
+                    Text("Chung (chưa chọn hồ sơ)").tag("")
+                    ForEach(PersonaStore.all) { persona in
+                        Text(persona.name).tag(persona.id)
+                    }
+                }
+            }
             Section(header: Text("Đã lưu"),
                     footer: Text("Bàn phím nhắc khi đến ngày, và Giữ nút Couple để chèn lời chúc. Gõ /ngay để chèn số ngày bên nhau, /chao để chèn lời chào hợp giờ.")) {
                 if items.isEmpty {
@@ -51,7 +61,14 @@ struct SpecialDatesView: View {
         }
         .navigationTitle("Ngày đặc biệt")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { items = SpecialDates.decode(KeyboardSettings.specialDatesData) }
+        .onAppear {
+            // A profile that no longer exists falls back to "chung".
+            if !profileID.isEmpty && !PersonaStore.all.contains(where: { $0.id == profileID }) {
+                profileID = ""
+            }
+            load()
+        }
+        .onChange(of: profileID) { _ in load() }
     }
 
     private var placeholder: String {
@@ -91,7 +108,11 @@ struct SpecialDatesView: View {
         save()
     }
 
+    private func load() {
+        items = SpecialDates.decode(KeyboardSettings.specialDatesData(for: profileID))
+    }
+
     private func save() {
-        KeyboardSettings.specialDatesData = SpecialDates.encode(items)
+        KeyboardSettings.setSpecialDatesData(SpecialDates.encode(items), for: profileID)
     }
 }

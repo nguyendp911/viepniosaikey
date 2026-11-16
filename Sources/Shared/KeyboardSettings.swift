@@ -276,16 +276,23 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "datePhrasesEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "datePhrasesEnabled") }
     }
-    /// Encoded list of `SpecialDate` (anniversaries, birthdays).
-    static var specialDatesData: Data? {
-        get { defaults.data(forKey: prefix + "specialDates") }
-        set {
-            if let newValue = newValue {
-                defaults.set(newValue, forKey: prefix + "specialDates")
-            } else {
-                defaults.removeObject(forKey: prefix + "specialDates")
-            }
+    /// Encoded list of `SpecialDate` (anniversaries, birthdays) for one
+    /// conversation. `profileID` is the recipient profile; "" means no profile
+    /// is chosen. Every conversation keeps its own dates and day count.
+    static func specialDatesData(for profileID: String) -> Data? {
+        defaults.data(forKey: specialDatesKey(for: profileID))
+    }
+
+    static func setSpecialDatesData(_ data: Data?, for profileID: String) {
+        if let data = data {
+            defaults.set(data, forKey: specialDatesKey(for: profileID))
+        } else {
+            defaults.removeObject(forKey: specialDatesKey(for: profileID))
         }
+    }
+
+    private static func specialDatesKey(for profileID: String) -> String {
+        profileID.isEmpty ? prefix + "specialDates" : prefix + "specialDates." + profileID
     }
     /// Which greeting was used last for a part of the day (so it is not repeated).
     static func greetingIndex(for slot: String) -> Int? {
