@@ -1022,18 +1022,6 @@ struct ContentView: View {
                               isOn: $predictionsEnabled)
                 .onChange(of: predictionsEnabled) { KeyboardSettings.predictionsEnabled = $0 }
             keyboardDivider()
-            keyboardToggleRow("Gợi ý emoji theo từ", symbol: "face.smiling",
-                              isOn: $emojiSuggestionsEnabled)
-                .onChange(of: emojiSuggestionsEnabled) { KeyboardSettings.emojiSuggestionsEnabled = $0 }
-            keyboardDivider()
-            keyboardToggleRow("Gợi ý viết tắt chat và số tiền (ntn, vs, 50k...)",
-                              symbol: "text.badge.checkmark", isOn: $shorthandSuggestionsEnabled)
-                .onChange(of: shorthandSuggestionsEnabled) { KeyboardSettings.shorthandSuggestionsEnabled = $0 }
-            keyboardDivider()
-            keyboardToggleRow("Gợi ý sửa lỗi chính tả hay gặp",
-                              symbol: "checkmark.seal", isOn: $spellingSuggestionsEnabled)
-                .onChange(of: spellingSuggestionsEnabled) { KeyboardSettings.spellingSuggestionsEnabled = $0 }
-            keyboardDivider()
         }
     }
 
