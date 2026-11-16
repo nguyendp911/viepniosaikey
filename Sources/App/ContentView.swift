@@ -1042,9 +1042,6 @@ struct ContentView: View {
             keyboardToggleRow("Gợi ý thêm dấu cho câu gõ không dấu",
                               symbol: "character.textbox", isOn: $restoreDiacriticsEnabled)
                 .onChange(of: restoreDiacriticsEnabled) { KeyboardSettings.restoreDiacriticsEnabled = $0 }
-            Text("Gõ “toi di an com” rồi nhấn dấu cách, chạm “✨ Thêm dấu” để chuyển thành “tôi đi ăn cơm”. Chỉ gợi ý, không tự sửa.")
-                .font(.system(size: 11)).foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
             keyboardDivider()
             keyboardToggleRow("Giữ phím chữ hàng trên để gõ số",
                               symbol: "textformat.123", isOn: $longPressDigitsEnabled)
@@ -1053,9 +1050,6 @@ struct ContentView: View {
             keyboardToggleRow("Tự viết hoa tên riêng đã học",
                               symbol: "person.text.rectangle", isOn: $properNounsEnabled)
                 .onChange(of: properNounsEnabled) { KeyboardSettings.properNounsEnabled = $0 }
-            Text("Cần bật “Ghi nhớ từ đã gõ”. Tên bạn đã viết hoa từ 2 lần trở lên (ví dụ Hà Nội) sẽ được viết hoa khi bạn gõ thường.")
-                .font(.system(size: 11)).foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
             keyboardDivider()
             keyboardToggleRow("Gợi ý câu hoàn chỉnh offline",
                               symbol: "text.bubble", isOn: $sentenceSuggestionsEnabled)
@@ -1122,9 +1116,6 @@ struct ContentView: View {
             keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
                               symbol: "book.closed", isOn: $autoLearnWords)
                 .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
-            Text("Bật để bàn phím học từ bạn hay gõ và dự đoán từ tiếp theo, ví dụ gõ “em ăn” gợi ý “cơm”, “chưa”, “gì”. Dữ liệu chỉ lưu trên máy bạn.")
-                .font(.system(size: 11)).foregroundStyle(muted)
-                .fixedSize(horizontal: false, vertical: true)
             if autoLearnWords {
                 Button(role: .destructive) {
                     KeyboardSettings.learnedWords = [:]
