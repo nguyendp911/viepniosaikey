@@ -263,6 +263,42 @@ enum KeyboardSettings {
             }
         }
     }
+    // Couple and date helpers. Everything is stored on the device only.
+    static var coupleSoftenEnabled: Bool {
+        get { defaults.object(forKey: prefix + "coupleSoftenEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "coupleSoftenEnabled") }
+    }
+    static var coupleToneEnabled: Bool {
+        get { defaults.object(forKey: prefix + "coupleToneEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "coupleToneEnabled") }
+    }
+    static var datePhrasesEnabled: Bool {
+        get { defaults.object(forKey: prefix + "datePhrasesEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "datePhrasesEnabled") }
+    }
+    /// Encoded list of `SpecialDate` (anniversaries, birthdays).
+    static var specialDatesData: Data? {
+        get { defaults.data(forKey: prefix + "specialDates") }
+        set {
+            if let newValue = newValue {
+                defaults.set(newValue, forKey: prefix + "specialDates")
+            } else {
+                defaults.removeObject(forKey: prefix + "specialDates")
+            }
+        }
+    }
+    /// Which greeting was used last for a part of the day (so it is not repeated).
+    static func greetingIndex(for slot: String) -> Int? {
+        defaults.object(forKey: prefix + "greetingIndex." + slot) as? Int
+    }
+    static func setGreetingIndex(_ index: Int, for slot: String) {
+        defaults.set(index, forKey: prefix + "greetingIndex." + slot)
+    }
+    /// Day (yyyy-MM-dd) the "special date today" notice was last shown.
+    static var lastSpecialDateNotice: String {
+        get { defaults.string(forKey: prefix + "lastSpecialDateNotice") ?? "" }
+        set { defaults.set(newValue, forKey: prefix + "lastSpecialDateNotice") }
+    }
     static var keyHeight: Int {
         get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
         set { defaults.set(min(49, max(40, newValue)), forKey: prefix + "keyHeight") }
@@ -301,6 +337,16 @@ enum KeyboardSettings {
                 }
                 defaults.set(result, forKey: prefix + "textSnippets")
                 defaults.set(true, forKey: prefix + "slashSnippetMigrationV1")
+            }
+            // Couple helpers: /chao inserts a greeting for the time of day and
+            // /ngay the number of days together. Added once; deleting stays permanent.
+            if !defaults.bool(forKey: prefix + "coupleSnippetMigrationV1") {
+                let couple: [String: String] = ["/chao": "{greeting}", "/ngay": "{together}"]
+                for (command, template) in couple where result[command] == nil {
+                    result[command] = template
+                }
+                defaults.set(result, forKey: prefix + "textSnippets")
+                defaults.set(true, forKey: prefix + "coupleSnippetMigrationV1")
             }
             return result
         }

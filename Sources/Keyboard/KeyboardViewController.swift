@@ -57,6 +57,7 @@ final class KeyboardViewController: UIInputViewController {
         case expandShorthand(original: String, expansion: String)
         case restoreDiacritics(original: String, restored: String)
         case undo(current: String, previous: String)
+        case coupleStyle(id: String, title: String)
     }
     private var candidateActions: [CandidateAction] = []
     private var emojiSuggestionsEnabled = true
@@ -72,6 +73,9 @@ final class KeyboardViewController: UIInputViewController {
     // The host field asked for no automatic capitalisation.
     private var hostAutoCapNone = false
     private var spellingEnabled = true
+    private var datePhrasesEnabled = true
+    private var softenEnabled = false
+    private var toneEnabled = false
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -175,6 +179,7 @@ final class KeyboardViewController: UIInputViewController {
         longPressDigitsEnabled = KeyboardSettings.longPressDigitsEnabled
         properNounsEnabled = KeyboardSettings.properNounsEnabled
         spellingEnabled = KeyboardSettings.spellingSuggestionsEnabled
+        datePhrasesEnabled = KeyboardSettings.datePhrasesEnabled
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
@@ -255,6 +260,7 @@ final class KeyboardViewController: UIInputViewController {
         configureGlideRecognizer()
         if !glideTrailEnabled { hideGlideTrail() }
         updateCoupleTool()
+        announceSpecialDateIfNeeded()
         installWritingActions()
         installClipboardMenu()
         refreshProfileIndicator()
@@ -1315,6 +1321,7 @@ final class KeyboardViewController: UIInputViewController {
         var replacementHit: (original: String, expansion: String)?
         var undoHit: (current: String, previous: String)?
         var ruleApplied = false
+        var hitBadge: String?
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
@@ -1327,9 +1334,13 @@ final class KeyboardViewController: UIInputViewController {
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
             if let snippet = cachedSnippets[token], !token.isEmpty {
                 contextBeforeSpace = nil
-                for _ in token { textDocumentProxy.deleteBackward() }
-                textDocumentProxy.insertText(SmartTyping.expandSnippet(
-                    snippet, recipient: PersonaStore.active?.name))
+                let base = SmartTyping.expandSnippet(
+                    snippet, recipient: PersonaStore.active?.name)
+                // nil: a placeholder could not be filled; leave what was typed.
+                if let expanded = expandCoupleTokens(base) {
+                    for _ in token { textDocumentProxy.deleteBackward() }
+                    textDocumentProxy.insertText(expanded)
+                }
             } else if let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
                 for _ in word { textDocumentProxy.deleteBackward() }
@@ -1379,6 +1390,18 @@ final class KeyboardViewController: UIInputViewController {
                         replacementHit = (original: fix.original, expansion: fix.corrected)
                     }
                 }
+                if replacementHit == nil, datePhrasesEnabled,
+                   let match = DateTimePhrases.suggestion(inTail: current, now: Date()) {
+                    replacementHit = (original: match.original, expansion: match.formatted)
+                    hitBadge = "📅 "
+                }
+                if replacementHit == nil, softenEnabled {
+                    let rawWords = NextWordPredictor.rawWords(in: current, maxWords: 3).words
+                    if let soft = SoftenMessage.suggestion(forRawWords: rawWords) {
+                        replacementHit = (original: soft.original, expansion: soft.softer)
+                        hitBadge = "🕊️ "
+                    }
+                }
             }
         }
         textDocumentProxy.insertText(" ")
@@ -1392,7 +1415,8 @@ final class KeyboardViewController: UIInputViewController {
                 let tokenHasDigit = finished.reversed()
                     .prefix(while: { !$0.isWhitespace }).contains(where: { $0.isNumber })
                 if endsWithLetter && !tokenHasDigit { learnNextWord(from: finished) }
-                showSmartStrip(afterContext: finished, shorthand: replacementHit, undo: undoHit)
+                showSmartStrip(afterContext: finished, shorthand: replacementHit,
+                               undo: undoHit, badge: hitBadge)
             }
         }
         if autocapitalizeEnabled && !isShiftLocked && !hostAutoCapNone {
@@ -1548,6 +1572,8 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCoupleTool() {
+        softenEnabled = KeyboardSettings.coupleEnabled && KeyboardSettings.coupleSoftenEnabled
+        toneEnabled = KeyboardSettings.coupleEnabled && KeyboardSettings.coupleToneEnabled
         guard toolButtons.count > 1 else { return }
         let button = toolButtons[1]
         let active = KeyboardSettings.coupleEnabled
@@ -1581,7 +1607,13 @@ final class KeyboardViewController: UIInputViewController {
             action.state = style.id == selected ? .on : .off
             return action
         }
-        toolButtons[1].menu = UIMenu(title: "Phong cách AI Couple", children: actions)
+        var children: [UIMenuElement] = []
+        let quick = coupleQuickActions()
+        if !quick.isEmpty {
+            children.append(UIMenu(title: "", options: .displayInline, children: quick))
+        }
+        children.append(contentsOf: actions)
+        toolButtons[1].menu = UIMenu(title: "Couple", children: children)
         toolButtons[1].showsMenuAsPrimaryAction = false
     }
 
@@ -1821,7 +1853,8 @@ final class KeyboardViewController: UIInputViewController {
     /// is inserted automatically.
     private func showSmartStrip(afterContext context: String,
                                 shorthand: (original: String, expansion: String)?,
-                                undo: (current: String, previous: String)? = nil) {
+                                undo: (current: String, previous: String)? = nil,
+                                badge: String? = nil) {
         guard useSuggestions, pendingGlideWord == nil else { return }
         var titles: [String] = []
         var actions: [CandidateAction] = []
@@ -1830,7 +1863,7 @@ final class KeyboardViewController: UIInputViewController {
             actions.append(.undo(current: undo.current, previous: undo.previous))
         }
         if let hit = shorthand {
-            titles.append(hit.original + " → " + hit.expansion)
+            titles.append((badge ?? "") + hit.original + " → " + hit.expansion)
             actions.append(.expandShorthand(original: hit.original, expansion: hit.expansion))
         } else {
             if restoreDiacriticsEnabled {
@@ -1871,6 +1904,13 @@ final class KeyboardViewController: UIInputViewController {
             replaceTypedWords(original: original, with: restored)
         case .undo(let current, let previous):
             performUndo(current: current, previous: previous)
+        case .coupleStyle(let id, let title):
+            KeyboardSettings.coupleEnabled = true
+            KeyboardSettings.coupleStyle = id
+            updateCoupleTool()
+            updateCandidates()
+            showStatus("♥ Couple: " + title + " · Nhấn ✦ AI để soạn trả lời")
+            tactileFeedback()
         }
     }
 
@@ -1949,6 +1989,103 @@ final class KeyboardViewController: UIInputViewController {
         showSmartStrip(afterContext: context, shorthand: nil,
                        undo: (current: replacement, previous: original))
         tactileFeedback()
+    }
+
+    // MARK: Couple helpers (greetings, special dates, tone)
+
+    /// Fills {greeting}, {together} and {days}. Returns nil when a placeholder
+    /// needs data the user has not entered (the start of the relationship).
+    private func expandCoupleTokens(_ text: String) -> String? {
+        guard text.contains("{greeting}") || text.contains("{together}")
+                || text.contains("{days}") else { return text }
+        let now = Date()
+        var result = text
+        if result.contains("{greeting}") {
+            let slot = GreetingBank.slot(for: now)
+            let pick = GreetingBank.pick(
+                slot: slot, address: KeyboardSettings.coupleAddress,
+                lastIndex: KeyboardSettings.greetingIndex(for: slot.rawValue))
+            KeyboardSettings.setGreetingIndex(pick.index, for: slot.rawValue)
+            result = result.replacingOccurrences(of: "{greeting}", with: pick.text)
+        }
+        if result.contains("{together}") || result.contains("{days}") {
+            let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
+            guard let days = SpecialDates.daysTogether(list, now: now) else {
+                showStatus("Chưa đặt ngày yêu · Mở ViePN → Bàn phím → Gõ thông minh nâng cao")
+                return nil
+            }
+            result = result
+                .replacingOccurrences(of: "{together}",
+                                      with: SpecialDates.togetherMessage(days: days))
+                .replacingOccurrences(of: "{days}", with: String(days))
+        }
+        return result
+    }
+
+    private func insertCoupleText(_ text: String) {
+        resetBilingualComposition()
+        textDocumentProxy.insertText(text)
+        knownWordBoundary = true
+        recentWord = ""
+        updateCandidates()
+        tactileFeedback()
+    }
+
+    /// Rows above the style list in the Couple button's menu.
+    private func coupleQuickActions() -> [UIAction] {
+        var items: [UIAction] = []
+        let now = Date()
+        let slot = GreetingBank.slot(for: now)
+        items.append(UIAction(title: "💌 " + GreetingBank.title(for: slot)) { [weak self] _ in
+            guard let self = self, let text = self.expandCoupleTokens("{greeting}") else { return }
+            self.insertCoupleText(text)
+        })
+        let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
+        if let days = SpecialDates.daysTogether(list, now: now) {
+            items.append(UIAction(title: "💞 Bên nhau \(days) ngày") { [weak self] _ in
+                self?.insertCoupleText(SpecialDates.togetherMessage(days: days))
+            })
+        }
+        for entry in SpecialDates.upcoming(list, within: 14, now: now).prefix(3) {
+            let item = entry.item
+            let away = entry.daysAway
+            items.append(UIAction(title: SpecialDates.menuTitle(for: item, daysAway: away)) {
+                [weak self] _ in
+                self?.insertCoupleText(
+                    SpecialDates.message(for: item, daysAway: away, now: Date()))
+            })
+        }
+        return items
+    }
+
+    /// Once a day, mention a special date that falls today.
+    private func announceSpecialDateIfNeeded() {
+        let list = SpecialDates.decode(KeyboardSettings.specialDatesData)
+        guard !list.isEmpty else { return }
+        let now = Date()
+        guard let entry = SpecialDates.upcoming(list, within: 0, now: now).first else { return }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        let key = formatter.string(from: now) + entry.item.id
+        guard KeyboardSettings.lastSpecialDateNotice != key else { return }
+        KeyboardSettings.lastSpecialDateNotice = key
+        showStatus(SpecialDates.menuTitle(for: entry.item, daysAway: 0)
+                   + " · Giữ nút Couple để chèn lời chúc")
+    }
+
+    /// Chips for the styles that fit the mood of the pasted message.
+    private func showToneStyles(_ tone: MessageTone.Result) {
+        var titles: [String] = []
+        var actions: [CandidateAction] = []
+        for id in tone.styles {
+            guard let style = CoupleStyleCatalog.styles.first(where: { $0.id == id }) else { continue }
+            titles.append(style.icon + " " + style.title)
+            actions.append(.coupleStyle(id: style.id, title: style.title))
+        }
+        guard !titles.isEmpty else { return }
+        updateCandidates(titles)
+        candidateActions = actions
     }
 
     // MARK: Respect the type of the text field
@@ -2546,7 +2683,13 @@ final class KeyboardViewController: UIInputViewController {
         let context = ConversationContextResolver.resolve(selectedText)
         let matchLabel = matchedPersona.map { "✓ Đã khớp: " + $0.name } ??
             ("Người nhận: " + context.displayName)
-        showStatus(matchLabel + " · Nhấn AI")
+        let tone = toneEnabled ? MessageTone.detect(selectedText) : nil
+        if let tone = tone {
+            showStatus(matchLabel + " · " + tone.emoji + " " + tone.label)
+            showToneStyles(tone)
+        } else {
+            showStatus(matchLabel + " · Nhấn AI")
+        }
     }
 
     private func requestedInput() -> String {

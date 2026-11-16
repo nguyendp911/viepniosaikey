@@ -1094,7 +1094,7 @@ struct ContentView: View {
                 showSmartSettings = true
             } label: {
                 HStack(spacing: 9) {
-                    Text("Emoji, viết tắt, số tiền, chính tả, thêm dấu, tên riêng, dữ liệu đã học")
+                    Text("Emoji, viết tắt, chính tả, thêm dấu, Couple, ngày đặc biệt, dữ liệu đã học")
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)

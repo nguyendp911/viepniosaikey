@@ -11,6 +11,9 @@ struct SmartTypingSettingsView: View {
     @State private var restoreAccents = KeyboardSettings.restoreDiacriticsEnabled
     @State private var longPressDigits = KeyboardSettings.longPressDigitsEnabled
     @State private var properNouns = KeyboardSettings.properNounsEnabled
+    @State private var softer = KeyboardSettings.coupleSoftenEnabled
+    @State private var tone = KeyboardSettings.coupleToneEnabled
+    @State private var datePhrases = KeyboardSettings.datePhrasesEnabled
     @State private var showLearnedData = false
 
     var body: some View {
@@ -33,6 +36,18 @@ struct SmartTypingSettingsView: View {
                         .onChange(of: longPressDigits) { KeyboardSettings.longPressDigitsEnabled = $0 }
                     Toggle("Tự viết hoa tên riêng đã học", isOn: $properNouns)
                         .onChange(of: properNouns) { KeyboardSettings.properNounsEnabled = $0 }
+                }
+                Section(header: Text("Couple và hẹn hò"),
+                        footer: Text("Hai gợi ý đầu chỉ hoạt động khi nút Couple trên bàn phím đang bật. Bàn phím chỉ gợi ý, không tự sửa tin của bạn.")) {
+                    Toggle("Gợi ý nói nhẹ hơn (“lúc nào cũng”, “kệ em”…)", isOn: $softer)
+                        .onChange(of: softer) { KeyboardSettings.coupleSoftenEnabled = $0 }
+                    Toggle("Đoán tâm trạng tin nhắn đã dán, gợi ý phong cách", isOn: $tone)
+                        .onChange(of: tone) { KeyboardSettings.coupleToneEnabled = $0 }
+                    Toggle("Đổi “mai 7h”, “t6 tuần sau” thành ngày giờ cụ thể", isOn: $datePhrases)
+                        .onChange(of: datePhrases) { KeyboardSettings.datePhrasesEnabled = $0 }
+                    NavigationLink(destination: SpecialDatesView()) {
+                        Text("Ngày đặc biệt (ngày yêu, sinh nhật…)")
+                    }
                 }
                 Section(header: Text("Dữ liệu đã học")) {
                     Button("Quản lý dữ liệu đã học") { showLearnedData = true }

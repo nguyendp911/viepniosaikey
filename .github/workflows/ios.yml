@@ -66,6 +66,18 @@ jobs:
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-typing-tools"             Sources/Shared/NextWordPredictor.swift             Sources/Shared/MoneyShorthand.swift             Sources/Shared/Misspellings.swift             Scripts/verify_typing_tools.swift
           "$RUNNER_TEMP/verify-typing-tools"
+      - name: Verify couple tools (greetings, dates, softer wording, tone, date phrases)
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-couple-tools" \
+            Sources/Shared/NextWordPredictor.swift \
+            Sources/Shared/GreetingBank.swift \
+            Sources/Shared/SpecialDates.swift \
+            Sources/Shared/SoftenMessage.swift \
+            Sources/Shared/MessageTone.swift \
+            Sources/Shared/DateTimePhrases.swift \
+            Scripts/verify_couple_tools.swift
+          "$RUNNER_TEMP/verify-couple-tools"
       - name: Verify reversible bilingual Telex and English input
         run: |
           set -euo pipefail
