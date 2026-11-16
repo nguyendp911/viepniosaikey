@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
+    @State private var showLearnedData = false
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
     @State private var keyHeightValue = String(KeyboardSettings.keyHeight)
@@ -1057,6 +1058,16 @@ struct ContentView: View {
                             .font(.system(size: 11))
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                Button {
+                    showLearnedData = true
+                } label: {
+                    Label("Quản lý dữ liệu đã học", systemImage: "list.bullet.rectangle")
+                        .font(.system(size: 12))
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .sheet(isPresented: $showLearnedData) {
+                    LearnedDataView()
                 }
                 keyboardDivider()
                 keyboardMenuRow("Chế độ một tay", symbol: "hand.point.up.left",
