@@ -95,15 +95,20 @@ enum CoupleReplyGuide {
 
     static var isEnabled: Bool { KeyboardSettings.coupleEnabled }
 
-    static var context: String {
+    static var context: String { context(for: "") }
+
+    /// `incoming` is the pasted message; it lets the prompt say who is who.
+    static func context(for incoming: String) -> String {
         guard isEnabled else { return "" }
         let closeness = KeyboardSettings.coupleStage
         let pronouns = KeyboardSettings.coupleAddress
+        let whoIsWho = CouplePronouns.rule(address: pronouns, incoming: incoming)
         let style = CoupleStyleCatalog.active
         let variants = style.variantNames.joined(separator: ", ")
         return """
         COUPLE MODE: Help the user compose Vietnamese relationship replies.
-        Relationship context: \(closeness). Preferred forms of address: \(pronouns).
+        Relationship context: \(closeness). Forms of address (me / my partner): \(pronouns).
+        \(whoIsWho)
         SELECTED STYLE: \(style.title). Style directions: \(style.guidance).
         Name the three reply variants appropriately (suggested names: \(variants)).
         Keep every suggested reply consistent with the style, but with different phrasing and intensity.
@@ -125,11 +130,13 @@ enum CoupleReplyGuide {
     /// Fictional few-shot demonstrations; only the most relevant two are sent.
     static func examples(for incoming: String) -> String {
         guard isEnabled else { return "" }
+        let forms = CouplePronouns.resolved(address: KeyboardSettings.coupleAddress,
+                                            incoming: incoming)
         let picks = matchingScenes(for: incoming)
         return picks.map { example in
             let variants = zip(["Dịu dàng", "Tự nhiên", "Quan tâm"], example.replies)
-                .map { "\($0.0): \($0.1)" }.joined(separator: "\n")
-            return "Ví dụ minh họa ngữ cảnh (không phải style bắt buộc): \(example.incoming)\nBa cách trả lời:\n\(variants)"
+                .map { "\($0.0): " + CouplePronouns.adapt($0.1, me: forms.me, you: forms.you) }.joined(separator: "\n")
+            return "Ví dụ minh họa ngữ cảnh (không phải style bắt buộc): \(CouplePronouns.adapt(example.incoming, me: forms.me, you: forms.you))\nBa cách trả lời:\n\(variants)"
         }.joined(separator: "\n\n")
     }
 
@@ -139,7 +146,11 @@ enum CoupleReplyGuide {
             return []
         }
         guard let first = matchingScenes(for: incoming).first else { return [] }
+        let forms = CouplePronouns.resolved(address: KeyboardSettings.coupleAddress,
+                                            incoming: incoming)
         return zip(["Dịu dàng", "Tự nhiên", "Quan tâm"], first.replies)
-            .map { ReplySuggestion(tone: $0.0, text: $0.1) }
+            .map { ReplySuggestion(
+                tone: $0.0,
+                text: CouplePronouns.adapt($0.1, me: forms.me, you: forms.you)) }
     }
 }

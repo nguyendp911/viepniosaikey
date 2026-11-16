@@ -71,7 +71,7 @@ enum OpenAIService {
               Distinguish ME from OTHER in the saved conversation.
               """
         let coupleGuidance = recipientContext.romanticInstructionsAllowed
-            ? CoupleReplyGuide.context : ""
+            ? CoupleReplyGuide.context(for: incoming) : ""
         let coupleExamples = recipientContext.romanticInstructionsAllowed
             ? CoupleReplyGuide.examples(for: incoming) : ""
         let system = """

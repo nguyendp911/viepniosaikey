@@ -25,6 +25,7 @@ struct VerifyCoupleTools {
         verifySoften()
         verifyTone()
         verifyDates()
+        verifyPronouns()
     }
 
     // MARK: Greetings
@@ -172,5 +173,42 @@ struct VerifyCoupleTools {
         expect(parse("mai 7h.") == nil, "trailing punctuation gives nothing")
         expect(parse("") == nil, "empty gives nothing")
         expect(parse("mai  7h") == nil, "double spaces are left alone")
+    }
+
+    // MARK: Who is who
+
+    static func verifyPronouns() {
+        expect(CouplePronouns.forms(from: "anh/em").me == "anh", "anh/em: user is anh")
+        expect(CouplePronouns.forms(from: "em/anh").me == "em", "em/anh: user is em")
+        expect(CouplePronouns.forms(from: "bạn/mình").me == "mình" && CouplePronouns.forms(from: "bạn/mình").you == "bạn",
+               "bạn/mình lists the partner first")
+        expect(CouplePronouns.forms(from: "tớ/cậu").you == "cậu", "tớ/cậu")
+        expect(GreetingBank.pronouns(from: "bạn/mình").me == "mình", "greetings use the same forms")
+        let a = CouplePronouns.senderForms(in: "Em nhớ anh lắm")
+        expect(a?.sender == "em" && a?.receiver == "anh", "Em nhớ anh lắm: sender em, user anh")
+        let b = CouplePronouns.senderForms(in: "Anh ơi, em nhớ anh quá")
+        expect(b?.sender == "em" && b?.receiver == "anh", "a calling-out Anh ơi is not the sender")
+        let c = CouplePronouns.senderForms(in: "Anh nhớ em nhiều")
+        expect(c?.sender == "anh" && c?.receiver == "em", "Anh nhớ em: sender anh, user em")
+        let d = CouplePronouns.senderForms(in: "Em nhớ chị")
+        expect(d?.sender == "em" && d?.receiver == "chị", "Em nhớ chị")
+        expect(CouplePronouns.senderForms(in: "Hôm nay em mệt quá") == nil, "unclear opening gives nil")
+        expect(CouplePronouns.senderForms(in: "Em mệt quá") == nil, "one pronoun gives nil")
+        let forms = CouplePronouns.resolved(address: "em/anh", incoming: "Em nhớ anh lắm")
+        expect(forms.me == "anh" && forms.you == "em", "the message overrides a wrong saved choice")
+        let saved = CouplePronouns.resolved(address: "em/anh", incoming: "Hôm nay mệt quá")
+        expect(saved.me == "em" && saved.you == "anh", "the saved choice is used when the message is unclear")
+        let rule = CouplePronouns.rule(address: "anh/em", incoming: "Em nhớ anh lắm")
+        expect(rule.contains("written by my partner"), "rule says the partner wrote the message")
+        expect(rule.contains("Anh cũng nhớ em lắm"), "rule shows the correct reply")
+        expect(rule.contains("calls themselves \"em\" and calls me \"anh\""), "rule names this message's pronouns")
+        expect(!CouplePronouns.rule(address: "anh/em", incoming: "Hôm nay mệt quá").contains("For THIS message"),
+               "no message-specific line when it is unclear")
+        expect(CouplePronouns.adapt("Anh cũng nhớ em. Anh gửi em một cái ôm", me: "em", you: "anh")
+               == "Em cũng nhớ anh. Em gửi anh một cái ôm", "examples are swapped for an em/anh user")
+        expect(CouplePronouns.adapt("Anh nhớ em", me: "mình", you: "cậu") == "Mình nhớ cậu", "mình/cậu")
+        expect(CouplePronouns.adapt("Anh nhớ em", me: "anh", you: "em") == "Anh nhớ em", "anh/em is unchanged")
+        expect(CouplePronouns.adapt("tem anh emoji", me: "em", you: "anh") == "tem em emoji",
+               "only whole words are changed")
     }
 }

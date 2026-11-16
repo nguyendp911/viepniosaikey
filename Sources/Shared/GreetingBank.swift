@@ -31,11 +31,7 @@ enum GreetingBank {
     /// "anh/em" -> (me: "anh", you: "em"). The first word is how the user
     /// refers to themselves, the second how they address their partner.
     static func pronouns(from address: String) -> (me: String, you: String) {
-        let parts = address.split(separator: "/").map { String($0) }
-        if parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty {
-            return (me: parts[0], you: parts[1])
-        }
-        return (me: "anh", you: "em")
+        CouplePronouns.forms(from: address)
     }
 
     /// `{me}` and `{you}` are filled from the chosen forms of address.
