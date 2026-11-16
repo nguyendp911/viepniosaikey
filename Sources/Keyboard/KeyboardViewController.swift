@@ -2271,8 +2271,12 @@ final class KeyboardViewController: UIInputViewController {
     private func makeProfileChip() -> UIButton? {
         let profiles = PersonaStore.all
         guard askProfile, !profiles.isEmpty, !plainField else { return nil }
-        let fieldKey = textDocumentProxy.documentIdentifier.uuidString
-        let remembered = PersonaStore.fieldMemory.profileID(for: fieldKey)
+        // Do not read the text proxy here: the idle strip is first built while
+        // the keyboard is still loading, before iOS has connected the proxy.
+        // `lastFieldID` is filled in later, once the field is known.
+        let remembered = lastFieldID.flatMap {
+            PersonaStore.fieldMemory.profileID(for: $0.uuidString)
+        }
         let known = profiles.first(where: { $0.id == remembered })
         let chip = UIButton(type: .system)
         let title = known.map { "👤 " + String($0.name.prefix(12)) + " ▾" } ?? "👤 Chọn hồ sơ ▾"
