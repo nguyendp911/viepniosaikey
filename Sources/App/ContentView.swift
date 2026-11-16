@@ -9,7 +9,7 @@ import PhotosUI
 struct ContentView: View {
     @State private var provider = KeyboardSettings.provider
     @State private var recipientMode = KeyboardSettings.recipientMode
-    @State private var selectedPage = "couple"
+    @State private var selectedPage = ProcessInfo.processInfo.environment["VIEPN_START_PAGE"] ?? "couple"
     @State private var showCouplePrivacy = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel

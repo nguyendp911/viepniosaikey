@@ -223,3 +223,48 @@ jobs:
           name: ViePN-AI-Keyboard-Signed-IPA
           path: artifacts/*.ipa
           if-no-files-found: error
+
+  repro:
+    name: Simulator crash repro (keyboard tab)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen librsvg
+      - name: Prepare logo and project
+        run: |
+          sh scripts/prepare-app-icon.sh
+          xcodegen generate
+      - name: Build for simulator
+        run: |
+          set -euo pipefail
+          xcodebuild -project ViePNAIKeyboard.xcodeproj \
+            -scheme ViePNAIKeyboard -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/SimData" \
+            CODE_SIGNING_ALLOWED=NO build | tail -5
+      - name: Launch on the keyboard tab and look for a crash
+        run: |
+          set +e
+          xcrun simctl list runtimes
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone" | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}')
+          echo "device $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b >/dev/null
+          APP="$RUNNER_TEMP/SimData/Build/Products/Release-iphonesimulator/ViePNAIKeyboard.app"
+          xcrun simctl install "$UDID" "$APP"
+          for PAGE in couple keyboard; do
+            echo "=== launching on page: $PAGE"
+            xcrun simctl terminate "$UDID" com.viepn.aikey 2>/dev/null
+            SIMCTL_CHILD_VIEPN_START_PAGE=$PAGE xcrun simctl launch "$UDID" com.viepn.aikey
+            sleep 10
+            xcrun simctl spawn "$UDID" launchctl list | grep com.viepn.aikey || echo "NOT RUNNING after 10s"
+          done
+          echo "=== crash reports"
+          ls -la ~/Library/Logs/DiagnosticReports/ 2>/dev/null
+          for f in ~/Library/Logs/DiagnosticReports/ViePN*; do
+            [ -f "$f" ] && { echo "--- $f"; head -c 9000 "$f"; }
+          done
+          echo "=== recent process log"
+          xcrun simctl spawn "$UDID" log show --last 2m --style compact \
+            --predicate 'process == "ViePNAIKeyboard" AND (messageType == error OR messageType == fault)' | tail -60
