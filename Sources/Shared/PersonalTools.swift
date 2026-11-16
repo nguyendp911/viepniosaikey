@@ -178,23 +178,57 @@ enum PersonaStore {
         return true
     }
 
+    private struct SavedHeaderTitle: Decodable {
+        let personaID: String
+        let headerTitle: String
+    }
+
+    /// Chat titles the user enrolled in the app (a nickname in Zalo or
+    /// Messenger can differ from the profile name). Titles only, no images.
+    static func savedHeaderTitles() -> [(personaID: String, title: String)] {
+        guard let url = FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: KeyboardSettings.groupID)?
+                .appendingPathComponent("contact-header-references-v1.json"),
+              let data = try? Data(contentsOf: url),
+              let list = try? JSONDecoder().decode([SavedHeaderTitle].self, from: data)
+        else { return [] }
+        return list.map { (personaID: $0.personaID, title: $0.headerTitle) }
+    }
+
     static func matchScreenshotTitle(_ boxes: [ScreenshotTextBox]) -> ScreenshotMatch? {
         // Compare every plausible header line, never return the first
         // matching profile. Two distinct names => ambiguous, not a guess.
         let candidates = headerCandidates(boxes)
-        let normalizedTitles = Set(candidates.map {
-            normalizedScreenshotTitle($0.text)
-        })
-        let matches = all.filter {
-            normalizedTitles.contains(normalizedName($0.name))
+        guard !candidates.isEmpty else { return nil }
+        let profiles = all
+        // Profile names plus the chat titles enrolled for them in the app.
+        var entries: [(id: String, name: String)] = profiles.map { (id: $0.id, name: $0.name) }
+        for saved in savedHeaderTitles()
+            where profiles.contains(where: { $0.id == saved.personaID }) {
+            entries.append((id: saved.personaID, name: saved.title))
         }
-        guard !matches.isEmpty else { return nil }
-        let title = candidates.first(where: { candidate in
-            matches.contains {
-                normalizedName($0.name) == normalizedScreenshotTitle(candidate.text)
+        let names = entries.map { $0.name }
+        var exactIDs = Set<String>()
+        var looseIDs = Set<String>()
+        var recognized: String?
+        for candidate in candidates {
+            let title = normalizedScreenshotTitle(candidate.text)
+            let key = ScreenshotTranscript.looseKey(title)
+            for index in ScreenshotTranscript.titleMatches(title: title, names: names) {
+                if ScreenshotTranscript.looseKey(names[index]) == key {
+                    exactIDs.insert(entries[index].id)
+                } else {
+                    looseIDs.insert(entries[index].id)
+                }
+                if recognized == nil { recognized = candidate.text }
             }
-        })?.text ?? "Tiêu đề cuộc trò chuyện"
-        return ScreenshotMatch(recognizedTitle: title, matches: matches)
+        }
+        // An exact title match always beats a looser one.
+        let chosen = exactIDs.isEmpty ? looseIDs : exactIDs
+        let matches = profiles.filter { chosen.contains($0.id) }
+        guard !matches.isEmpty else { return nil }
+        return ScreenshotMatch(recognizedTitle: recognized ?? "Tiêu đề cuộc trò chuyện",
+                               matches: matches)
     }
 
     @discardableResult

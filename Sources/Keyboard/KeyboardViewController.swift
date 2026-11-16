@@ -623,6 +623,108 @@ final class KeyboardViewController: UIInputViewController {
             "Chạm AI để trả lời. Nhấn giữ để kiểm tra hồ sơ, nhận diện ảnh đã sao chép hoặc chọn người nhận."
     }
 
+    /// Reads a chat screenshot the user copied: finds the person from the chat
+    /// title and turns the visible bubbles into a labelled conversation, so the
+    /// AI knows what was said and by whom. Done on the device; the image is
+    /// never kept or uploaded.
+    private func readCopiedChatScreenshot() {
+        guard !isRequestRunning else { return }
+        guard let picture = UIPasteboard.general.image else {
+            showStatus("Không đọc được ảnh trong bộ nhớ Dán")
+            return
+        }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let bound = max(picture.size.width, picture.size.height)
+        let factor = min(1, 1800 / max(1, bound))
+        let target = CGSize(width: picture.size.width * factor,
+                            height: picture.size.height * factor)
+        guard target.width >= 100, target.height >= 100 else {
+            showStatus("Ảnh quá nhỏ để đọc")
+            return
+        }
+        let renderer = UIGraphicsImageRenderer(size: target, format: format)
+        let png = renderer.pngData { _ in
+            picture.draw(in: CGRect(origin: .zero, size: target))
+        }
+        isRequestRunning = true
+        showStatus("Đang đọc ảnh chụp cuộc trò chuyện…")
+        let ticket = UUID()
+        requestID = ticket
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var lines: [ScreenshotTranscript.Line] = []
+            var boxes: [PersonaStore.ScreenshotTextBox] = []
+            if let image = UIImage(data: png)?.cgImage {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.recognitionLanguages = ["vi-VN", "en-US"]
+                request.usesLanguageCorrection = false
+                if (try? VNImageRequestHandler(cgImage: image, options: [:])
+                        .perform([request])) != nil {
+                    for observation in request.results ?? [] {
+                        guard let label = observation.topCandidates(1).first?.string
+                        else { continue }
+                        let box = observation.boundingBox
+                        lines.append(ScreenshotTranscript.Line(
+                            text: label, minX: Double(box.minX),
+                            maxX: Double(box.maxX), midY: Double(box.midY)))
+                        boxes.append(PersonaStore.ScreenshotTextBox(
+                            text: label, midX: Double(box.midX), midY: Double(box.midY)))
+                    }
+                }
+            }
+            let match = PersonaStore.matchScreenshotTitle(boxes)
+            let messages = ScreenshotTranscript.messages(from: lines)
+            DispatchQueue.main.async {
+                guard let self, self.requestID == ticket else { return }
+                self.isRequestRunning = false
+                self.finishChatScreenshot(messages: messages, match: match)
+            }
+        }
+    }
+
+    private func finishChatScreenshot(messages: [ScreenshotTranscript.Message],
+                                      match: PersonaStore.ScreenshotMatch?) {
+        var matched: RecipientPersona?
+        var note = ""
+        if let found = match {
+            if let unique = found.uniqueMatch {
+                if PersonaStore.automaticNameMatch {
+                    PersonaStore.select(unique.id)
+                    matched = unique
+                } else {
+                    note = " · Thấy " + unique.name + ", bật Tự khớp tên để áp dụng"
+                }
+            } else {
+                note = " · Nhiều hồ sơ trùng tên, hãy chọn trong menu AI"
+            }
+        }
+        if matched != nil {
+            installWritingActions()
+            refreshIdleActions()
+            refreshProfileIndicator()
+            updateCoupleTool()
+        }
+        let who = matched ?? PersonaStore.active
+        guard let text = ScreenshotTranscript.transcript(
+                personName: who?.name, messages: messages) else {
+            showStatus((matched.map { "✓ " + $0.name + " · " } ?? "")
+                       + "Không đọc được tin nhắn trong ảnh. Hãy chụp rõ hơn.")
+            return
+        }
+        selectedText = String(text.prefix(3000))
+        clearSuggestions()
+        let label = matched.map { "✓ Đã khớp: " + $0.name }
+            ?? (PersonaStore.active.map { "Hồ sơ đang chọn: " + $0.name } ?? "Chưa khớp hồ sơ nào")
+        let lastOther = messages.last(where: { !$0.isMine })?.text ?? ""
+        if toneEnabled, let tone = MessageTone.detect(lastOther) {
+            showStatus(label + " · " + tone.emoji + " " + tone.label)
+            showToneStyles(tone)
+        } else {
+            showStatus(label + " · \(messages.count) tin nhắn" + note + " · Nhấn AI")
+        }
+    }
+
     /// A keyboard extension cannot read Zalo/Messenger's chat title.
     /// This opt-in workflow looks ONLY at an image the user explicitly copied
     /// into the system clipboard, never at host app UI or conversation text.
@@ -2671,6 +2773,10 @@ final class KeyboardViewController: UIInputViewController {
         }
         let clipboard = UIPasteboard.general
         guard clipboard.hasStrings else {
+            if clipboard.hasImages {
+                readCopiedChatScreenshot()
+                return
+            }
             showStatus("Chưa có văn bản · Hãy sao chép tin nhắn cần phân tích")
             return
         }

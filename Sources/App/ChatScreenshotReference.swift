@@ -119,6 +119,23 @@ enum ChatScreenshotReference {
                 ids.insert(ref.personaID)
             }
         }
+        if ids.isEmpty {
+            // No exact title: allow a saved name inside the title, or the
+            // reverse ("Mai Linh ❤️", "Mai" for "Mai Linh").
+            var entries: [(id: String, name: String)] = profiles.map { (id: $0.id, name: $0.name) }
+            for ref in references where profiles.contains(where: { $0.id == ref.personaID }) {
+                entries.append((id: ref.personaID, name: ref.headerTitle))
+            }
+            let names = entries.map { $0.name }
+            for observation in observations where observation.midY >= 0.77
+                && observation.midY <= 0.967
+                && PersonaStore.isPlausibleHeaderTitle(observation.text) {
+                let title = PersonaStore.normalizedScreenshotTitle(observation.text)
+                for index in ScreenshotTranscript.titleMatches(title: title, names: names) {
+                    ids.insert(entries[index].id)
+                }
+            }
+        }
         return profiles.filter { ids.contains($0.id) }
     }
 

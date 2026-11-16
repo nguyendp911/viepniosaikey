@@ -21,7 +21,9 @@ enum CouplePronouns {
     /// When a message opens with "Em ... anh ..." the sender calls themselves
     /// "em" and the reader (the user) "anh". Returns nil when it is not clear.
     static func senderForms(in incoming: String) -> (sender: String, receiver: String)? {
-        let words = incoming.lowercased().split(whereSeparator: { !$0.isLetter }).map { String($0) }
+        // In a chat transcript only the other person's last message counts.
+        let focus = ScreenshotTranscript.focusMessage(incoming)
+        let words = focus.lowercased().split(whereSeparator: { !$0.isLetter }).map { String($0) }
         guard let first = words.first, kinship.contains(first) else { return nil }
         guard let other = words.dropFirst().first(where: { kinship.contains($0) && $0 != first }) else {
             return nil
