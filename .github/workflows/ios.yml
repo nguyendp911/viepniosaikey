@@ -25,6 +25,7 @@ jobs:
             Sources/Shared/ScreenshotTranscript.swift \
             Sources/Shared/ConversationContext.swift \
             Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ChatFieldMemory.swift \
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_conversation_context.swift
           "$RUNNER_TEMP/verify-context"
@@ -113,6 +114,7 @@ jobs:
             Sources/Shared/ConversationContext.swift \
             Sources/Shared/ReplyEngine.swift \
             Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ChatFieldMemory.swift \
             Sources/Shared/SmartTyping.swift \
             Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartAssistantCore.swift \
