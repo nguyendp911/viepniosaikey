@@ -2021,10 +2021,7 @@ final class KeyboardViewController: UIInputViewController {
             showStatus("✓ Hồ sơ: " + name + " · đã nhớ cho cuộc trò chuyện này")
             tactileFeedback()
         case .ignoreField:
-            var memory = PersonaStore.fieldMemory
-            memory.remember(field: textDocumentProxy.documentIdentifier.uuidString,
-                            profileID: ChatFieldMemory.ignored)
-            PersonaStore.fieldMemory = memory
+            rememberField(ChatFieldMemory.ignored)
             updateCandidates()
             statusLabel.isHidden = true
             updateKeyboardHeight()
@@ -2214,11 +2211,21 @@ final class KeyboardViewController: UIInputViewController {
         updateCoupleTool()
     }
 
+    /// The id iOS gives the current text field, or nil when it is not
+    /// available yet. Read dynamically so a missing value can never crash
+    /// the keyboard while it is still loading.
+    private func currentFieldID() -> UUID? {
+        guard let proxy = textDocumentProxy as? NSObject,
+              let value = proxy.perform(NSSelectorFromString("documentIdentifier")) else {
+            return nil
+        }
+        return value.takeUnretainedValue() as? UUID
+    }
+
     private func rememberField(_ profileID: String) {
-        guard askProfile else { return }
+        guard askProfile, let field = currentFieldID() else { return }
         var memory = PersonaStore.fieldMemory
-        memory.remember(field: textDocumentProxy.documentIdentifier.uuidString,
-                        profileID: profileID)
+        memory.remember(field: field.uuidString, profileID: profileID)
         PersonaStore.fieldMemory = memory
     }
 
@@ -2232,9 +2239,7 @@ final class KeyboardViewController: UIInputViewController {
     /// user comes back to a field they already told us about, switch to that
     /// profile; when the field is new, ask once with a few one-tap choices.
     private func syncConversationProfile() {
-        guard askProfile else { return }
-        let field = textDocumentProxy.documentIdentifier
-        guard field != lastFieldID else { return }
+        guard askProfile, let field = currentFieldID(), field != lastFieldID else { return }
         lastFieldID = field
         refreshIdleActions()
         guard !plainField else { return }
