@@ -225,15 +225,22 @@ jobs:
           if-no-files-found: error
 
   repro:
-    name: Simulator crash repro (iOS ${{ matrix.ios }})
+    name: Hitch probe (${{ matrix.variant }})
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        ios: ["26.0", "26.2"]
+        variant: [full, main-ui]
     steps:
       - uses: actions/checkout@v4
+      - name: Use the settings screen from main
+        if: matrix.variant == 'main-ui'
+        run: |
+          git fetch origin main --depth=1
+          git show origin/main:Sources/App/ContentView.swift > Sources/App/ContentView.swift
+          rm Sources/App/LearnedDataView.swift
+          python3 Scripts/patch_probe.py
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare logo and project
@@ -247,35 +254,19 @@ jobs:
             -scheme ViePNAIKeyboard -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/SimData" \
-            CODE_SIGNING_ALLOWED=NO build | tail -5
-      - name: Launch on the keyboard tab and look for a crash
+            CODE_SIGNING_ALLOWED=NO build | tail -3
+      - name: Measure the freeze when switching to the keyboard tab
         run: |
           set +e
-          RT=$(xcrun simctl list runtimes | grep "iOS ${{ matrix.ios }}" | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+' | head -1)
-          echo "runtime: $RT"
-          [ -n "$RT" ] || { echo "RUNTIME NOT AVAILABLE"; exit 1; }
-          UDID=$(xcrun simctl create repro com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
-          echo "device $UDID"
+          RT=$(xcrun simctl list runtimes | grep "iOS 26.2" | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+' | head -1)
+          UDID=$(xcrun simctl create probe com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b >/dev/null
-          APP="$RUNNER_TEMP/SimData/Build/Products/Release-iphonesimulator/ViePNAIKeyboard.app"
-          xcrun simctl install "$UDID" "$APP"
-          echo "=== switching tab couple -> keyboard after launch"
-          xcrun simctl terminate "$UDID" com.viepn.aikey 2>/dev/null
-          SIMCTL_CHILD_VIEPN_AUTOTAB=keyboard xcrun simctl launch "$UDID" com.viepn.aikey
-          sleep 14
-          xcrun simctl spawn "$UDID" launchctl list | grep com.viepn.aikey || echo "NOT RUNNING after tab switch"
-          for PAGE in couple keyboard; do
-            echo "=== launching on page: $PAGE"
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/SimData/Build/Products/Release-iphonesimulator/ViePNAIKeyboard.app"
+          for TAB in ai keyboard keyboard keyboard; do
             xcrun simctl terminate "$UDID" com.viepn.aikey 2>/dev/null
-            SIMCTL_CHILD_VIEPN_START_PAGE=$PAGE xcrun simctl launch "$UDID" com.viepn.aikey
-            sleep 12
-            xcrun simctl spawn "$UDID" launchctl list | grep com.viepn.aikey || echo "NOT RUNNING after 12s"
+            rm -f "$RUNNER_TEMP/out.txt"
+            SIMCTL_CHILD_VIEPN_AUTOTAB=$TAB xcrun simctl launch --stdout="$RUNNER_TEMP/out.txt" "$UDID" com.viepn.aikey >/dev/null
+            sleep 14
+            echo "tab=$TAB -> $(grep VIEPN_HITCH "$RUNNER_TEMP/out.txt" || echo 'no probe output')"
           done
-          echo "=== crash reports"
-          for f in ~/Library/Logs/DiagnosticReports/ViePN*; do
-            [ -f "$f" ] && { echo "--- $f"; head -c 12000 "$f"; }
-          done
-          echo "=== recent process log"
-          xcrun simctl spawn "$UDID" log show --last 3m --style compact \
-            --predicate 'process == "ViePNAIKeyboard"' | grep -iE "fatal|crash|abort|exception|terminat|trap|overflow" | tail -40

@@ -165,6 +165,7 @@ struct ContentView: View {
         .onAppear {
             if let target = ProcessInfo.processInfo.environment["VIEPN_AUTOTAB"] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    HitchProbe.shared.start(label: target, duration: 8)
                     withAnimation(.easeInOut(duration: 0.18)) { selectedPage = target }
                 }
             }
