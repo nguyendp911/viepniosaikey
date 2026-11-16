@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
+    @State private var showSmartSettings = false
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
     @State private var keyHeightValue = String(KeyboardSettings.keyHeight)
@@ -755,6 +756,7 @@ struct ContentView: View {
             keyboardInputCard
             keyboardPreferencesCard
             smartTypingCard
+            smartTypingEntryCard
             personalWritingCard
             keyboardThemesCard
             keyboardShortcutsCard
@@ -1082,6 +1084,31 @@ struct ContentView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var smartTypingEntryCard: some View {
+        keyboardPanel("Gõ thông minh nâng cao", icon: "sparkles") {
+            Button {
+                showSmartSettings = true
+            } label: {
+                HStack(spacing: 9) {
+                    Text("Emoji, viết tắt, số tiền, chính tả, thêm dấu, tên riêng, dữ liệu đã học")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 6)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(muted)
+                }
+                .frame(minHeight: 39)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showSmartSettings) {
+                SmartTypingSettingsView()
             }
         }
     }
