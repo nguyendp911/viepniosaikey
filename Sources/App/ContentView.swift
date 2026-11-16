@@ -1136,16 +1136,6 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            Button {
-                showLearnedData = true
-            } label: {
-                Label("Quản lý dữ liệu đã học", systemImage: "list.bullet.rectangle")
-                    .font(.system(size: 12))
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .sheet(isPresented: $showLearnedData) {
-                LearnedDataView()
-            }
             keyboardDivider()
         }
     }
