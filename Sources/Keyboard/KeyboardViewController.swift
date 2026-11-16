@@ -1796,6 +1796,7 @@ final class KeyboardViewController: UIInputViewController {
             idleBar.removeArrangedSubview(child)
             child.removeFromSuperview()
         }
+        if let profileChip = makeProfileChip() { idleBar.addArrangedSubview(profileChip) }
         for (index, item) in idleActions.enumerated() {
             let chip = UIButton(type: .system)
             chip.tag = index
@@ -2235,6 +2236,7 @@ final class KeyboardViewController: UIInputViewController {
         let field = textDocumentProxy.documentIdentifier
         guard field != lastFieldID else { return }
         lastFieldID = field
+        refreshIdleActions()
         guard !plainField else { return }
         let profiles = PersonaStore.all
         guard !profiles.isEmpty else { return }
@@ -2252,7 +2254,8 @@ final class KeyboardViewController: UIInputViewController {
         askWhoIsChatting(profiles: profiles)
     }
 
-    private func askWhoIsChatting(profiles: [RecipientPersona]) {
+    /// Profiles with the most recently used first.
+    private func profilesByRecentUse(_ profiles: [RecipientPersona]) -> [RecipientPersona] {
         var ordered: [RecipientPersona] = []
         for id in PersonaStore.recentIDs {
             if let person = profiles.first(where: { $0.id == id }) { ordered.append(person) }
@@ -2260,6 +2263,52 @@ final class KeyboardViewController: UIInputViewController {
         for person in profiles where !ordered.contains(where: { $0.id == person.id }) {
             ordered.append(person)
         }
+        return ordered
+    }
+
+    /// The first chip of the idle strip: shows who this chat is with, and a tap
+    /// opens the list of saved profiles. Highlighted while the field is new.
+    private func makeProfileChip() -> UIButton? {
+        let profiles = PersonaStore.all
+        guard askProfile, !profiles.isEmpty, !plainField else { return nil }
+        let fieldKey = textDocumentProxy.documentIdentifier.uuidString
+        let remembered = PersonaStore.fieldMemory.profileID(for: fieldKey)
+        let known = profiles.first(where: { $0.id == remembered })
+        let chip = UIButton(type: .system)
+        let title = known.map { "👤 " + String($0.name.prefix(12)) + " ▾" } ?? "👤 Chọn hồ sơ ▾"
+        chip.setTitle(title, for: .normal)
+        chip.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+        chip.setTitleColor(known == nil ? UIColor.white : UIColor.label, for: .normal)
+        chip.backgroundColor = known == nil
+            ? cyanColor : UIColor.secondarySystemBackground.withAlphaComponent(0.8)
+        chip.layer.cornerRadius = 13
+        chip.contentEdgeInsets = UIEdgeInsets(top: 8, left: 13, bottom: 8, right: 13)
+        chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
+        var actions: [UIMenuElement] = []
+        for person in profilesByRecentUse(profiles) {
+            let action = UIAction(title: person.name) { [weak self] _ in
+                self?.selectProfileRememberingField(person.id)
+                self?.showStatus("✓ Hồ sơ: " + person.name + " · đã nhớ cho cuộc trò chuyện này")
+            }
+            action.state = (known?.id == person.id) ? .on : .off
+            actions.append(action)
+        }
+        actions.append(UIAction(title: "Không dùng hồ sơ cho ô này",
+                                attributes: .destructive) { [weak self] _ in
+            PersonaStore.clearSelection()
+            self?.rememberField(ChatFieldMemory.ignored)
+            self?.refreshProfileUI()
+            self?.showStatus("Đã tắt hồ sơ cho ô nhập này")
+        })
+        chip.menu = UIMenu(title: "Đang nhắn với ai?", children: actions)
+        chip.showsMenuAsPrimaryAction = true
+        chip.accessibilityLabel = "Hồ sơ cuộc trò chuyện: " + (known?.name ?? "chưa chọn")
+        chip.accessibilityHint = "Chạm để chọn người bạn đang nhắn"
+        return chip
+    }
+
+    private func askWhoIsChatting(profiles: [RecipientPersona]) {
+        let ordered = profilesByRecentUse(profiles)
         var titles: [String] = []
         var actions: [CandidateAction] = []
         for person in ordered.prefix(3) {
@@ -2269,7 +2318,7 @@ final class KeyboardViewController: UIInputViewController {
         titles.append("✕ Không phải chat")
         actions.append(.ignoreField)
         let current = PersonaStore.active.map { " · đang dùng: " + $0.name } ?? ""
-        showStatus("Đang nhắn với ai?" + current)
+        showStatus("Đang nhắn với ai?" + current + " · chạm 👤 để chọn")
         guard useSuggestions else { return }
         updateCandidates(titles)
         candidateActions = actions
