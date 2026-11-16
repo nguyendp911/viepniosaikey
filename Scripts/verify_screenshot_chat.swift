@@ -14,6 +14,7 @@ struct VerifyScreenshotChat {
         verifyConversation()
         verifyTitles()
         verifyFocus()
+        verifyFieldMemory()
     }
 
     static func verifyNoise() {
@@ -106,5 +107,35 @@ struct VerifyScreenshotChat {
         expect(seen?.sender == "em" && seen?.receiver == "anh", "pronouns are read from the other person's message")
         let me = CouplePronouns.resolved(address: "em/anh", incoming: text)
         expect(me.me == "anh" && me.you == "em", "the reply is written as anh")
+    }
+
+    static func verifyFieldMemory() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var memory = ChatFieldMemory()
+        expect(memory.profileID(for: "a", now: start) == nil, "an unknown field has no profile")
+        memory.remember(field: "a", profileID: "mai", now: start)
+        expect(memory.profileID(for: "a", now: start.addingTimeInterval(60)) == "mai", "a remembered field is found")
+        expect(memory.profileID(for: "b", now: start) == nil, "another field is still unknown")
+        expect(memory.profileID(for: "a", now: start.addingTimeInterval(49 * 3600)) == nil, "old entries expire")
+        memory.remember(field: "a", profileID: "hoa", now: start.addingTimeInterval(10))
+        expect(memory.profileID(for: "a", now: start.addingTimeInterval(20)) == "hoa", "a newer choice replaces the old one")
+        memory.remember(field: "c", profileID: ChatFieldMemory.ignored, now: start)
+        expect(memory.profileID(for: "c", now: start) == ChatFieldMemory.ignored, "a field can be marked as not a chat")
+        let decoded = ChatFieldMemory.decode(memory.encoded())
+        expect(decoded == memory, "the memory survives encode and decode")
+        expect(ChatFieldMemory.decode(nil) == ChatFieldMemory(), "no data gives an empty memory")
+        var big = ChatFieldMemory()
+        for index in 0..<50 {
+            big.remember(field: "f\(index)", profileID: "p", now: start.addingTimeInterval(Double(index)))
+        }
+        expect(big.entries.count == ChatFieldMemory.maxEntries, "the memory stays small")
+        expect(big.profileID(for: "f49", now: start.addingTimeInterval(60)) == "p", "the newest entries are kept")
+        expect(big.profileID(for: "f0", now: start.addingTimeInterval(60)) == nil, "the oldest entries are dropped")
+        var forget = ChatFieldMemory()
+        forget.remember(field: "x", profileID: "mai", now: start)
+        forget.remember(field: "y", profileID: "hoa", now: start)
+        forget.forget(profileID: "mai")
+        expect(forget.profileID(for: "x", now: start) == nil && forget.profileID(for: "y", now: start) == "hoa",
+               "a deleted profile is forgotten")
     }
 }

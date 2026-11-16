@@ -56,7 +56,33 @@ enum PersonaStore {
         KeyboardSettings.recipientMode = role
     }
 
+    // MARK: Which chat a text field belongs to
+
+    private static let fieldMemoryKey = "viepnaikey.chatFieldMemory"
+    private static let recentKey = "viepnaikey.recentPersonaIDs"
+
+    static var fieldMemory: ChatFieldMemory {
+        get { ChatFieldMemory.decode(defaults.data(forKey: fieldMemoryKey)) }
+        set {
+            if let data = newValue.encoded() {
+                defaults.set(data, forKey: fieldMemoryKey)
+            }
+        }
+    }
+
+    /// Profiles in the order they were last used, newest first.
+    static var recentIDs: [String] {
+        defaults.stringArray(forKey: recentKey) ?? []
+    }
+
+    private static func noteRecent(_ id: String) {
+        var list = recentIDs.filter { $0 != id }
+        list.insert(id, at: 0)
+        defaults.set(Array(list.prefix(8)), forKey: recentKey)
+    }
+
     static func select(_ id: String) {
+        noteRecent(id)
         activeID = id
         if let selected = active {
             KeyboardSettings.recipientMode = selected.recipient

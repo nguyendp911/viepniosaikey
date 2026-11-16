@@ -14,6 +14,7 @@ struct SmartTypingSettingsView: View {
     @State private var softer = KeyboardSettings.coupleSoftenEnabled
     @State private var tone = KeyboardSettings.coupleToneEnabled
     @State private var datePhrases = KeyboardSettings.datePhrasesEnabled
+    @State private var askProfile = KeyboardSettings.askConversationProfile
     @State private var showLearnedData = false
 
     var body: some View {
@@ -45,6 +46,8 @@ struct SmartTypingSettingsView: View {
                         .onChange(of: tone) { KeyboardSettings.coupleToneEnabled = $0 }
                     Toggle("Đổi “mai 7h”, “t6 tuần sau” thành ngày giờ cụ thể", isOn: $datePhrases)
                         .onChange(of: datePhrases) { KeyboardSettings.datePhrasesEnabled = $0 }
+                    Toggle("Nhớ hồ sơ theo từng cuộc trò chuyện và hỏi khi gặp chat mới", isOn: $askProfile)
+                        .onChange(of: askProfile) { KeyboardSettings.askConversationProfile = $0 }
                     NavigationLink(destination: SpecialDatesView()) {
                         Text("Ngày đặc biệt (ngày yêu, sinh nhật…)")
                     }

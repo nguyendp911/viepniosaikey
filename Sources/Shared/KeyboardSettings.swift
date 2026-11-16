@@ -272,6 +272,12 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "coupleToneEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "coupleToneEnabled") }
     }
+    /// Remember which profile belongs to a chat's text field and ask once
+    /// when a field is new.
+    static var askConversationProfile: Bool {
+        get { defaults.object(forKey: prefix + "askConversationProfile") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "askConversationProfile") }
+    }
     static var datePhrasesEnabled: Bool {
         get { defaults.object(forKey: prefix + "datePhrasesEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "datePhrasesEnabled") }

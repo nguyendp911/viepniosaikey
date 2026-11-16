@@ -87,6 +87,7 @@ jobs:
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-screenshot-chat" \
             Sources/Shared/ScreenshotTranscript.swift \
+            Sources/Shared/ChatFieldMemory.swift \
             Sources/Shared/CouplePronouns.swift \
             Scripts/verify_screenshot_chat.swift
           "$RUNNER_TEMP/verify-screenshot-chat"

@@ -58,6 +58,8 @@ final class KeyboardViewController: UIInputViewController {
         case restoreDiacritics(original: String, restored: String)
         case undo(current: String, previous: String)
         case coupleStyle(id: String, title: String)
+        case chooseProfile(id: String, name: String)
+        case ignoreField
     }
     private var candidateActions: [CandidateAction] = []
     private var emojiSuggestionsEnabled = true
@@ -76,6 +78,8 @@ final class KeyboardViewController: UIInputViewController {
     private var datePhrasesEnabled = true
     private var softenEnabled = false
     private var toneEnabled = false
+    private var askProfile = true
+    private var lastFieldID: UUID?
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
@@ -180,6 +184,7 @@ final class KeyboardViewController: UIInputViewController {
         properNounsEnabled = KeyboardSettings.properNounsEnabled
         spellingEnabled = KeyboardSettings.spellingSuggestionsEnabled
         datePhrasesEnabled = KeyboardSettings.datePhrasesEnabled
+        askProfile = KeyboardSettings.askConversationProfile
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
@@ -208,6 +213,7 @@ final class KeyboardViewController: UIInputViewController {
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         refreshFieldTraits()
+        syncConversationProfile()
         if currentTheme != KeyboardSettings.theme { applyTheme() }
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.
@@ -267,6 +273,7 @@ final class KeyboardViewController: UIInputViewController {
         updateCandidates()
         refreshIdleActions()
         updateContextVisibility()
+        syncConversationProfile()
     }
 
     override func viewDidLayoutSubviews() {
@@ -550,7 +557,7 @@ final class KeyboardViewController: UIInputViewController {
         )
         let personaActions: [UIAction] = PersonaStore.all.map { person in
             let item = UIAction(title: person.name) { [weak self] _ in
-                PersonaStore.select(person.id)
+                self?.selectProfileRememberingField(person.id)
                 self?.installWritingActions()
                 self?.refreshIdleActions()
                 self?.refreshProfileIndicator()
@@ -690,7 +697,7 @@ final class KeyboardViewController: UIInputViewController {
         if let found = match {
             if let unique = found.uniqueMatch {
                 if PersonaStore.automaticNameMatch {
-                    PersonaStore.select(unique.id)
+                    selectProfileRememberingField(unique.id)
                     matched = unique
                 } else {
                     note = " · Thấy " + unique.name + ", bật Tự khớp tên để áp dụng"
@@ -800,7 +807,7 @@ final class KeyboardViewController: UIInputViewController {
                         + ". Bật Tự khớp tên hoặc chọn trong menu Hồ sơ.")
                     return
                 }
-                PersonaStore.select(person.id)
+                self.selectProfileRememberingField(person.id)
                 self.installWritingActions()
                 self.refreshIdleActions()
                 self.refreshProfileIndicator()
@@ -2007,6 +2014,19 @@ final class KeyboardViewController: UIInputViewController {
             replaceTypedWords(original: original, with: restored)
         case .undo(let current, let previous):
             performUndo(current: current, previous: previous)
+        case .chooseProfile(let id, let name):
+            selectProfileRememberingField(id)
+            updateCandidates()
+            showStatus("✓ Hồ sơ: " + name + " · đã nhớ cho cuộc trò chuyện này")
+            tactileFeedback()
+        case .ignoreField:
+            var memory = PersonaStore.fieldMemory
+            memory.remember(field: textDocumentProxy.documentIdentifier.uuidString,
+                            profileID: ChatFieldMemory.ignored)
+            PersonaStore.fieldMemory = memory
+            updateCandidates()
+            statusLabel.isHidden = true
+            updateKeyboardHeight()
         case .coupleStyle(let id, let title):
             KeyboardSettings.coupleEnabled = true
             KeyboardSettings.coupleStyle = id
@@ -2182,6 +2202,77 @@ final class KeyboardViewController: UIInputViewController {
         KeyboardSettings.lastSpecialDateNotice = key
         showStatus(SpecialDates.menuTitle(for: entry.item, daysAway: 0)
                    + " · Giữ nút Couple để chèn lời chúc")
+    }
+
+    // MARK: Which conversation is this field?
+
+    private func refreshProfileUI() {
+        installWritingActions()
+        refreshIdleActions()
+        refreshProfileIndicator()
+        updateCoupleTool()
+    }
+
+    private func rememberField(_ profileID: String) {
+        guard askProfile else { return }
+        var memory = PersonaStore.fieldMemory
+        memory.remember(field: textDocumentProxy.documentIdentifier.uuidString,
+                        profileID: profileID)
+        PersonaStore.fieldMemory = memory
+    }
+
+    private func selectProfileRememberingField(_ id: String) {
+        PersonaStore.select(id)
+        rememberField(id)
+        refreshProfileUI()
+    }
+
+    /// A chat app usually gives each conversation its own text field. When the
+    /// user comes back to a field they already told us about, switch to that
+    /// profile; when the field is new, ask once with a few one-tap choices.
+    private func syncConversationProfile() {
+        guard askProfile else { return }
+        let field = textDocumentProxy.documentIdentifier
+        guard field != lastFieldID else { return }
+        lastFieldID = field
+        guard !plainField else { return }
+        let profiles = PersonaStore.all
+        guard !profiles.isEmpty else { return }
+        if let remembered = PersonaStore.fieldMemory.profileID(for: field.uuidString) {
+            if remembered == ChatFieldMemory.ignored { return }
+            if let person = profiles.first(where: { $0.id == remembered }) {
+                if PersonaStore.activeID != person.id {
+                    PersonaStore.select(person.id)
+                    refreshProfileUI()
+                }
+                showStatus("💬 " + person.name)
+                return
+            }
+        }
+        askWhoIsChatting(profiles: profiles)
+    }
+
+    private func askWhoIsChatting(profiles: [RecipientPersona]) {
+        var ordered: [RecipientPersona] = []
+        for id in PersonaStore.recentIDs {
+            if let person = profiles.first(where: { $0.id == id }) { ordered.append(person) }
+        }
+        for person in profiles where !ordered.contains(where: { $0.id == person.id }) {
+            ordered.append(person)
+        }
+        var titles: [String] = []
+        var actions: [CandidateAction] = []
+        for person in ordered.prefix(3) {
+            titles.append("👤 " + String(person.name.prefix(14)))
+            actions.append(.chooseProfile(id: person.id, name: person.name))
+        }
+        titles.append("✕ Không phải chat")
+        actions.append(.ignoreField)
+        let current = PersonaStore.active.map { " · đang dùng: " + $0.name } ?? ""
+        showStatus("Đang nhắn với ai?" + current)
+        guard useSuggestions else { return }
+        updateCandidates(titles)
+        candidateActions = actions
     }
 
     /// Chips for the styles that fit the mood of the pasted message.
@@ -2789,6 +2880,7 @@ final class KeyboardViewController: UIInputViewController {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()
         let matchedPersona = PersonaStore.autoSelect(fromSharedTranscript: selectedText)
+        if let matchedPersona = matchedPersona { rememberField(matchedPersona.id) }
         if matchedPersona != nil {
             installWritingActions()
             refreshProfileIndicator()
