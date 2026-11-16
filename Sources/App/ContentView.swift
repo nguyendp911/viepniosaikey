@@ -162,6 +162,13 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            if let target = ProcessInfo.processInfo.environment["VIEPN_AUTOTAB"] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    withAnimation(.easeInOut(duration: 0.18)) { selectedPage = target }
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             favorites = KeyboardSettings.favoriteReplies
             phrases = KeyboardSettings.savedPhrases

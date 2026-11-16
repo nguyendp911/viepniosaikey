@@ -260,6 +260,11 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b >/dev/null
           APP="$RUNNER_TEMP/SimData/Build/Products/Release-iphonesimulator/ViePNAIKeyboard.app"
           xcrun simctl install "$UDID" "$APP"
+          echo "=== switching tab couple -> keyboard after launch"
+          xcrun simctl terminate "$UDID" com.viepn.aikey 2>/dev/null
+          SIMCTL_CHILD_VIEPN_AUTOTAB=keyboard xcrun simctl launch "$UDID" com.viepn.aikey
+          sleep 14
+          xcrun simctl spawn "$UDID" launchctl list | grep com.viepn.aikey || echo "NOT RUNNING after tab switch"
           for PAGE in couple keyboard; do
             echo "=== launching on page: $PAGE"
             xcrun simctl terminate "$UDID" com.viepn.aikey 2>/dev/null
