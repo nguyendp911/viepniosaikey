@@ -239,8 +239,7 @@ enum DateTimePhrases {
     /// The first date or time phrase anywhere in a message ("mai 7h anh đón
     /// em"), extended to the longest form ("thứ 6 tuần sau").
     static func firstMatch(in text: String, now: Date, calendar: Calendar = .current) -> Match? {
-        let separators: Set<Character> = [" ", ",", "!", "?", ";", "
-"]
+        let separators: Set<Character> = [" ", ",", "!", "?", ";", "\n"]
         var tokens: [String] = []
         var current = ""
         for character in text {
