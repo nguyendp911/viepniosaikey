@@ -15,6 +15,7 @@ struct SmartTypingSettingsView: View {
     @State private var tone = KeyboardSettings.coupleToneEnabled
     @State private var datePhrases = KeyboardSettings.datePhrasesEnabled
     @State private var askProfile = KeyboardSettings.askConversationProfile
+    @State private var keyPreview = KeyboardSettings.keyPreviewEnabled
     @State private var showLearnedData = false
 
     var body: some View {
@@ -37,6 +38,11 @@ struct SmartTypingSettingsView: View {
                         .onChange(of: longPressDigits) { KeyboardSettings.longPressDigitsEnabled = $0 }
                     Toggle("Tự viết hoa tên riêng đã học", isOn: $properNouns)
                         .onChange(of: properNouns) { KeyboardSettings.properNounsEnabled = $0 }
+                }
+                Section(header: Text("Giao diện bàn phím"),
+                        footer: Text("Bong bóng chữ hiện phía trên phím đang bấm, giống bàn phím iOS. Chế độ siêu nhẹ tự tắt.")) {
+                    Toggle("Bong bóng chữ khi bấm phím", isOn: $keyPreview)
+                        .onChange(of: keyPreview) { KeyboardSettings.keyPreviewEnabled = $0 }
                 }
                 Section(header: Text("Couple và hẹn hò"),
                         footer: Text("Hai gợi ý đầu chỉ hoạt động khi nút Couple trên bàn phím đang bật. Bàn phím chỉ gợi ý, không tự sửa tin của bạn.")) {

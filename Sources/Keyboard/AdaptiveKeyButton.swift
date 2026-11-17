@@ -5,9 +5,55 @@ import UIKit
 /// capped at half the inter-key gap, so adjacent keys never overlap.
 /// This is a deterministic, offline hit-area improvement; it does not guess
 /// or silently replace the user's intended character.
+///
+/// The key also shows a clear pressed state: while it is held its background
+/// moves toward black (light keys) or white (dark keys). The colour the theme
+/// sets stays the "resting" colour, so themes need no changes.
 final class AdaptiveKeyButton: UIButton {
     var horizontalHitExpansion: CGFloat = 0
     private var lastShadowBounds: CGRect = .zero
+    private var restingColor: UIColor?
+    private var showsPressedColor = false
+
+    /// The colour the key has when it is not pressed.
+    var restingBackground: UIColor? { restingColor }
+
+    override var backgroundColor: UIColor? {
+        get { super.backgroundColor }
+        set {
+            restingColor = newValue
+            super.backgroundColor = showsPressedColor
+                ? AdaptiveKeyButton.pressed(newValue) : newValue
+        }
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            showsPressedColor = isHighlighted
+            super.backgroundColor = isHighlighted
+                ? AdaptiveKeyButton.pressed(restingColor) : restingColor
+        }
+    }
+
+    /// A visible but gentle change: light keys darken, dark keys lighten.
+    static func pressed(_ base: UIColor?) -> UIColor? {
+        guard let base = base else { return nil }
+        return UIColor { trait in
+            let resolved = base.resolvedColor(with: trait)
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+                return resolved
+            }
+            let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+            let target: CGFloat = luminance > 0.5 ? 0 : 1
+            let amount: CGFloat = luminance > 0.5 ? 0.14 : 0.16
+            return UIColor(red: red + (target - red) * amount,
+                           green: green + (target - green) * amount,
+                           blue: blue + (target - blue) * amount,
+                           alpha: alpha)
+        }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()

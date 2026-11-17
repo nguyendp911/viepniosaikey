@@ -390,11 +390,16 @@ enum KeyboardSettings {
     /// coordinates are recorded, and all effects are disabled in light mode.
     static let availableKeyEffects = ["off", "pop", "glow", "bounce", "flash"]
     static var keypressEffect: String {
-        get { defaults.string(forKey: prefix + "keypressEffect") ?? "off" }
+        get { defaults.string(forKey: prefix + "keypressEffect") ?? "pop" }
         set {
             defaults.set(availableKeyEffects.contains(newValue) ? newValue : "off",
                          forKey: prefix + "keypressEffect")
         }
+    }
+    /// The enlarged letter shown above a key while it is held.
+    static var keyPreviewEnabled: Bool {
+        get { defaults.object(forKey: prefix + "keyPreviewEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "keyPreviewEnabled") }
     }
     static var autoCapitalize: Bool {
         get { defaults.object(forKey: prefix + "autoCapitalize") as? Bool ?? true }
