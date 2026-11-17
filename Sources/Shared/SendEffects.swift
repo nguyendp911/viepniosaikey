@@ -138,7 +138,9 @@ enum SendEffects {
                 if let exact = exact, accented, !lowered.contains(exact) { continue }
                 return rule.effect
             }
-            if rule.symbols.contains(where: { text.contains($0) }) { return rule.effect }
+            if rule.symbols.contains(where: { text.range(of: $0, options: .literal) != nil }) {
+                return rule.effect
+            }
         }
         return nil
     }
