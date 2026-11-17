@@ -384,9 +384,9 @@ final class KeyboardViewController: UIInputViewController {
             // the profile name) absorbs the slack or shrinks first.
             button.setContentHuggingPriority(index == 2 ? .defaultLow : .defaultHigh, for: .horizontal)
             button.setContentCompressionResistancePriority(
-                index == 2 ? .defaultLow : .defaultHigh, for: .horizontal)
+                index == 2 ? .defaultLow : UILayoutPriority(rawValue: 751), for: .horizontal)
             if index == 2 {
-                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 66).isActive = true
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 62).isActive = true
             }
             toolButtons.append(button)
             commands.addArrangedSubview(button)
@@ -1047,8 +1047,8 @@ final class KeyboardViewController: UIInputViewController {
                                withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
                     ?? UIImage(systemName: "circle.fill")
         config.imagePlacement = .leading
-        config.imagePadding = 4
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 10)
+        config.imagePadding = 3
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 6, bottom: 7, trailing: 6)
         config.titleLineBreakMode = .byTruncatingTail
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
@@ -1057,7 +1057,7 @@ final class KeyboardViewController: UIInputViewController {
         config.cornerStyle = .capsule
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var result = incoming
-            result.font = .systemFont(ofSize: 11.5, weight: .semibold)
+            result.font = .systemFont(ofSize: 11, weight: .semibold)
             return result
         }
         button.configuration = config
