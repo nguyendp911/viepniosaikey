@@ -19,6 +19,8 @@ struct SmartTypingSettingsView: View {
     @State private var shopMode = KeyboardSettings.shopModeEnabled
     @State private var promises = KeyboardSettings.commitmentsEnabled
     @State private var voiceChip = KeyboardSettings.voiceChipEnabled
+    @State private var effectMode = KeyboardSettings.sendEffectMode
+    @State private var effectOnEnter = KeyboardSettings.sendEffectOnEnter
     @State private var showLearnedData = false
 
     var body: some View {
@@ -46,6 +48,45 @@ struct SmartTypingSettingsView: View {
                         footer: Text("Bong bóng chữ hiện phía trên phím đang bấm, giống bàn phím iOS. Chế độ siêu nhẹ tự tắt.")) {
                     Toggle("Bong bóng chữ khi bấm phím", isOn: $keyPreview)
                         .onChange(of: keyPreview) { KeyboardSettings.keyPreviewEnabled = $0 }
+                }
+                Section(header: Text("Hiệu ứng khi gửi tin"),
+                        footer: Text("Hiệu ứng chỉ hiện trên bàn phím, người nhận không thấy. Bàn phím nhận ra tin đã gửi khi bạn bấm phím Gửi, hoặc khi ô nhập bị app chat làm trống sau khi gửi. “Tự chọn” chỉ chạy khi tin có chữ như chúc mừng, sinh nhật, yêu, ngủ ngon, Tết. Tự tắt khi bật chế độ siêu nhẹ hoặc iOS giảm chuyển động.")) {
+                    Picker("Hiệu ứng", selection: $effectMode) {
+                        Text("Tắt").tag(SendEffects.modeOff)
+                        Text("Tự chọn theo nội dung").tag(SendEffects.modeAuto)
+                        Text("Ngẫu nhiên mỗi tin").tag(SendEffects.modeRandom)
+                        ForEach(SendEffect.allCases, id: \.rawValue) { effect in
+                            Text(effect.icon + " " + effect.title).tag(effect.rawValue)
+                        }
+                    }
+                    .onChange(of: effectMode) { KeyboardSettings.sendEffectMode = $0 }
+                    Toggle("Cả khi Enter chỉ xuống dòng", isOn: $effectOnEnter)
+                        .onChange(of: effectOnEnter) { KeyboardSettings.sendEffectOnEnter = $0 }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                              spacing: 8) {
+                        ForEach(SendEffect.allCases, id: \.rawValue) { effect in
+                            Button {
+                                Task { @MainActor in
+                                    if let window = ShowcaseCapture.keyWindow() {
+                                        SendEffectView.play(effect, in: window)
+                                    }
+                                }
+                            } label: {
+                                VStack(spacing: 3) {
+                                    Text(effect.icon).font(.system(size: 24))
+                                    Text(effect.title)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .background(Color.secondary.opacity(0.12),
+                                            in: RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
                 Section(header: Text("Công cụ hằng ngày"),
                         footer: Text("Bán hàng: danh mục, mẫu tin và tính đơn. Lời hứa: bàn phím ghi lại câu hẹn trong đoạn chat bạn dán để bạn duyệt và được nhắc. Đổi giọng: Bắc, Nam, Trung, Gen Z.")) {

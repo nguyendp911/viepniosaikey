@@ -81,6 +81,14 @@ final class KeyboardViewController: UIInputViewController {
     private var askProfile = true
     private var shopEnabled = false
     private var voiceChipEnabled = true
+    private var sendEffectMode = SendEffects.modeAuto
+    private var sendEffectOnEnter = false
+    private var sendSnapshot = ""
+    private var sendSnapshotField: UUID?
+    private var lastOwnEditAt: CFTimeInterval = 0
+    private var lastReturnAt: CFTimeInterval = 0
+    private var lastEffectAt: CFTimeInterval = 0
+    private var sendCheckWork: DispatchWorkItem?
     private var commitmentsEnabled = true
     private var lastFieldID: UUID?
     private var recentWord = ""
@@ -191,6 +199,8 @@ final class KeyboardViewController: UIInputViewController {
         askProfile = KeyboardSettings.askConversationProfile
         shopEnabled = KeyboardSettings.shopModeEnabled
         voiceChipEnabled = KeyboardSettings.voiceChipEnabled
+        sendEffectMode = performanceMode ? SendEffects.modeOff : KeyboardSettings.sendEffectMode
+        sendEffectOnEnter = KeyboardSettings.sendEffectOnEnter
         commitmentsEnabled = KeyboardSettings.commitmentsEnabled
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
@@ -222,6 +232,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshFieldTraits()
         syncConversationProfile()
         if currentTheme != KeyboardSettings.theme { applyTheme() }
+        scheduleSendCheck()
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.
         // Destructive rewrites are independently guarded by host suffix checks.
@@ -230,6 +241,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
         flushLearnedWords()
+        sendCheckWork?.cancel()
+        sendSnapshot = ""
         keyPreview?.hide()
         candidateUpdateWork?.cancel()
         candidateGeneration &+= 1
@@ -670,7 +683,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         let primaryItems: [UIMenuElement] = [
             receiverMenu, profileMenu, screenshotAction, mediationAction, memoryAction,
-            openingAction, importDraft, privacyAction, undoAction, variantsAction
+            openingAction, importDraft, privacyAction, undoAction, variantsAction,
+            sendEffectsMenu()
         ]
         toolButtons[2].menu = UIMenu(
             title: "AI · Hội thoại và viết lại",
@@ -1339,6 +1353,77 @@ final class KeyboardViewController: UIInputViewController {
         layer.add(animation, forKey: "viepn.keypress")
     }
 
+    // MARK: Send effects
+
+    /// The Return key of a chat field labelled "Send" (or "Go") sends the
+    /// message, so the effect starts right there.
+    private func sendEffectForReturnKey() {
+        guard sendEffectMode != SendEffects.modeOff, !plainField else { return }
+        let type = textDocumentProxy.returnKeyType
+        guard type == .send || type == .go || sendEffectOnEnter else { return }
+        let text = (textDocumentProxy.documentContextBeforeInput ?? "")
+            + (textDocumentProxy.documentContextAfterInput ?? "")
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        sendSnapshot = ""
+        playSendEffect(for: text)
+    }
+
+    /// Chat apps send with their own button, which the keyboard cannot see.
+    /// What it can see is the text box being emptied without any key of ours:
+    /// that is a sent message. A short pause after each change keeps this off
+    /// the typing path.
+    private func scheduleSendCheck() {
+        guard sendEffectMode != SendEffects.modeOff, !plainField else { return }
+        let changedAt = CACurrentMediaTime()
+        sendCheckWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.checkForSentMessage(changedAt: changedAt) }
+        sendCheckWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+    }
+
+    private func checkForSentMessage(changedAt: CFTimeInterval) {
+        let proxy = textDocumentProxy
+        let text = (proxy.documentContextBeforeInput ?? "") + (proxy.documentContextAfterInput ?? "")
+        let field = currentFieldID()
+        if !text.isEmpty {
+            sendSnapshot = String(text.suffix(400))
+            sendSnapshotField = field
+            return
+        }
+        let snapshot = sendSnapshot
+        sendSnapshot = ""
+        guard snapshot.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2,
+              field == sendSnapshotField else { return }
+        // Emptied by Return, or by the host app. Not by our own Delete key.
+        let afterReturn = lastReturnAt > 0 && changedAt - lastReturnAt < 0.8
+        let byHost = changedAt - lastOwnEditAt > 0.5
+        guard afterReturn || byHost else { return }
+        playSendEffect(for: snapshot)
+    }
+
+    private func playSendEffect(for text: String) {
+        guard let effect = SendEffects.effect(forMessage: text, mode: sendEffectMode) else { return }
+        let now = CACurrentMediaTime()
+        guard now - lastEffectAt > 2 else { return }
+        lastEffectAt = now
+        showSendEffect(effect)
+    }
+
+    private func showSendEffect(_ effect: SendEffect) {
+        if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        SendEffectView.play(effect, in: view)
+    }
+
+    private func sendEffectsMenu() -> UIMenu {
+        let actions: [UIMenuElement] = SendEffect.allCases.map { effect in
+            UIAction(title: effect.icon + "  " + effect.title) { [weak self] _ in
+                self?.showSendEffect(effect)
+            }
+        }
+        return UIMenu(title: "Hiệu ứng gửi tin · Xem thử",
+                      image: UIImage(systemName: "wand.and.stars"), children: actions)
+    }
+
     // MARK: Key preview bubble
 
     private var keyPreviewEnabled = true
@@ -1693,6 +1778,8 @@ final class KeyboardViewController: UIInputViewController {
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
+        lastReturnAt = CACurrentMediaTime()
+        sendEffectForReturnKey()
         textDocumentProxy.insertText("\n")
         knownWordBoundary = true
         recentWord = ""
@@ -3268,6 +3355,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func beginTyping() {
+        lastOwnEditAt = CACurrentMediaTime()
         isComposingInteraction = true
         updateContextVisibility()
         // When the user continues after accepting the automatically chosen

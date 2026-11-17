@@ -42,6 +42,12 @@ jobs:
             Sources/Shared/OfflineSentenceSuggestions.swift \
             Scripts/verify_sentence_suggestions.swift
           "$RUNNER_TEMP/verify-sentences"
+      - name: Verify send effects
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-send-effects" \r
+            Sources/Shared/SendEffects.swift Scripts/verify_send_effects.swift
+          "$RUNNER_TEMP/verify-send-effects"
       - name: Verify VNI numeric composition
         run: |
           set -euo pipefail

@@ -291,6 +291,17 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "voiceChipEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "voiceChipEnabled") }
     }
+    // Animation shown over the keyboard when a message is sent. Drawn only
+    // inside the keyboard, never sent anywhere. "auto" picks by the words.
+    static var sendEffectMode: String {
+        get { defaults.string(forKey: prefix + "sendEffectMode") ?? "auto" }
+        set { defaults.set(newValue, forKey: prefix + "sendEffectMode") }
+    }
+    /// Also play the effect when Enter only starts a new line.
+    static var sendEffectOnEnter: Bool {
+        get { defaults.object(forKey: prefix + "sendEffectOnEnter") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: prefix + "sendEffectOnEnter") }
+    }
     /// Minutes before the due time that a promise reminder is shown.
     static var reminderLeadMinutes: Int {
         get { defaults.object(forKey: prefix + "reminderLeadMinutes") as? Int ?? 30 }
