@@ -39,7 +39,7 @@ final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
         let height: CGFloat = 330
         keyboard.view.frame = CGRect(x: 0, y: host.view.bounds.height - height - bottomInset,
                                      width: host.view.bounds.width, height: height)
-        keyboard.view.autoresizingMask = [.flexibleWidth, .flexibleTop]
+        keyboard.view.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
         host.view.addSubview(keyboard.view)
         keyboard.didMove(toParent: host)
         self.keyboard = keyboard
