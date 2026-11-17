@@ -1039,8 +1039,9 @@ final class KeyboardViewController: UIInputViewController {
                                withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
                     ?? UIImage(systemName: "circle.fill")
         config.imagePlacement = .leading
-        config.imagePadding = 5
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 6, bottom: 7, trailing: 6)
+        config.imagePadding = 4
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
+        config.titleLineBreakMode = .byTruncatingTail
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
         config.background.strokeColor = UIColor.separator.withAlphaComponent(0.28)
@@ -1048,7 +1049,7 @@ final class KeyboardViewController: UIInputViewController {
         config.cornerStyle = .capsule
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var result = incoming
-            result.font = .systemFont(ofSize: 12, weight: .semibold)
+            result.font = .systemFont(ofSize: 11.5, weight: .semibold)
             return result
         }
         button.configuration = config
@@ -1224,6 +1225,38 @@ final class KeyboardViewController: UIInputViewController {
         previewLabel.backgroundColor = keyColor
         previewLabel.textColor = primary
         statusLabel.textColor = primary
+        chipFill = keyColor
+        chipText = primary
+        themeKeyColor = keyColor
+        themeTextColor = primary
+        for button in candidateButtons {
+            button.backgroundColor = chipFill
+            button.setTitleColor(chipText, for: .normal)
+        }
+        candidateExpandButton?.backgroundColor = chipFill
+        styleToolbarForTheme()
+        if !idleActions.isEmpty { refreshIdleActions() }
+    }
+
+    /// Toolbar pills follow the theme: key-coloured with a hairline, a coloured
+    /// icon for Paste and Couple, and white text only on the active Couple pill
+    /// and the AI pill.
+    private func styleToolbarForTheme() {
+        guard toolButtons.count > 4 else { return }
+        let stroke = themeTextColor.withAlphaComponent(0.16)
+        for index in [0, 3, 4] {
+            guard var config = toolButtons[index].configuration else { continue }
+            config.background.backgroundColor = themeKeyColor
+            config.background.strokeColor = stroke
+            config.baseForegroundColor = themeTextColor
+            if index == 0 {
+                config.imageColorTransformer = UIConfigurationColorTransformer { _ in
+                    UIColor(red: 0.45, green: 0.52, blue: 1, alpha: 1)
+                }
+            }
+            toolButtons[index].configuration = config
+        }
+        updateCoupleTool()
     }
 
     /// Key animations use a single Core Animation object on the existing
@@ -1281,6 +1314,13 @@ final class KeyboardViewController: UIInputViewController {
     private var keyPreviewEnabled = true
     private var keyPreview: KeyPreviewView?
 
+    // Colours of the chosen theme, shared by the toolbar pills and the chips so
+    // everything above the keys matches the keys instead of the system colours.
+    private var chipFill: UIColor = .secondarySystemBackground
+    private var chipText: UIColor = .label
+    private var themeKeyColor: UIColor = .secondarySystemBackground
+    private var themeTextColor: UIColor = .label
+
     private func showKeyPreview(_ key: UIButton) {
         guard keyPreviewEnabled, let key = key as? AdaptiveKeyButton,
               let text = key.title(for: .normal), !text.isEmpty else { return }
@@ -1302,6 +1342,14 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func hideKeyPreview() {
         keyPreview?.hide()
+    }
+
+    /// Used only by the debug harness to picture a held key (never called in
+    /// the shipping keyboard).
+    func harnessPress(_ title: String) {
+        guard let key = letterButtons.first(where: { $0.title(for: .normal) == title }) else { return }
+        key.isHighlighted = true
+        showKeyPreview(key)
     }
 
     private func tactileFeedback() {
@@ -1753,11 +1801,18 @@ final class KeyboardViewController: UIInputViewController {
             config.title = "Couple"
             config.image = UIImage(systemName: active ? "heart.fill" : "heart",
                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
-            config.baseForegroundColor = active ? .white :
-                UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1)
+            config.baseForegroundColor = active ? UIColor.white : themeTextColor
             config.background.backgroundColor = active
-                ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
-                : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
+                ? UIColor(red: 0.88, green: 0.28, blue: 0.58, alpha: 1) : themeKeyColor
+            config.background.strokeColor = active
+                ? UIColor.clear : themeTextColor.withAlphaComponent(0.16)
+            if active {
+                config.imageColorTransformer = nil
+            } else {
+                config.imageColorTransformer = UIConfigurationColorTransformer { _ in
+                    UIColor(red: 0.95, green: 0.35, blue: 0.62, alpha: 1)
+                }
+            }
             button.configuration = config
         }
         button.accessibilityLabel = active
@@ -1867,15 +1922,15 @@ final class KeyboardViewController: UIInputViewController {
             chip.titleLabel?.font = .systemFont(
                 ofSize: item.emoji ? 23 : 12,
                 weight: item.emoji ? .regular : .medium)
-            chip.setTitleColor(.label, for: .normal)
-            chip.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
+            chip.setTitleColor(chipText, for: .normal)
+            chip.backgroundColor = chipFill
             chip.layer.cornerRadius = 13
             chip.layer.cornerCurve = .continuous
             chip.contentEdgeInsets = UIEdgeInsets(
-                top: 8, left: item.emoji ? 11 : 13,
-                bottom: 8, right: item.emoji ? 11 : 13)
+                top: 8, left: item.emoji ? 10 : 13,
+                bottom: 8, right: item.emoji ? 10 : 13)
             chip.widthAnchor.constraint(greaterThanOrEqualToConstant:
-                item.emoji ? 49 : 110).isActive = true
+                item.emoji ? 44 : 104).isActive = true
             chip.accessibilityLabel = item.emoji ? "Chèn emoji " + item.title
                 : "Chèn câu gợi ý " + item.title
             chip.addTarget(self, action: #selector(idleActionTapped(_:)),
@@ -2348,15 +2403,22 @@ final class KeyboardViewController: UIInputViewController {
         }
         let known = profiles.first(where: { $0.id == remembered })
         let chip = UIButton(type: .system)
-        let title = known.map { "👤 " + String($0.name.prefix(12)) + " ▾" } ?? "👤 Chọn hồ sơ ▾"
-        chip.setTitle(title, for: .normal)
-        chip.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
-        chip.setTitleColor(known == nil ? UIColor.white : UIColor.label, for: .normal)
-        chip.backgroundColor = known == nil
-            ? cyanColor : UIColor.secondarySystemBackground.withAlphaComponent(0.8)
-        chip.layer.cornerRadius = 13
-        chip.contentEdgeInsets = UIEdgeInsets(top: 8, left: 13, bottom: 8, right: 13)
-        chip.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
+        var look = UIButton.Configuration.filled()
+        look.cornerStyle = .capsule
+        look.image = UIImage(systemName: "person.crop.circle.fill",
+                             withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+        look.imagePadding = 5
+        look.title = (known.map { String($0.name.prefix(12)) } ?? "Chọn hồ sơ") + " ▾"
+        look.baseBackgroundColor = known == nil ? cyanColor : chipFill
+        look.baseForegroundColor = known == nil ? UIColor.white : chipText
+        look.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        look.titleLineBreakMode = .byTruncatingTail
+        look.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var result = incoming
+            result.font = .systemFont(ofSize: 12, weight: .semibold)
+            return result
+        }
+        chip.configuration = look
         var actions: [UIMenuElement] = []
         for person in profilesByRecentUse(profiles) {
             let action = UIAction(title: person.name) { [weak self] _ in
@@ -2391,7 +2453,7 @@ final class KeyboardViewController: UIInputViewController {
         titles.append("✕ Không phải chat")
         actions.append(.ignoreField)
         let current = PersonaStore.active.map { " · đang dùng: " + $0.name } ?? ""
-        showStatus("Đang nhắn với ai?" + current + " · chạm 👤 để chọn")
+        showStatus("Đang nhắn với ai?" + current + " · chạm “Chọn hồ sơ”")
         guard useSuggestions else { return }
         updateCandidates(titles)
         candidateActions = actions
@@ -2508,8 +2570,8 @@ final class KeyboardViewController: UIInputViewController {
             let button = UIButton(type: .system)
             button.tag = index
             button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-            button.setTitleColor(.label, for: .normal)
-            button.backgroundColor = UIColor.secondarySystemBackground
+            button.setTitleColor(chipText, for: .normal)
+            button.backgroundColor = chipFill
             button.layer.cornerRadius = 11
             button.layer.cornerCurve = .continuous
             button.contentEdgeInsets = UIEdgeInsets(
@@ -2544,7 +2606,7 @@ final class KeyboardViewController: UIInputViewController {
             more.setTitle("Tất cả  ···", for: .normal)
             more.setTitleColor(cyanColor, for: .normal)
             more.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
-            more.backgroundColor = UIColor.tertiarySystemBackground
+            more.backgroundColor = chipFill
             more.layer.cornerRadius = 11
             more.contentEdgeInsets = UIEdgeInsets(
                 top: 6, left: 12, bottom: 6, right: 12)
