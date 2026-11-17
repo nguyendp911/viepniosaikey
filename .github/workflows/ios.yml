@@ -289,17 +289,18 @@ jobs:
             [ -f "$f" ] && { echo "--- crash $f"; head -c 5000 "$f"; }
           done
           mkdir -p "$RUNNER_TEMP/shots"
-          for LOOK in light dark; do
+          for COMBO in light:system dark:system light:amoled light:sakura; do
+            LOOK=${COMBO%%:*}; THEME=${COMBO##*:}
             xcrun simctl ui "$UDID" appearance $LOOK
             for STATE in idle pressed; do
               xcrun simctl terminate "$UDID" $APP 2>/dev/null
               if [ "$STATE" = pressed ]; then
-                SIMCTL_CHILD_HARNESS_MODE=shot SIMCTL_CHILD_HARNESS_PRESS=1 xcrun simctl launch "$UDID" $APP >/dev/null
+                SIMCTL_CHILD_HARNESS_THEME=$THEME SIMCTL_CHILD_HARNESS_MODE=shot SIMCTL_CHILD_HARNESS_PRESS=1 xcrun simctl launch "$UDID" $APP >/dev/null
               else
-                SIMCTL_CHILD_HARNESS_MODE=shot xcrun simctl launch "$UDID" $APP >/dev/null
+                SIMCTL_CHILD_HARNESS_THEME=$THEME SIMCTL_CHILD_HARNESS_MODE=shot xcrun simctl launch "$UDID" $APP >/dev/null
               fi
               sleep 5
-              xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/shots/$LOOK-$STATE.png"
+              xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/shots/$LOOK-$THEME-$STATE.png"
             done
           done
           ls -la "$RUNNER_TEMP/shots"

@@ -63,9 +63,7 @@ final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
         guard let keyboard else { return }
         keyboard.textDidChange(nil)
         if ProcessInfo.processInfo.environment["HARNESS_PRESS"] != nil {
-            let key = buttons(in: keyboard.view).first { $0.title(for: .normal) == "g" }
-            key?.isHighlighted = true
-            key?.sendActions(for: .touchDown)
+            keyboard.harnessPress("g")
         }
         print("HARNESS SHOT READY")
     }
