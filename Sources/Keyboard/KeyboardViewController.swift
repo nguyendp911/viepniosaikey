@@ -184,6 +184,7 @@ final class KeyboardViewController: UIInputViewController {
         properNounsEnabled = KeyboardSettings.properNounsEnabled
         spellingEnabled = KeyboardSettings.spellingSuggestionsEnabled
         datePhrasesEnabled = KeyboardSettings.datePhrasesEnabled
+        keyPreviewEnabled = KeyboardSettings.keyPreviewEnabled && !performanceMode
         askProfile = KeyboardSettings.askConversationProfile
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
@@ -223,6 +224,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
         flushLearnedWords()
+        keyPreview?.hide()
         candidateUpdateWork?.cancel()
         candidateGeneration &+= 1
         glideResultGeneration &+= 1
@@ -278,11 +280,15 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
+        if toolButtons.count > 2 {
+            aiGradient.frame = toolButtons[2].bounds
+            aiGradient.cornerRadius = toolButtons[2].bounds.height / 2
+        }
         // Explicit shadow paths avoid per-frame off-screen shadow rendering.
         for button in toolButtons where button.layer.shadowPath?.boundingBoxOfPath != button.bounds {
             button.layer.shadowPath = UIBezierPath(
-                roundedRect: button.bounds, cornerRadius: 10).cgPath
+                roundedRect: button.bounds,
+                cornerRadius: button.bounds.height / 2).cgPath
         }
         for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
             layer.frame = view.bounds
@@ -346,6 +352,15 @@ final class KeyboardViewController: UIInputViewController {
             configureSymbolButton(button, title: spec.0, symbol: spec.1,
                                   foreground: foreground, background: background)
             button.addTarget(self, action: spec.2, for: .touchUpInside)
+            // Press feedback: a quick, light shrink while the finger is down.
+            button.configurationUpdateHandler = { pressedButton in
+                let target: CGAffineTransform = pressedButton.isHighlighted
+                    ? CGAffineTransform(scaleX: 0.95, y: 0.95) : .identity
+                UIView.animate(withDuration: 0.09, delay: 0,
+                               options: [.allowUserInteraction, .beginFromCurrentState]) {
+                    pressedButton.transform = target
+                }
+            }
             button.layer.shadowColor = UIColor.black.cgColor
             button.layer.shadowOpacity = 0.08
             button.layer.shadowRadius = 2
@@ -357,7 +372,12 @@ final class KeyboardViewController: UIInputViewController {
                 ]
                 aiGradient.startPoint = CGPoint(x: 0, y: 0)
                 aiGradient.endPoint = CGPoint(x: 1, y: 1)
-                aiGradient.cornerRadius = 11
+                aiGradient.cornerRadius = 18.5
+                // A soft coloured glow marks the main action.
+                button.layer.shadowColor = aiColor.cgColor
+                button.layer.shadowOpacity = 0.32
+                button.layer.shadowRadius = 6
+                button.layer.shadowOffset = CGSize(width: 0, height: 2)
                 button.layer.insertSublayer(aiGradient, at: 0)
             }
             toolButtons.append(button)
@@ -462,6 +482,8 @@ final class KeyboardViewController: UIInputViewController {
                 // text feedback when typing quickly.
                 key.removeTarget(self, action: #selector(letterTapped(_:)), for: .touchUpInside)
                 key.addTarget(self, action: #selector(letterTapped(_:)), for: .touchDown)
+                key.addTarget(self, action: #selector(hideKeyPreview),
+                              for: [.touchUpInside, .touchUpOutside, .touchCancel, .touchDragExit])
                 letterButtons.append(key)
                 row.addArrangedSubview(key)
             }
@@ -985,15 +1007,18 @@ final class KeyboardViewController: UIInputViewController {
         let button = AdaptiveKeyButton(type: .system)
         button.setTitle(title, for: .normal)
         button.setTitleColor(.label, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
+        button.titleLabel?.font = .systemFont(ofSize: 22, weight: .regular)
         button.backgroundColor = UIColor { trait in
             trait.userInterfaceStyle == .dark ? UIColor(white: 0.31, alpha: 1) : .white
         }
-        button.layer.cornerRadius = 10
+        // Rounded "squircle" corners and a crisp one-point edge underneath
+        // give each key a slightly raised, tactile look.
+        button.layer.cornerRadius = 8.5
+        button.layer.cornerCurve = .continuous
         button.layer.shadowColor = UIColor.black.cgColor
-        button.layer.shadowOpacity = 0.08
+        button.layer.shadowOpacity = 0.24
         button.layer.shadowOffset = CGSize(width: 0, height: 1)
-        button.layer.shadowRadius = 1
+        button.layer.shadowRadius = 0.5
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.7
         button.addTarget(self, action: action, for: .touchUpInside)
@@ -1015,13 +1040,15 @@ final class KeyboardViewController: UIInputViewController {
                     ?? UIImage(systemName: "circle.fill")
         config.imagePlacement = .leading
         config.imagePadding = 5
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 6, bottom: 7, trailing: 6)
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
-        config.cornerStyle = .medium
+        config.background.strokeColor = UIColor.separator.withAlphaComponent(0.28)
+        config.background.strokeWidth = 0.5
+        config.cornerStyle = .capsule
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var result = incoming
-            result.font = .systemFont(ofSize: 11, weight: .semibold)
+            result.font = .systemFont(ofSize: 12, weight: .semibold)
             return result
         }
         button.configuration = config
@@ -1212,17 +1239,24 @@ final class KeyboardViewController: UIInputViewController {
         let animation: CAAnimation
         switch keypressEffect {
         case "pop":
-            let pulse = CABasicAnimation(keyPath: "transform.scale")
-            pulse.fromValue = 0.91
-            pulse.toValue = 1
-            pulse.duration = 0.13
-            animation = pulse
+            // A short spring: the key dips and settles back, no linear snap.
+            let spring = CASpringAnimation(keyPath: "transform.scale")
+            spring.fromValue = 0.90
+            spring.toValue = 1
+            spring.mass = 0.5
+            spring.stiffness = 420
+            spring.damping = 15
+            spring.duration = min(0.32, spring.settlingDuration)
+            animation = spring
         case "bounce":
-            let bounce = CAKeyframeAnimation(keyPath: "transform.scale")
-            bounce.values = [1, 0.90, 1.06, 1]
-            bounce.keyTimes = [0, 0.22, 0.62, 1]
-            bounce.duration = 0.21
-            animation = bounce
+            let spring = CASpringAnimation(keyPath: "transform.scale")
+            spring.fromValue = 0.82
+            spring.toValue = 1
+            spring.mass = 0.5
+            spring.stiffness = 300
+            spring.damping = 8
+            spring.duration = min(0.5, spring.settlingDuration)
+            animation = spring
         case "glow":
             let glow = CABasicAnimation(keyPath: "shadowOpacity")
             glow.fromValue = 0.80
@@ -1240,6 +1274,34 @@ final class KeyboardViewController: UIInputViewController {
         }
         animation.isRemovedOnCompletion = true
         layer.add(animation, forKey: "viepn.keypress")
+    }
+
+    // MARK: Key preview bubble
+
+    private var keyPreviewEnabled = true
+    private var keyPreview: KeyPreviewView?
+
+    private func showKeyPreview(_ key: UIButton) {
+        guard keyPreviewEnabled, let key = key as? AdaptiveKeyButton,
+              let text = key.title(for: .normal), !text.isEmpty else { return }
+        let preview: KeyPreviewView
+        if let existing = keyPreview {
+            preview = existing
+            if preview.superview == nil { view.addSubview(preview) }
+        } else {
+            preview = KeyPreviewView()
+            keyPreview = preview
+            view.addSubview(preview)
+        }
+        view.bringSubviewToFront(preview)
+        preview.show(text: text, keyFrame: key.convert(key.bounds, to: view),
+                     container: view.bounds,
+                     fill: key.restingBackground ?? UIColor.systemBackground,
+                     textColor: key.titleColor(for: .normal) ?? UIColor.label)
+    }
+
+    @objc private func hideKeyPreview() {
+        keyPreview?.hide()
     }
 
     private func tactileFeedback() {
@@ -1271,6 +1333,7 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
+        showKeyPreview(sender)
         // Sample every 50th touch without invoking a random-number generator
         // on the input latency-critical path.
         typingTouchCount &+= 1
@@ -1807,6 +1870,7 @@ final class KeyboardViewController: UIInputViewController {
             chip.setTitleColor(.label, for: .normal)
             chip.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
             chip.layer.cornerRadius = 13
+            chip.layer.cornerCurve = .continuous
             chip.contentEdgeInsets = UIEdgeInsets(
                 top: 8, left: item.emoji ? 11 : 13,
                 bottom: 8, right: item.emoji ? 11 : 13)
@@ -2447,6 +2511,7 @@ final class KeyboardViewController: UIInputViewController {
             button.setTitleColor(.label, for: .normal)
             button.backgroundColor = UIColor.secondarySystemBackground
             button.layer.cornerRadius = 11
+            button.layer.cornerCurve = .continuous
             button.contentEdgeInsets = UIEdgeInsets(
                 top: 6, left: 13, bottom: 6, right: 13)
             button.addTarget(self, action: #selector(candidateTapped(_:)),
