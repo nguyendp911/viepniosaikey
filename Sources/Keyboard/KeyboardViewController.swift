@@ -331,8 +331,8 @@ final class KeyboardViewController: UIInputViewController {
         // Keep a real always-visible UIButton for Paste; do not use UIPasteControl here.
         let commands = UIStackView()
         commands.axis = .horizontal
-        commands.spacing = 6
-        commands.distribution = .fillEqually
+        commands.spacing = 5
+        commands.distribution = .fill
         commands.alignment = .fill
         let tools: [(String, String, Selector)] = [
             ("Dán", "doc.on.clipboard", #selector(pasteTapped)),
@@ -379,6 +379,14 @@ final class KeyboardViewController: UIInputViewController {
                 button.layer.shadowRadius = 6
                 button.layer.shadowOffset = CGSize(width: 0, height: 2)
                 button.layer.insertSublayer(aiGradient, at: 0)
+            }
+            // Pills take the width of their content; the AI pill (it also shows
+            // the profile name) absorbs the slack or shrinks first.
+            button.setContentHuggingPriority(index == 2 ? .defaultLow : .defaultHigh, for: .horizontal)
+            button.setContentCompressionResistancePriority(
+                index == 2 ? .defaultLow : .defaultHigh, for: .horizontal)
+            if index == 2 {
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 66).isActive = true
             }
             toolButtons.append(button)
             commands.addArrangedSubview(button)
@@ -1036,11 +1044,11 @@ final class KeyboardViewController: UIInputViewController {
         var config = UIButton.Configuration.plain()
         config.title = title
         config.image = UIImage(systemName: symbol,
-                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
                     ?? UIImage(systemName: "circle.fill")
         config.imagePlacement = .leading
         config.imagePadding = 4
-        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 4, bottom: 7, trailing: 4)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 10)
         config.titleLineBreakMode = .byTruncatingTail
         config.baseForegroundColor = foreground
         config.background.backgroundColor = background
