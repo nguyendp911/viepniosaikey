@@ -215,8 +215,7 @@ struct VerifyVietnameseTelex {
             }
         }
         if !failures.isEmpty {
-            for line in failures.prefix(200) { FileHandle.standardError.write(Data("FAIL [Telex] \(line)
-".utf8)) }
+            for line in failures.prefix(200) { FileHandle.standardError.write(Data(("FAIL [Telex] \(line)\n").utf8)) }
             fatalError("Telex: \(failures.count) of \(checked) generated syllables are wrong")
         }
         print("PASS [Telex] \(checked) generated syllables typed correctly")
