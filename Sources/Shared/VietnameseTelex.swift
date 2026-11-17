@@ -116,7 +116,9 @@ enum VietnameseTelex {
         if idx.count > 1, first > 0 {
             let before = lower(chars[first - 1])
             let vowel = base(chars[first])
-            if (before == "q" && vowel == "u") || (before == "g" && vowel == "i") {
+            // "ng" never joins the i that follows ("ngia" is n-g-i-a, not n-gi-a).
+            let afterN = first > 1 && lower(chars[first - 2]) == "n"
+            if (before == "q" && vowel == "u") || (before == "g" && vowel == "i" && !afterN) {
                 idx.removeFirst()
             }
         }
