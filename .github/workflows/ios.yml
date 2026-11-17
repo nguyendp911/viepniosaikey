@@ -45,7 +45,7 @@ jobs:
       - name: Verify send effects
         run: |
           set -euo pipefail
-          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-send-effects" \r
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-send-effects" \
             Sources/Shared/SendEffects.swift Scripts/verify_send_effects.swift
           "$RUNNER_TEMP/verify-send-effects"
       - name: Verify VNI numeric composition
