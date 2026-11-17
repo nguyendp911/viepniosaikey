@@ -14,13 +14,19 @@ enum ShowcaseCapture {
         return windows.first(where: { $0.isKeyWindow }) ?? windows.first
     }
 
+    /// The window without the empty band where the status bar would be, so
+    /// the picture starts at the app's own header.
     @MainActor
     static func windowImage(_ window: UIWindow) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = window.screen.scale
         format.opaque = true
-        return UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        let top = window.safeAreaInsets.top
+        let size = CGSize(width: window.bounds.width, height: window.bounds.height - top)
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            window.drawHierarchy(
+                in: CGRect(x: 0, y: -top, width: window.bounds.width, height: window.bounds.height),
+                afterScreenUpdates: true)
         }
     }
 
