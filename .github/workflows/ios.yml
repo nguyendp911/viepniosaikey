@@ -92,6 +92,20 @@ jobs:
             Sources/Shared/CouplePronouns.swift \
             Scripts/verify_screenshot_chat.swift
           "$RUNNER_TEMP/verify-screenshot-chat"
+      - name: Verify daily tools (promises, shop, voices, AI answers)
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-daily-tools" \
+            Sources/Shared/NextWordPredictor.swift \
+            Sources/Shared/MoneyShorthand.swift \
+            Sources/Shared/ScreenshotTranscript.swift \
+            Sources/Shared/DateTimePhrases.swift \
+            Sources/Shared/CommitmentDetector.swift \
+            Sources/Shared/ShopTools.swift \
+            Sources/Shared/VoiceStyles.swift \
+            Sources/Shared/AIAdvice.swift \
+            Scripts/verify_daily_tools.swift
+          "$RUNNER_TEMP/verify-daily-tools"
       - name: Verify reversible bilingual Telex and English input
         run: |
           set -euo pipefail

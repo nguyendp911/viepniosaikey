@@ -16,6 +16,9 @@ struct SmartTypingSettingsView: View {
     @State private var datePhrases = KeyboardSettings.datePhrasesEnabled
     @State private var askProfile = KeyboardSettings.askConversationProfile
     @State private var keyPreview = KeyboardSettings.keyPreviewEnabled
+    @State private var shopMode = KeyboardSettings.shopModeEnabled
+    @State private var promises = KeyboardSettings.commitmentsEnabled
+    @State private var voiceChip = KeyboardSettings.voiceChipEnabled
     @State private var showLearnedData = false
 
     var body: some View {
@@ -43,6 +46,26 @@ struct SmartTypingSettingsView: View {
                         footer: Text("Bong bóng chữ hiện phía trên phím đang bấm, giống bàn phím iOS. Chế độ siêu nhẹ tự tắt.")) {
                     Toggle("Bong bóng chữ khi bấm phím", isOn: $keyPreview)
                         .onChange(of: keyPreview) { KeyboardSettings.keyPreviewEnabled = $0 }
+                }
+                Section(header: Text("Công cụ hằng ngày"),
+                        footer: Text("Bán hàng: danh mục, mẫu tin và tính đơn. Lời hứa: bàn phím ghi lại câu hẹn trong đoạn chat bạn dán để bạn duyệt và được nhắc. Đổi giọng: Bắc, Nam, Trung, Gen Z.")) {
+                    Toggle("Chế độ bán hàng trên bàn phím", isOn: $shopMode)
+                        .onChange(of: shopMode) { KeyboardSettings.shopModeEnabled = $0 }
+                    NavigationLink(destination: ShopSettingsView()) {
+                        Text("Cửa hàng: sản phẩm, giá, phí ship")
+                    }
+                    Toggle("Ghi lại lời hứa trong đoạn chat đã dán", isOn: $promises)
+                        .onChange(of: promises) { KeyboardSettings.commitmentsEnabled = $0 }
+                    NavigationLink(destination: CommitmentsView()) {
+                        let waiting = CommitmentStore.unreviewedCount
+                        Text(waiting > 0 ? "Sổ lời hứa (\(waiting) mới)" : "Sổ lời hứa")
+                    }
+                    NavigationLink(destination: MemorySuggestionsView()) {
+                        let waiting = MemorySuggestionStore.all.count
+                        Text(waiting > 0 ? "Gợi ý ghi nhớ (\(waiting) chờ duyệt)" : "Gợi ý ghi nhớ")
+                    }
+                    Toggle("Nút “Đổi giọng” trên bàn phím", isOn: $voiceChip)
+                        .onChange(of: voiceChip) { KeyboardSettings.voiceChipEnabled = $0 }
                 }
                 Section(header: Text("Couple và hẹn hò"),
                         footer: Text("Hai gợi ý đầu chỉ hoạt động khi nút Couple trên bàn phím đang bật. Bàn phím chỉ gợi ý, không tự sửa tin của bạn.")) {

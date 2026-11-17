@@ -278,6 +278,43 @@ enum KeyboardSettings {
         get { defaults.object(forKey: prefix + "askConversationProfile") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "askConversationProfile") }
     }
+    // Daily tools: shop mode, promises, voices. On the device only.
+    static var shopModeEnabled: Bool {
+        get { defaults.object(forKey: prefix + "shopModeEnabled") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: prefix + "shopModeEnabled") }
+    }
+    static var commitmentsEnabled: Bool {
+        get { defaults.object(forKey: prefix + "commitmentsEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "commitmentsEnabled") }
+    }
+    static var voiceChipEnabled: Bool {
+        get { defaults.object(forKey: prefix + "voiceChipEnabled") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: prefix + "voiceChipEnabled") }
+    }
+    /// Minutes before the due time that a promise reminder is shown.
+    static var reminderLeadMinutes: Int {
+        get { defaults.object(forKey: prefix + "reminderLeadMinutes") as? Int ?? 30 }
+        set { defaults.set(max(0, min(1440, newValue)), forKey: prefix + "reminderLeadMinutes") }
+    }
+    static var shopData: Data? {
+        get { defaults.data(forKey: prefix + "shopData") }
+        set { setOptionalData(newValue, forKey: prefix + "shopData") }
+    }
+    static var commitmentsData: Data? {
+        get { defaults.data(forKey: prefix + "commitmentsData") }
+        set { setOptionalData(newValue, forKey: prefix + "commitmentsData") }
+    }
+    static var memorySuggestionsData: Data? {
+        get { defaults.data(forKey: prefix + "memorySuggestionsData") }
+        set { setOptionalData(newValue, forKey: prefix + "memorySuggestionsData") }
+    }
+    private static func setOptionalData(_ value: Data?, forKey key: String) {
+        if let value = value {
+            defaults.set(value, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
     static var datePhrasesEnabled: Bool {
         get { defaults.object(forKey: prefix + "datePhrasesEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: prefix + "datePhrasesEnabled") }

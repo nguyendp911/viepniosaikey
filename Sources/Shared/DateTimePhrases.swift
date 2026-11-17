@@ -9,6 +9,9 @@ enum DateTimePhrases {
         let original: String
         /// For example "7:00, Thứ Ba 17/11".
         let formatted: String
+        /// The moment itself (9:00 when the phrase gives no time).
+        let date: Date
+        let hasTime: Bool
     }
 
     private static let fillers: Set<String> = ["luc", "vao", "khoang", "ngay"]
@@ -178,15 +181,17 @@ enum DateTimePhrases {
             let slice = Array(tokens.suffix(count))
             if !slice.contains(where: { $0.isEmpty }),
                let parsed = parse(slice),
-               let formatted = format(parsed, now: now, calendar: calendar) {
-                return Match(original: slice.joined(separator: " "), formatted: formatted)
+               let result = format(parsed, now: now, calendar: calendar) {
+                return Match(original: slice.joined(separator: " "), formatted: result.text,
+                             date: result.date, hasTime: parsed.hour != nil)
             }
             count -= 1
         }
         return nil
     }
 
-    private static func format(_ parsed: Parsed, now: Date, calendar: Calendar) -> String? {
+    private static func format(_ parsed: Parsed, now: Date,
+                               calendar: Calendar) -> (text: String, date: Date)? {
         // A bare "mai" or "7h" is ordinary text; require a clear date.
         let hasDay = parsed.weekday != nil || parsed.weekend
         let hasRelativeDay = parsed.dayOffset != nil
@@ -220,10 +225,108 @@ enum DateTimePhrases {
         let day = calendar.component(.day, from: date)
         let month = calendar.component(.month, from: date)
         let dateText = weekdayNames[weekday] + " " + String(day) + "/" + String(month)
-        guard let rawHour = parsed.hour else { return dateText }
+        guard let rawHour = parsed.hour else {
+            return (text: dateText,
+                    date: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date)
+        }
         let hour = applyPeriod(rawHour, parsed.period)
         guard (0...23).contains(hour) else { return nil }
         let time = String(hour) + ":" + (parsed.minute < 10 ? "0" : "") + String(parsed.minute)
-        return time + ", " + dateText
+        let moment = calendar.date(bySettingHour: hour, minute: parsed.minute, second: 0, of: date) ?? date
+        return (text: time + ", " + dateText, date: moment)
     }
+
+    /// The first date or time phrase anywhere in a message ("mai 7h anh đón
+    /// em"), extended to the longest form ("thứ 6 tuần sau").
+    static func firstMatch(in text: String, now: Date, calendar: Calendar = .current) -> Match? {
+        let separators: Set<Character> = [" ", ",", "!", "?", ";", "
+"]
+        var tokens: [String] = []
+        var current = ""
+        for character in text {
+            if separators.contains(character) {
+                if !current.isEmpty { tokens.append(current); current = "" }
+            } else {
+                current.append(character)
+            }
+        }
+        if !current.isEmpty { tokens.append(current) }
+        tokens = tokens.map { token -> String in
+            var trimmed = token
+            while trimmed.hasSuffix(".") { trimmed.removeLast() }
+            return trimmed
+        }.filter { !$0.isEmpty }
+        guard !tokens.isEmpty else { return nil }
+        var best: Match?
+        var bestEnd = 0
+        for end in 1...min(tokens.count, 40) {
+            let prefix = tokens[0..<end].joined(separator: " ")
+            if let match = suggestion(inTail: prefix, now: now, calendar: calendar) {
+                if let current = best {
+                    if match.original.count > current.original.count
+                        && match.original.contains(current.original) {
+                        best = match
+                        bestEnd = end
+                    } else {
+                        break
+                    }
+                } else {
+                    best = match
+                    bestEnd = end
+                }
+            } else if best != nil && end - bestEnd >= 2 {
+                break
+            }
+        }
+        return best ?? composite(in: tokens, now: now, calendar: calendar)
+    }
+
+    /// A day word and a time that are not next to each other ("mai anh đón em
+    /// lúc 7h"): gather them and read them as one phrase.
+    private static func composite(in tokens: [String], now: Date, calendar: Calendar) -> Match? {
+        let folded = tokens.map { fold($0) }
+        var dayParts: [String] = []
+        var timeParts: [String] = []
+        var periodParts: [String] = []
+        var index = 0
+        while index < tokens.count {
+            let word = folded[index]
+            let next = index + 1 < tokens.count ? folded[index + 1] : ""
+            if word == "hom", next == "nay" {
+                dayParts += [tokens[index], tokens[index + 1]]
+                index += 2
+                continue
+            }
+            if ["sang", "chieu", "toi"].contains(word), next == "nay" {
+                dayParts += ["hôm", "nay"]
+                periodParts.append(tokens[index])
+                index += 2
+                continue
+            }
+            if word == "mai" || word == "mot" {
+                if dayParts.isEmpty { dayParts.append(tokens[index]) }
+            } else if word == "cuoi", next == "tuan" {
+                if dayParts.isEmpty { dayParts += [tokens[index], tokens[index + 1]] }
+                index += 2
+                continue
+            } else if let day = weekdayNumber(folded, at: index) {
+                if dayParts.isEmpty { dayParts += Array(tokens[index..<(index + day.used)]) }
+                index += day.used
+                continue
+            } else if clock(word) != nil {
+                if timeParts.isEmpty { timeParts.append(tokens[index]) }
+            } else if Int(word) != nil, next == "gio", timeParts.isEmpty {
+                timeParts += [tokens[index], tokens[index + 1]]
+                index += 2
+                continue
+            } else if ["sang", "trua", "chieu", "toi", "dem"].contains(word), periodParts.isEmpty {
+                periodParts.append(tokens[index])
+            }
+            index += 1
+        }
+        guard !dayParts.isEmpty, !timeParts.isEmpty else { return nil }
+        let phrase = (dayParts + timeParts + periodParts).joined(separator: " ")
+        return suggestion(inTail: phrase, now: now, calendar: calendar)
+    }
+
 }

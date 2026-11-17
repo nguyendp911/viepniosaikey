@@ -79,6 +79,9 @@ final class KeyboardViewController: UIInputViewController {
     private var softenEnabled = false
     private var toneEnabled = false
     private var askProfile = true
+    private var shopEnabled = false
+    private var voiceChipEnabled = true
+    private var commitmentsEnabled = true
     private var lastFieldID: UUID?
     private var recentWord = ""
     private var typingTouchCount: UInt64 = 0
@@ -186,6 +189,9 @@ final class KeyboardViewController: UIInputViewController {
         datePhrasesEnabled = KeyboardSettings.datePhrasesEnabled
         keyPreviewEnabled = KeyboardSettings.keyPreviewEnabled && !performanceMode
         askProfile = KeyboardSettings.askConversationProfile
+        shopEnabled = KeyboardSettings.shopModeEnabled
+        voiceChipEnabled = KeyboardSettings.voiceChipEnabled
+        commitmentsEnabled = KeyboardSettings.commitmentsEnabled
         updateDigitHints()
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled
         glideUsageCounts = KeyboardSettings.glideUsageCounts
@@ -646,14 +652,29 @@ final class KeyboardViewController: UIInputViewController {
         ) { [weak self] _ in
             self?.recognizeRecipientFromCopiedScreenshot()
         }
+        let mediationAction = UIAction(
+            title: "Hoà giải: phân tích đoạn chat đã dán",
+            image: UIImage(systemName: "figure.2.arms.open")
+        ) { [weak self] _ in
+            self?.runMediation()
+        }
+        let memoryAction = UIAction(
+            title: "Gợi ý ghi nhớ về người ấy",
+            image: UIImage(systemName: "brain.head.profile")
+        ) { [weak self] _ in
+            self?.runMemoryExtraction()
+        }
         let openingAction = UIAction(title: "Hôm nay nhắn gì? · Theo lịch sử",
                                      image: UIImage(systemName: "sun.max")) { [weak self] _ in
             self?.suggestDailyMessage()
         }
+        let primaryItems: [UIMenuElement] = [
+            receiverMenu, profileMenu, screenshotAction, mediationAction, memoryAction,
+            openingAction, importDraft, privacyAction, undoAction, variantsAction
+        ]
         toolButtons[2].menu = UIMenu(
             title: "AI · Hội thoại và viết lại",
-            children: [receiverMenu, profileMenu, screenshotAction, openingAction,
-                       importDraft, privacyAction, undoAction, variantsAction] + actions
+            children: primaryItems + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint =
@@ -754,11 +775,12 @@ final class KeyboardViewController: UIInputViewController {
         let label = matched.map { "✓ Đã khớp: " + $0.name }
             ?? (PersonaStore.active.map { "Hồ sơ đang chọn: " + $0.name } ?? "Chưa khớp hồ sơ nào")
         let lastOther = messages.last(where: { !$0.isMine })?.text ?? ""
+        let promiseNote = detectCommitments(in: selectedText)
         if toneEnabled, let tone = MessageTone.detect(lastOther) {
-            showStatus(label + " · " + tone.emoji + " " + tone.label)
+            showStatus(label + " · " + tone.emoji + " " + tone.label + promiseNote)
             showToneStyles(tone)
         } else {
-            showStatus(label + " · \(messages.count) tin nhắn" + note + " · Nhấn AI")
+            showStatus(label + " · \(messages.count) tin nhắn" + note + " · Nhấn AI" + promiseNote)
         }
     }
 
@@ -1923,6 +1945,7 @@ final class KeyboardViewController: UIInputViewController {
             child.removeFromSuperview()
         }
         if let profileChip = makeProfileChip() { idleBar.addArrangedSubview(profileChip) }
+        for toolChip in makeToolChips() { idleBar.addArrangedSubview(toolChip) }
         for (index, item) in idleActions.enumerated() {
             let chip = UIButton(type: .system)
             chip.tag = index
@@ -2327,6 +2350,237 @@ final class KeyboardViewController: UIInputViewController {
         KeyboardSettings.lastSpecialDateNotice = key
         showStatus(SpecialDates.menuTitle(for: entry.item, daysAway: 0)
                    + " · Giữ nút Couple để chèn lời chúc")
+    }
+
+    // MARK: Daily tools (shop, voices, promises, coach, memory)
+
+    private func makeToolMenuChip(_ title: String, symbol: String, menu: UIMenu) -> UIButton {
+        let chip = UIButton(type: .system)
+        var look = UIButton.Configuration.filled()
+        look.cornerStyle = .capsule
+        look.image = UIImage(systemName: symbol,
+                             withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+        look.imagePadding = 5
+        look.title = title
+        look.baseBackgroundColor = chipFill
+        look.baseForegroundColor = chipText
+        look.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        look.titleLineBreakMode = .byTruncatingTail
+        look.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var result = incoming
+            result.font = .systemFont(ofSize: 12, weight: .medium)
+            return result
+        }
+        chip.configuration = look
+        chip.menu = menu
+        chip.showsMenuAsPrimaryAction = true
+        chip.accessibilityLabel = title
+        return chip
+    }
+
+    private func makeToolChips() -> [UIButton] {
+        guard !plainField else { return [] }
+        var chips: [UIButton] = []
+        if shopEnabled {
+            let provider = UIDeferredMenuElement.uncached { [weak self] completion in
+                completion(self?.shopMenuItems() ?? [])
+            }
+            chips.append(makeToolMenuChip("Bán hàng ▾", symbol: "bag.fill",
+                                          menu: UIMenu(title: "Bán hàng", children: [provider])))
+        }
+        if voiceChipEnabled {
+            var actions: [UIMenuElement] = []
+            for style in VoiceStyle.allCases {
+                actions.append(UIAction(title: style.title) { [weak self] _ in
+                    self?.rewriteCurrentText { text in
+                        let result = VoiceStyles.apply(style, to: text)
+                        if result == text {
+                            self?.showStatus("Không có từ nào để đổi sang " + style.title.lowercased())
+                            return nil
+                        }
+                        return result
+                    }
+                })
+            }
+            chips.append(makeToolMenuChip("Đổi giọng ▾", symbol: "theatermasks.fill",
+                                          menu: UIMenu(title: "Đổi giọng câu đang gõ", children: actions)))
+        }
+        return chips
+    }
+
+    private func shopMenuItems() -> [UIMenuElement] {
+        let profile = ShopStore.profile
+        var items: [UIMenuElement] = []
+        items.append(UIAction(title: "Tính đơn từ câu đang gõ",
+                              image: UIImage(systemName: "receipt")) { [weak self] _ in
+            self?.insertShopOrder()
+        })
+        if profile.products.isEmpty {
+            items.append(UIAction(title: "Thêm sản phẩm trong ViePN → Gõ thông minh",
+                                  attributes: .disabled) { _ in })
+        } else {
+            var productActions: [UIMenuElement] = []
+            for product in profile.products.prefix(20) {
+                productActions.append(UIAction(
+                    title: product.name + " · " + ShopTools.money(product.price)
+                ) { [weak self] _ in
+                    var line = product.name + " – " + ShopTools.money(product.price)
+                    if !product.note.isEmpty { line += " (" + product.note + ")" }
+                    self?.insertCoupleText(line)
+                })
+            }
+            items.append(UIMenu(title: "Sản phẩm", image: UIImage(systemName: "tag"),
+                                children: productActions))
+        }
+        var templateActions: [UIMenuElement] = []
+        for template in ShopTools.templates(for: profile) {
+            templateActions.append(UIAction(title: template.title) { [weak self] _ in
+                self?.insertCoupleText(template.text)
+            })
+        }
+        items.append(UIMenu(title: "Mẫu tin", image: UIImage(systemName: "text.bubble"),
+                            children: templateActions))
+        return items
+    }
+
+    /// The selection, or the line before the caret (at most 200 characters).
+    private func lineForRewrite() -> (text: String, deleteCount: Int)? {
+        let proxy = textDocumentProxy
+        if let selected = proxy.selectedText, !selected.isEmpty {
+            return (text: selected, deleteCount: 1)   // one delete removes a selection
+        }
+        guard let before = proxy.documentContextBeforeInput, !before.isEmpty else { return nil }
+        let line = String(before.split(separator: "\n", omittingEmptySubsequences: false).last ?? "")
+        let tail = String(line.suffix(200))
+        guard !tail.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return (text: tail, deleteCount: tail.count)
+    }
+
+    /// Replaces the selection or the current line with `transform(text)`.
+    /// `transform` returns nil to leave the text as it is.
+    private func rewriteCurrentText(_ transform: (String) -> String?) {
+        guard let target = lineForRewrite() else {
+            showStatus("Gõ chữ trước, rồi chọn lại")
+            return
+        }
+        let core = target.text.trimmingCharacters(in: .whitespaces)
+        guard let result = transform(core) else { return }
+        resetBilingualComposition()
+        for _ in 0..<target.deleteCount { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(result + (target.text.hasSuffix(" ") ? " " : ""))
+        knownWordBoundary = true
+        recentWord = ""
+        updateCandidates()
+        tactileFeedback()
+    }
+
+    private func insertShopOrder() {
+        let profile = ShopStore.profile
+        rewriteCurrentText { text in
+            guard let order = ShopTools.order(from: text, profile: profile) else {
+                showStatus("Không thấy sản phẩm nào. Ví dụ: áo thun x2, quần jean 1, ship 25k")
+                return nil
+            }
+            if !order.unmatched.isEmpty {
+                showStatus("Chưa có trong danh mục: " + order.unmatched.joined(separator: ", "))
+            }
+            return ShopTools.summary(order, profile: profile)
+        }
+    }
+
+    /// Saves likely promises for review in the app. Returns a short note for
+    /// the status line ("" when nothing was found).
+    private func detectCommitments(in text: String) -> String {
+        guard commitmentsEnabled, !text.isEmpty else { return "" }
+        let found = CommitmentDetector.detect(
+            CommitmentDetector.messages(fromTranscript: text), now: Date())
+        guard !found.isEmpty else { return "" }
+        let added = CommitmentStore.addFound(found, profileID: PersonaStore.activeID)
+        return added > 0 ? " · 📌 \(added) lời hứa" : ""
+    }
+
+    private func runMediation() {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else {
+            showStatus("Cần Full Access để dùng AI")
+            return
+        }
+        let source = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !source.isEmpty else {
+            showStatus("Dán đoạn chat hoặc ảnh chụp trước, rồi chọn Hoà giải")
+            return
+        }
+        guard MessageSafety.warnings(in: source).isEmpty else {
+            showStatus("Có dữ liệu nhạy cảm · Giữ nút AI → Ẩn dữ liệu rồi thử lại")
+            return
+        }
+        isRequestRunning = true
+        let ticket = UUID()
+        requestID = ticket
+        showStatus("Đang phân tích để hoà giải…")
+        Task { [weak self] in
+            do {
+                let advice = try await MediationCoach.advise(transcript: source)
+                await MainActor.run {
+                    guard let self, self.requestID == ticket else { return }
+                    self.isRequestRunning = false
+                    self.show(advice.replies.map { ReplySuggestion(tone: $0.tone, text: $0.text) })
+                    self.showStatus(advice.statusLine)
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.requestID == ticket else { return }
+                    self.isRequestRunning = false
+                    self.showStatus("AI lỗi: " + error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func runMemoryExtraction() {
+        guard !isRequestRunning else { return }
+        guard hasFullAccess else {
+            showStatus("Cần Full Access để dùng AI")
+            return
+        }
+        let personaID = PersonaStore.activeID
+        guard !personaID.isEmpty else {
+            showStatus("Chọn hồ sơ người nhận trước")
+            return
+        }
+        let source = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !source.isEmpty else {
+            showStatus("Dán đoạn chat hoặc ảnh chụp trước")
+            return
+        }
+        guard MessageSafety.warnings(in: source).isEmpty else {
+            showStatus("Có dữ liệu nhạy cảm · Giữ nút AI → Ẩn dữ liệu rồi thử lại")
+            return
+        }
+        isRequestRunning = true
+        let ticket = UUID()
+        requestID = ticket
+        showStatus("Đang tìm điều đáng nhớ…")
+        Task { [weak self] in
+            do {
+                let facts = try await MemoryExtractor.facts(from: source)
+                let safe = facts.filter { MessageSafety.warnings(in: $0).isEmpty }
+                await MainActor.run {
+                    guard let self, self.requestID == ticket else { return }
+                    self.isRequestRunning = false
+                    let added = MemorySuggestionStore.add(safe, for: personaID)
+                    self.showStatus(added > 0
+                        ? "🧠 Đã gợi ý \(added) ghi nhớ · duyệt trong ViePN → Gõ thông minh"
+                        : "Chưa có điều mới đáng nhớ")
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.requestID == ticket else { return }
+                    self.isRequestRunning = false
+                    self.showStatus("AI lỗi: " + error.localizedDescription)
+                }
+            }
+        }
     }
 
     // MARK: Which conversation is this field?
@@ -3083,11 +3337,12 @@ final class KeyboardViewController: UIInputViewController {
         let matchLabel = matchedPersona.map { "✓ Đã khớp: " + $0.name } ??
             ("Người nhận: " + context.displayName)
         let tone = toneEnabled ? MessageTone.detect(selectedText) : nil
+        let promiseNote = detectCommitments(in: selectedText)
         if let tone = tone {
-            showStatus(matchLabel + " · " + tone.emoji + " " + tone.label)
+            showStatus(matchLabel + " · " + tone.emoji + " " + tone.label + promiseNote)
             showToneStyles(tone)
         } else {
-            showStatus(matchLabel + " · Nhấn AI")
+            showStatus(matchLabel + " · Nhấn AI" + promiseNote)
         }
     }
 
