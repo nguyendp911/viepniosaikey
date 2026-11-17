@@ -272,7 +272,8 @@ jobs:
       - name: Run the keyboard, press every button and take pictures
         run: |
           set +e
-          RT=$(xcrun simctl list runtimes | grep "iOS 26" | grep -oE 'com'+BS+'.apple'+BS+'.CoreSimulator'+BS+'.SimRuntime'+BS+'.iOS-[0-9-]+' | tail -1)
+          xcrun simctl list runtimes
+          RT=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[x for x in json.load(sys.stdin)['runtimes'] if x.get('platform')=='iOS' and x.get('isAvailable')]; print(r[-1]['identifier'] if r else '')")
           echo "runtime $RT"
           UDID=$(xcrun simctl create smoke com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
           xcrun simctl boot "$UDID"
