@@ -9,7 +9,7 @@ import PhotosUI
 struct ContentView: View {
     @State private var provider = KeyboardSettings.provider
     @State private var recipientMode = KeyboardSettings.recipientMode
-    @State private var selectedPage = "couple"
+    @State private var selectedPage = ProcessInfo.processInfo.environment["VIEPN_START_PAGE"] ?? "couple"
     @State private var showCouplePrivacy = false
     @State private var geminiAPIKey = KeyboardSettings.geminiAPIKey
     @State private var geminiModel = KeyboardSettings.geminiModel
@@ -140,6 +140,13 @@ struct ContentView: View {
                             keyboardDiagnostics
                             clipboardSettingsCard
                             privacyInfo
+                            ShowcaseCaptureCard(
+                                pages: [("couple", "Couple"), ("ai", "AI & API"),
+                                        ("keyboard", "Bàn phím"), ("assistant", "Trợ lý"),
+                                        ("tools", "Công cụ"), ("owner", "Sở hữu")],
+                                select: { selectedPage = $0 },
+                                current: { selectedPage },
+                                hideSecrets: { showGeminiKey = false; showOpenAIKey = false })
                         }
                     }
                     .frame(maxWidth: 600)
