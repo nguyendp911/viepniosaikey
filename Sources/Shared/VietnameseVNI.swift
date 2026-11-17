@@ -63,7 +63,11 @@ enum VietnameseVNI {
         }
         let index: Int
         let shaped = vowelIndices.filter { base(chars[$0]).map { [1, 2, 4, 7, 8, 10].contains($0.0) } ?? false }
-        if let selected = shaped.last { index = selected }
+        // Tone digits use the same placement rules as Telex (giúp, quý, mùa,
+        // sáo, hòa...). Shape digits still pick the vowel they can reshape.
+        if let value = digit.wholeNumberValue, (1...5).contains(value),
+           let placed = VietnameseTelex.tonePosition(in: chars) { index = placed }
+        else if let selected = shaped.last { index = selected }
         else if vowelIndices.count > 1,
                 let last = vowelIndices.last,
                 "iuy".contains(Character(String(chars[last]).lowercased())),

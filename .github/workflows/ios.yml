@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-vni" \
-            Sources/Shared/VietnameseVNI.swift Scripts/verify_vni.swift
+            Sources/Shared/VietnameseTelex.swift Sources/Shared/VietnameseVNI.swift Scripts/verify_vni.swift
           "$RUNNER_TEMP/verify-vni"
       - name: Verify fast keyboard input edits
         run: |
