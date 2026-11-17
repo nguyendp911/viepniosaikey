@@ -1,8 +1,8 @@
 import UIKit
 
-/// Debug-only host: loads the real keyboard view controller in a plain app
-/// (with saved profiles, Couple on and a special date today) and presses every
-/// button, so a crash while the keyboard starts or reacts shows up in CI.
+/// Debug-only host: loads the real keyboard view controller in a plain app so
+/// CI can press every button (HARNESS_MODE=poke) or take pictures of it
+/// (HARNESS_MODE=shot, optionally HARNESS_PRESS=1 to hold a key down).
 @main
 final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
@@ -11,12 +11,15 @@ final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         setvbuf(stdout, nil, _IONBF, 0)
-        print("HARNESS start")
+        let env = ProcessInfo.processInfo.environment
+        let mode = env["HARNESS_MODE"] ?? "poke"
+        print("HARNESS start mode=\(mode)")
         PersonaStore.add(name: "Mai Linh", role: ReplyRecipient.partner.rawValue,
                          selfAddress: "anh", tone: "Ngọt ngào")
         PersonaStore.add(name: "Hoa", role: ReplyRecipient.friend.rawValue,
                          selfAddress: "mình", tone: "Tự nhiên")
         KeyboardSettings.coupleEnabled = true
+        if let theme = env["HARNESS_THEME"] { KeyboardSettings.theme = theme }
         let parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
         let today = SpecialDate(id: "harness", title: "Ngày yêu", kind: "anniversary",
                                 month: parts.month ?? 1, day: parts.day ?? 1,
@@ -32,15 +35,18 @@ final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
 
         let keyboard = KeyboardViewController()
         host.addChild(keyboard)
+        let bottomInset = window.safeAreaInsets.bottom
         let height: CGFloat = 330
-        keyboard.view.frame = CGRect(x: 0, y: host.view.bounds.height - height,
+        keyboard.view.frame = CGRect(x: 0, y: host.view.bounds.height - height - bottomInset,
                                      width: host.view.bounds.width, height: height)
         keyboard.view.autoresizingMask = [.flexibleWidth, .flexibleTop]
         host.view.addSubview(keyboard.view)
         keyboard.didMove(toParent: host)
         self.keyboard = keyboard
         print("HARNESS keyboard loaded")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.poke() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            if mode == "shot" { self?.shot() } else { self?.poke() }
+        }
         return true
     }
 
@@ -51,6 +57,17 @@ final class HarnessAppDelegate: UIResponder, UIApplicationDelegate {
             found.append(contentsOf: buttons(in: child))
         }
         return found
+    }
+
+    private func shot() {
+        guard let keyboard else { return }
+        keyboard.textDidChange(nil)
+        if ProcessInfo.processInfo.environment["HARNESS_PRESS"] != nil {
+            let key = buttons(in: keyboard.view).first { $0.title(for: .normal) == "g" }
+            key?.isHighlighted = true
+            key?.sendActions(for: .touchDown)
+        }
+        print("HARNESS SHOT READY")
     }
 
     private func poke() {

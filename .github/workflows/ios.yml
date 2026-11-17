@@ -254,8 +254,8 @@ jobs:
           if-no-files-found: error
   smoke:
     name: Keyboard smoke test (simulator)
-    runs-on: macos-15
-    timeout-minutes: 40
+    runs-on: macos-15-intel
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -269,20 +269,42 @@ jobs:
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/Harness" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -20
-      - name: Run the keyboard and press every button
+      - name: Run the keyboard, press every button and take pictures
         run: |
           set +e
-          RT=$(xcrun simctl list runtimes | grep "iOS 26.2" | grep -oE 'com'+BS+'.apple'+BS+'.CoreSimulator'+BS+'.SimRuntime'+BS+'.iOS-[0-9-]+' | head -1)
+          RT=$(xcrun simctl list runtimes | grep "iOS 26" | grep -oE 'com'+BS+'.apple'+BS+'.CoreSimulator'+BS+'.SimRuntime'+BS+'.iOS-[0-9-]+' | tail -1)
+          echo "runtime $RT"
           UDID=$(xcrun simctl create smoke com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RT")
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b >/dev/null
           xcrun simctl install "$UDID" "$RUNNER_TEMP/Harness/Build/Products/Release-iphonesimulator/KeyboardHarness.app"
-          xcrun simctl launch --stdout="$RUNNER_TEMP/out.txt" --stderr="$RUNNER_TEMP/err.txt" "$UDID" com.viepn.harness
-          sleep 20
-          echo '=== output'; cat "$RUNNER_TEMP/out.txt"
-          echo '=== stderr (tail)'; tail -20 "$RUNNER_TEMP/err.txt"
-          echo '=== crash reports'
+          APP=com.viepn.harness
+          rm -f "$RUNNER_TEMP/out.txt"
+          xcrun simctl launch --stdout="$RUNNER_TEMP/out.txt" --stderr="$RUNNER_TEMP/err.txt" "$UDID" $APP
+          sleep 12
+          echo '=== poke output'; cat "$RUNNER_TEMP/out.txt"
+          grep -q 'HARNESS OK' "$RUNNER_TEMP/out.txt" && echo POKE=PASS || echo POKE=FAIL
           for f in ~/Library/Logs/DiagnosticReports/KeyboardHarness*; do
-            [ -f "$f" ] && { echo "--- $f"; head -c 6000 "$f"; }
+            [ -f "$f" ] && { echo "--- crash $f"; head -c 5000 "$f"; }
           done
-          grep -q 'HARNESS OK' "$RUNNER_TEMP/out.txt" && echo RESULT=PASS || echo RESULT=FAIL
+          mkdir -p "$RUNNER_TEMP/shots"
+          for LOOK in light dark; do
+            xcrun simctl ui "$UDID" appearance $LOOK
+            for STATE in idle pressed; do
+              xcrun simctl terminate "$UDID" $APP 2>/dev/null
+              if [ "$STATE" = pressed ]; then
+                SIMCTL_CHILD_HARNESS_MODE=shot SIMCTL_CHILD_HARNESS_PRESS=1 xcrun simctl launch "$UDID" $APP >/dev/null
+              else
+                SIMCTL_CHILD_HARNESS_MODE=shot xcrun simctl launch "$UDID" $APP >/dev/null
+              fi
+              sleep 5
+              xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/shots/$LOOK-$STATE.png"
+            done
+          done
+          ls -la "$RUNNER_TEMP/shots"
+      - name: Upload pictures
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyboard-shots
+          path: ${{ runner.temp }}/shots/*.png
+          if-no-files-found: warn
