@@ -129,7 +129,7 @@ struct PrivacyStudioView: View {
                 .buttonStyle(.bordered)
         }.alert("Xóa dữ liệu cục bộ?", isPresented: $confirm) {
             Button("Xóa", role: .destructive) {
-                ClipboardVault.clear(); KeyboardSettings.learnedWords = [:]; KeyboardSettings.glideUsageCounts = [:]
+                ClipboardVault.clear(); PremiumStore.clearNotes(); KeyboardSettings.learnedWords = [:]; KeyboardSettings.glideUsageCounts = [:]
                 KeyboardSettings.frequentlyUsedEmoji = [:]; ShareDraft.clear()
             }
             Button("Hủy", role: .cancel) {}

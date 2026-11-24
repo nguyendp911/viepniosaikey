@@ -116,6 +116,23 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_toolbar.swift
           "$RUNNER_TEMP/verify-toolbar"
+      - name: Verify Premium 2.0 offline engines
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-premium" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/Premium/PremiumCommands.swift \
+            Sources/Shared/Premium/PremiumOffline.swift \
+            Sources/Shared/Premium/PremiumStore.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_premium.swift
+          "$RUNNER_TEMP/verify-premium"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo

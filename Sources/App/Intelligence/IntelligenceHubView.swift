@@ -3,6 +3,10 @@ import SwiftUI
 struct IntelligenceHubView: View {
     @State private var route: String? = nil
     private let tiles: [(String, String, String)] = [
+        ("Premium 2.0", "sparkles.rectangle.stack", "Command · AI · Offline"),
+        ("Workflow & Macro", "arrow.triangle.branch", "Chuỗi xử lý"),
+        ("Kho cá nhân", "archivebox", "Drafts · Clipboard · Variables"),
+        ("Trải nghiệm Pro", "paintpalette.fill", "Gesture · Ghost · Visual"),
         ("Hội thoại", "bubble.left.and.bubble.right", "Smart Conversation"),
         ("Tình cảm", "heart", "Relationship Studio"),
         ("Dịch", "globe", "Live Translator"),
@@ -46,6 +50,10 @@ struct IntelligenceHubView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         switch route {
+                        case "Premium 2.0": PremiumCommandStudioView()
+                        case "Workflow & Macro": PremiumAutomationStudioView()
+                        case "Kho cá nhân": PremiumVaultStudioView()
+                        case "Trải nghiệm Pro": PremiumExperienceStudioView()
                         case "Hội thoại": IntelligenceWritingView(group: "Hội thoại")
                         case "Tình cảm": IntelligenceWritingView(group: "Tình cảm")
                         case "Công việc": IntelligenceWritingView(group: "Công việc")

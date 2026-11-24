@@ -360,7 +360,7 @@ extension KeyboardViewController {
         let width = adaptiveTouchEnabled
             ? CGFloat(min(4, KeyboardSettings.keySpacing / 2)) : 0
         for button in letterButtons {
-            (button as? AdaptiveKeyButton)?.horizontalHitExpansion = width
+            (button as? AdaptiveKeyButton)?.horizontalHitExpansion = premiumPreferences.dynamicTouch ? min(width, 1) : width
         }
     }
 

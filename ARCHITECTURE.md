@@ -16,3 +16,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Premium Toolbar
 `Shared/Intelligence/ToolbarPreferences.swift` defines stable action IDs and validated persisted configuration. `ToolbarLayoutEngine.swift` is pure Foundation, shared by SwiftUI preview and UIKit keyboard. `Keyboard/Toolbar/` contains the scroll container, button, palette and selector router; the controller binds actions by ID rather than position. `IntelligenceToolCell` and `SuggestionChipView` handle reusable theme-aware visuals. `verify_toolbar.swift` checks width, ordering, mode and migration.
+
+### Premium 2.0
+`Shared/Premium/` separates command catalog, deterministic offline utilities, bounded stores and cloud workflow service. `App/Premium/` contains Command, workflow/macro, vault and experience studios. `Keyboard/Premium/` binds tools through Intelligence Hub, an independent search/calculator panel, and bounded input gestures. `verify_premium.swift` validates pure logic offline; physical-device UI, network responses and installation require device testing.

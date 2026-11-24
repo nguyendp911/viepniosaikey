@@ -261,3 +261,9 @@ Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; 
 - Toolbar Premium mặc định: Dán, Couple (icon), ViePN AI, Mẫu, Công cụ; Offline nằm trong Hub. Compact dùng icon; Classic dùng icon trên chữ dưới. Tự giảm nhãn khi thiếu chỗ và cuộn ngang khi cần; không giảm độ rộng dưới 44 pt.
 - Toolbar Studio: đổi chế độ, kéo thả hoặc mũi tên để sắp xếp, ghim nút, chỉnh độ cao và bo góc, xem trước cùng layout engine. Dán/AI/Công cụ không thể ẩn để giữ các menu thiết yếu. Cấu hình được sao lưu JSON và tương thích backup cũ.
 - Chip emoji/gợi ý thu gọn và theo theme; Intelligence Hub phân nhóm giao tiếp, soạn thảo, tiện ích. Không thay đổi Bundle ID hoặc hai extension.
+
+## Premium 2.0
+- Công cụ → Premium 2.0: Command Palette tìm lệnh tiếng Việt không dấu, AI Mind Reader (phân tích khả năng, không đọc suy nghĩ), Emotion Control, Simulator giả định, 7 Personality, Message Guardian local/cloud. Chỉ gửi khi bấm lệnh, kết quả cần xem trước.
+- Workflow & Macro: tối đa 4 bước AI tuần tự, có chi phí từng bước; macro hỗ trợ biến ngày/giờ/tên và biến riêng. Tạo trong app và chạy từ Hub. Kho cá nhân gồm Draft Vault và clipboard theo 3 danh mục (clipboard 7 ngày), không tự thu thập nội dung; giới hạn 30 mục/kho.
+- Trải nghiệm Pro: Ghost Typing dùng mẫu cục bộ có tiền tố khớp, không tự chèn; vuốt dấu cách tùy chọn mở Command/xóa từ/con trỏ; vùng chạm thích ứng trong phiên và nửa khe phím, không lưu lịch sử phím. Bốn bảng màu mới, hiệu ứng wave/RGB trên phím, âm/rung. Smart Text Selection dùng đoạn do iOS cung cấp và di chuyển con trỏ, không có quyền bôi đen tùy ý.
+- Máy tính hỗ trợ + - × ÷, ngoặc, số thập phân; không eval. Formatter và biến chạy offline. Không thay đổi Bundle ID, Share Extension hoặc toolbar.
