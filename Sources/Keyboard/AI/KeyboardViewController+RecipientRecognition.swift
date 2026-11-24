@@ -90,16 +90,11 @@ extension KeyboardViewController {
     /// Show the effective persona in the toolbar, not only in an invisible
     /// App Group preference. This helps catch a stale profile before AI reply.
     func refreshProfileIndicator() {
-        guard toolButtons.count > 2 else { return }
-        let button = toolButtons[2]
-        if let person = PersonaStore.active {
-            button.setTitle("AI · " + String(person.name.prefix(12)), for: .normal)
-            button.accessibilityLabel = "AI, hồ sơ đang chọn: " + person.name
-        } else {
-            button.setTitle("AI", for: .normal)
-            button.accessibilityLabel = "AI, chưa chọn hồ sơ người nhận"
-        }
-        button.titleLabel?.adjustsFontSizeToFitWidth = true
-        button.titleLabel?.minimumScaleFactor = 0.65
+        guard let button = toolbarButtons[.ai] else { return }
+        let person = PersonaStore.active
+        button.setPersonaIndicator(person != nil)
+        button.accessibilityLabel = person.map { "AI, hồ sơ đang chọn: " + $0.name } ?? "AI, chưa chọn hồ sơ người nhận"
+        button.accessibilityValue = person?.name
+        // Keep a stable one-line title. The small dot indicates an active profile.
     }
 }

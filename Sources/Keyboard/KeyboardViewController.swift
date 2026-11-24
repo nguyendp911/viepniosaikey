@@ -32,7 +32,10 @@ final class KeyboardViewController: UIInputViewController {
     var secondaryRow: UIStackView?
     var heightConstraint: NSLayoutConstraint?
     var toneButtons: [UIButton] = []
-    var toolButtons: [UIButton] = []
+    var toolbarButtons: [ToolbarAction: ToolbarButton] = [:]
+    let keyboardToolbar = KeyboardToolbarView()
+    var toolbarConfiguration = ToolbarPreferences.configuration
+    var lastToolbarLayout: ToolbarLayout?
     let aiColor = UIColor(red: 0.32, green: 0.36, blue: 0.93, alpha: 1)
     let cyanColor = UIColor(red: 0.07, green: 0.65, blue: 0.86, alpha: 1)
     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -241,7 +244,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
         applyTheme()
-        applyToolbarOrder()
+        reloadToolbarConfiguration()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
         configureGlideRecognizer()
@@ -257,7 +260,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if toolButtons.count > 2 { aiGradient.frame = toolButtons[2].bounds }
+        refreshToolbarLayout()
+        if let button = toolbarButtons[.ai] { aiGradient.frame = button.bounds }
         for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
             layer.frame = view.bounds
         }

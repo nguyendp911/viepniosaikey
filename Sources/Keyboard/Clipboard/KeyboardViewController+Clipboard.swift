@@ -4,7 +4,7 @@ import Vision
 
 extension KeyboardViewController {
     func installClipboardMenu() {
-        guard let paste = toolButtons.first else { return }
+        guard let paste = toolbarButtons[.paste] else { return }
         let save = UIAction(title: "Lưu đoạn vừa Dán",
                             image: UIImage(systemName: "tray.and.arrow.down")) { [weak self] _ in
             guard let self else { return }

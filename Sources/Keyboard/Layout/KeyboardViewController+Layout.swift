@@ -34,56 +34,7 @@ extension KeyboardViewController {
         statusLabel.isHidden = true
         container.addArrangedSubview(statusLabel)
 
-        // All AI controls live in one slim strip. Expand only for suggestions.
-        // SF Symbols only: crisp vector icons, consistent weight, no emoji in toolbar.
-        // Keep a real always-visible UIButton for Paste; do not use UIPasteControl here.
-        let commands = UIStackView()
-        commands.axis = .horizontal
-        commands.spacing = 6
-        commands.distribution = .fillEqually
-        commands.alignment = .fill
-        let tools: [(String, String, Selector)] = [
-            ("Dán", "doc.on.clipboard", #selector(pasteTapped)),
-            ("Couple", "heart.fill", #selector(coupleTapped)),
-            ("AI", "sparkles", #selector(cloudTapped)),
-            ("Offline", "wifi.slash", #selector(offlineTapped)),
-            ("Mẫu", "text.quote", #selector(phrasesTapped)),
-            ("Công cụ", "square.grid.2x2", #selector(openIntelligenceHub))
-        ]
-        for (index, spec) in tools.enumerated() {
-            let button = UIButton(type: .system)
-            let foreground: UIColor = index == 0 ? aiColor :
-                (index == 1 ? UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1) :
-                    (index == 2 ? .white : UIColor(red: 0.19, green: 0.29, blue: 0.32, alpha: 1)))
-            let background: UIColor = index == 0 ? .white :
-                (index == 1 ? UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1) :
-                    (index == 2 ? aiColor : UIColor(red: 0.89, green: 0.94, blue: 0.94, alpha: 1)))
-            configureSymbolButton(button, title: spec.0, symbol: spec.1,
-                                  foreground: foreground, background: background)
-            button.addTarget(self, action: spec.2, for: .touchUpInside)
-            button.layer.shadowColor = UIColor.black.cgColor
-            button.layer.shadowOpacity = 0.08
-            button.layer.shadowRadius = 2
-            button.layer.shadowOffset = CGSize(width: 0, height: 1)
-            if index == 2 {
-                aiGradient.colors = [
-                    UIColor(red: 0.28, green: 0.45, blue: 0.98, alpha: 1).cgColor,
-                    UIColor(red: 0.64, green: 0.30, blue: 0.93, alpha: 1).cgColor
-                ]
-                aiGradient.startPoint = CGPoint(x: 0, y: 0)
-                aiGradient.endPoint = CGPoint(x: 1, y: 1)
-                aiGradient.cornerRadius = 11
-                button.layer.insertSublayer(aiGradient, at: 0)
-            }
-            toolButtons.append(button)
-            commands.addArrangedSubview(button)
-        }
-        applyToolbarOrder()
-        commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
-        container.addArrangedSubview(commands)
-        installWritingActions()
-        installClipboardMenu()
-        updateCoupleTool()
+        buildToolbar()
 
         previewLabel.numberOfLines = 2
         previewLabel.font = .systemFont(ofSize: 14, weight: .medium)
@@ -120,7 +71,7 @@ extension KeyboardViewController {
         ])
         // Both modes occupy exactly the same persistent slot.
         contextSlot.translatesAutoresizingMaskIntoConstraints = false
-        contextSlot.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        contextSlot.heightAnchor.constraint(equalToConstant: 46).isActive = true
         contextSlot.addSubview(candidateScroll)
         candidateScroll.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -139,7 +90,7 @@ extension KeyboardViewController {
             idleScroll.bottomAnchor.constraint(equalTo: contextSlot.bottomAnchor)
         ])
         idleBar.axis = .horizontal
-        idleBar.spacing = 8
+        idleBar.spacing = 6
         idleBar.alignment = .center
         idleBar.distribution = .fill
         idleBar.translatesAutoresizingMaskIntoConstraints = false
@@ -349,14 +300,8 @@ extension KeyboardViewController {
                 button.tintColor = primary
             }
         }
-        // Do not overwrite the colored Couple and AI buttons or the Paste selector.
-        for index in [3, 4, 5] where index < toolButtons.count {
-            if var config = toolButtons[index].configuration {
-                config.background.backgroundColor = keyColor
-                config.baseForegroundColor = primary
-                toolButtons[index].configuration = config
-            }
-        }
+        applyToolbarAppearance()
+        refreshSuggestionAppearance()
         previewLabel.backgroundColor = keyColor
         previewLabel.textColor = primary
         statusLabel.textColor = primary
@@ -422,7 +367,7 @@ extension KeyboardViewController {
     func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
         let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
-        heightConstraint?.constant = base + 61 +
+        heightConstraint?.constant = base + 61 + CGFloat(lastToolbarLayout?.height ?? 44) - 37 - 14 +
             (statusLabel.isHidden ? 0 : 22) +
             (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()

@@ -22,6 +22,7 @@ struct KeyboardPreferencesBackup: Codable {
     let tone: String
     let length: String
     let translation: String
+    let toolbar: ToolbarConfiguration?
 
     static func capture() -> Self {
         .init(version: 1, theme: KeyboardSettings.theme, effect: KeyboardSettings.keypressEffect,
@@ -32,7 +33,8 @@ struct KeyboardPreferencesBackup: Codable {
               glide: KeyboardSettings.glideEnabled, glideTrail: KeyboardSettings.glideTrailEnabled,
               performance: KeyboardSettings.performanceMode, haptic: KeyboardSettings.hapticEnabled,
               hapticStyle: KeyboardSettings.hapticStyle, tone: KeyboardSettings.preferredTone,
-              length: KeyboardSettings.preferredLength, translation: KeyboardSettings.translationLanguage)
+              length: KeyboardSettings.preferredLength, translation: KeyboardSettings.translationLanguage,
+              toolbar: ToolbarPreferences.configuration)
     }
 
     func restore() throws {
@@ -65,6 +67,7 @@ struct KeyboardPreferencesBackup: Codable {
         KeyboardSettings.preferredTone = tone
         KeyboardSettings.preferredLength = length
         KeyboardSettings.translationLanguage = translation
+        if let toolbar { ToolbarPreferences.configuration = toolbar.normalized }
     }
 
     enum BackupError: LocalizedError {

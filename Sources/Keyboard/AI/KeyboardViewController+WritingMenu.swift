@@ -7,7 +7,7 @@ extension KeyboardViewController {
     /// No hidden UITextView, overlay, or direct UIPasteboard read is involved.
     /// The system control is enabled when compatible text exists on the pasteboard.
     func installWritingActions() {
-        guard toolButtons.count > 2 else { return }
+        guard let aiButton = toolbarButtons[.ai] else { return }
         let actions = AIWritingAction.allCases.map { action in
             UIAction(title: action.rawValue, image: UIImage(systemName: "wand.and.stars")) { [weak self] _ in
                 self?.performWritingAction(action)
@@ -104,13 +104,13 @@ extension KeyboardViewController {
                                      image: UIImage(systemName: "sun.max")) { [weak self] _ in
             self?.suggestDailyMessage()
         }
-        toolButtons[2].menu = UIMenu(
+        aiButton.menu = UIMenu(
             title: "AI · Hội thoại và viết lại",
             children: [receiverMenu, profileMenu, screenshotAction, openingAction,
                        importDraft, privacyAction, undoAction, variantsAction, cancelAction] + actions
         )
-        toolButtons[2].showsMenuAsPrimaryAction = false
-        toolButtons[2].accessibilityHint =
+        aiButton.showsMenuAsPrimaryAction = false
+        aiButton.accessibilityHint =
             "Chạm AI để trả lời. Nhấn giữ để kiểm tra hồ sơ, nhận diện ảnh đã sao chép hoặc chọn người nhận."
     }
 
@@ -127,20 +127,9 @@ extension KeyboardViewController {
     }
 
     func updateCoupleTool() {
-        guard toolButtons.count > 1 else { return }
-        let button = toolButtons[1]
+        guard let button = toolbarButtons[.couple] else { return }
         let active = KeyboardSettings.coupleEnabled
-        if var config = button.configuration {
-            config.title = "Couple"
-            config.image = UIImage(systemName: active ? "heart.fill" : "heart",
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
-            config.baseForegroundColor = active ? .white :
-                UIColor(red: 0.62, green: 0.18, blue: 0.44, alpha: 1)
-            config.background.backgroundColor = active
-                ? UIColor(red: 0.85, green: 0.26, blue: 0.56, alpha: 1)
-                : UIColor(red: 0.98, green: 0.89, blue: 0.93, alpha: 1)
-            button.configuration = config
-        }
+        applyToolbarAppearance()
         button.accessibilityLabel = active
             ? "AI Couple: " + CoupleStyleCatalog.active.title : "Bật AI Couple"
         button.accessibilityHint = "Chạm để bật/tắt. Nhấn giữ để chọn một trong các phong cách."
@@ -148,7 +137,7 @@ extension KeyboardViewController {
     }
 
     func installCoupleStyleMenu() {
-        guard toolButtons.count > 1 else { return }
+        guard let coupleButton = toolbarButtons[.couple] else { return }
         let selected = KeyboardSettings.coupleStyle
         let actions = CoupleStyleCatalog.styles.map { style -> UIAction in
             let action = UIAction(title: style.icon + " " + style.title) { [weak self] _ in
@@ -160,7 +149,7 @@ extension KeyboardViewController {
             action.state = style.id == selected ? .on : .off
             return action
         }
-        toolButtons[1].menu = UIMenu(title: "Phong cách AI Couple", children: actions)
-        toolButtons[1].showsMenuAsPrimaryAction = false
+        coupleButton.menu = UIMenu(title: "Phong cách AI Couple", children: actions)
+        coupleButton.showsMenuAsPrimaryAction = false
     }
 }
