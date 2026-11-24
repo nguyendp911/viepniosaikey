@@ -222,7 +222,7 @@ enum KeyboardSettings {
     }
 
     static func recordEmojiSelection(_ emoji: String) {
-        guard !emoji.isEmpty, emoji.count <= 8 else { return }
+        guard !privateTypingMode, !emoji.isEmpty, emoji.count <= 8 else { return }
         var counts = frequentlyUsedEmoji
         counts[emoji] = min(10000, (counts[emoji] ?? 0) + 1)
         frequentlyUsedEmoji = counts

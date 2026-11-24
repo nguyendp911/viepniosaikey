@@ -731,32 +731,7 @@ struct ContentView: View {
     }
 
     private func themeSampleColor(_ id: String) -> Color {
-        switch id {
-        case "titanium": return Color(red: 0.067, green: 0.075, blue: 0.094)
-        case "purewhite": return Color(red: 0.9, green: 0.92, blue: 0.95)
-        case "cyberneon": return Color(red: 0.04, green: 0.067, blue: 0.14)
-        case "rosegold": return Color(red: 0.92, green: 0.81, blue: 0.77)
-        case "jade": return Color(red: 0.06, green: 0.18, blue: 0.15)
-        case "heritage": return Color(red: 0.3, green: 0.07, blue: 0.08)
-        case "midnight": return Color(red: 0.09, green: 0.11, blue: 0.19)
-        case "ocean": return Color(red: 0.73, green: 0.87, blue: 0.94)
-        case "rose": return Color(red: 0.95, green: 0.84, blue: 0.89)
-        case "lavender": return Color(red: 0.83, green: 0.80, blue: 0.96)
-        case "mint": return Color(red: 0.77, green: 0.92, blue: 0.86)
-        case "sunset": return Color(red: 0.94, green: 0.78, blue: 0.72)
-        case "graphite": return Color(red: 0.14, green: 0.15, blue: 0.17)
-        case "sakura": return Color(red: 0.98, green: 0.88, blue: 0.92)
-        case "forest": return Color(red: 0.15, green: 0.25, blue: 0.22)
-        case "sand": return Color(red: 0.92, green: 0.88, blue: 0.79)
-        case "aurora": return Color(red: 0.08, green: 0.20, blue: 0.26)
-        case "amoled": return .black
-        case "neon": return Color(red: 0.035, green: 0.045, blue: 0.10)
-        case "cyberpunk": return Color(red: 0.13, green: 0.055, blue: 0.18)
-        case "coffee": return Color(red: 0.26, green: 0.19, blue: 0.16)
-        case "ice": return Color(red: 0.82, green: 0.92, blue: 0.98)
-        case "gold": return Color(red: 0.14, green: 0.12, blue: 0.10)
-        default: return cardColor
-        }
+        Color(uiColor: KeyboardThemePalette.resolve(id).canvas)
     }
 
     private func themeDisplayName(_ id: String) -> String {
@@ -955,9 +930,10 @@ struct ContentView: View {
                 keyboardDivider()
                 keyboardMenuRow("Giọng điệu AI", symbol: "bubble.left",
                                 value: $preferredTone,
-                                options: ["Tự nhiên", "Lịch sự", "Ngọt ngào",
-                                          "Hài hước", "Chuyên nghiệp"].map { ($0, $0) })
+                                options: ["Tự nhiên", "Lịch sự", "Ngọt ngào", "Quan tâm", "Lạnh lùng",
+                                          "Hờn nhẹ", "Trưởng thành", "Hài hước", "Chuyên nghiệp"].map { ($0, $0) })
                     .onChange(of: preferredTone) { KeyboardSettings.preferredTone = $0 }
+                ToneStudioPreview(tone: preferredTone, length: preferredLength)
                 keyboardDivider()
                 keyboardMenuRow("Độ dài trả lời", symbol: "text.alignleft",
                                 value: $preferredLength,
@@ -1262,6 +1238,7 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
 
+                KeyboardThemePreview(theme: keyboardTheme, spacing: Int(keySpacingValue) ?? 6, height: Int(keyHeightValue) ?? 43)
                 let themes = KeyboardSettings.availableThemes
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
@@ -1289,20 +1266,10 @@ struct ContentView: View {
                                                 Text(letter)
                                                     .font(.system(size: 10, weight: .bold,
                                                                   design: .rounded))
-                                                    .foregroundStyle(
-                                                        ["amoled", "neon", "cyberpunk",
-                                                         "coffee", "gold", "midnight",
-                                                         "graphite", "forest", "aurora", "titanium", "cyberneon", "jade", "heritage"]
-                                                        .contains(id)
-                                                        ? Color.white : Color.black.opacity(0.72))
+                                                    .foregroundStyle(Color(uiColor: KeyboardThemePalette.resolve(id).text))
                                                     .frame(width: 18, height: 23)
-                                                    .background(
-                                                        Color.white.opacity(
-                                                            ["amoled", "neon", "cyberpunk",
-                                                             "coffee", "gold", "midnight",
-                                                             "graphite", "forest", "aurora", "titanium", "cyberneon", "jade", "heritage"]
-                                                            .contains(id) ? 0.19 : 0.83),
-                                                        in: RoundedRectangle(cornerRadius: 5))
+                                                    .background(Color(uiColor: KeyboardThemePalette.resolve(id).key),
+                                                                in: RoundedRectangle(cornerRadius: 5))
                                             }
                                         }
                                     }

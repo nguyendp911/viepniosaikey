@@ -234,3 +234,5 @@ Backend tùy chọn: đặt `VIEPN_BACKEND_TOKEN` dài/ngẫu nhiên trên máy 
 ### Gợi ý từ kế tiếp và transport
 - Sau khi nhấn Space, gợi ý tối đa 3 từ theo ngữ cảnh 1–2 từ trước đó (bảng cụm từ Việt/Anh offline tự xây dựng, chưa phải mô hình thống kê lớn). Chạm để chèn; kiểm tra document ID và ngữ cảnh trước khi chèn.
 - Dùng AITransport chung, session ephemeral, giới hạn dữ liệu trả về, kiểm tra hủy. Thêm Privacy Manifest cho UserDefaults ở hai target; cần kiểm toán các API khác và khai báo thu thập dữ liệu trước App Store.
+
+- Bảng màu dùng chung cho UIKit và SwiftUI, Keyboard Studio xem trước đủ các hàng phím theo khoảng cách/chiều cao đang chọn. Tone Studio hiển thị ví dụ offline theo giọng điệu và độ dài. Gợi ý AI đã hiển thị cũng được kiểm tra lại document ID và hồ sơ trước khi sao chép/chèn.
