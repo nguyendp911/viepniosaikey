@@ -236,3 +236,5 @@ Backend tùy chọn: đặt `VIEPN_BACKEND_TOKEN` dài/ngẫu nhiên trên máy 
 - Dùng AITransport chung, session ephemeral, giới hạn dữ liệu trả về, kiểm tra hủy. Thêm Privacy Manifest cho UserDefaults ở hai target; cần kiểm toán các API khác và khai báo thu thập dữ liệu trước App Store.
 
 - Bảng màu dùng chung cho UIKit và SwiftUI, Keyboard Studio xem trước đủ các hàng phím theo khoảng cách/chiều cao đang chọn. Tone Studio hiển thị ví dụ offline theo giọng điệu và độ dài. Gợi ý AI đã hiển thị cũng được kiểm tra lại document ID và hồ sơ trước khi sao chép/chèn.
+
+- Clipboard tự hết hạn sau 7 ngày (lọc khi truy cập), không lưu OTP/mật khẩu qua thao tác lưu trực tiếp; chế độ riêng tư cũng không lưu clipboard. Cài đặt bàn phím không nhạy cảm có thể xuất/nhập JSON trong Keyboard Studio, xác nhận trước khi ghi đè. Không đưa khóa API, hội thoại, hồ sơ, clipboard hay từ đã học vào bản sao lưu.

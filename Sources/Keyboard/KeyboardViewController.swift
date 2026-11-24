@@ -711,7 +711,10 @@ final class KeyboardViewController: UIInputViewController {
                 self.showStatus("Nhấn Dán trước, rồi giữ nút Dán để lưu")
                 return
             }
-            ClipboardVault.saveExplicitly(self.selectedText)
+            guard ClipboardVault.saveExplicitly(self.selectedText) else {
+                self.showStatus("Không lưu clipboard có dữ liệu nhạy cảm hoặc đang gõ riêng tư.")
+                return
+            }
             self.installClipboardMenu()
             self.showStatus("Đã lưu bản sao do bạn chọn · tối đa 15 đoạn")
         }

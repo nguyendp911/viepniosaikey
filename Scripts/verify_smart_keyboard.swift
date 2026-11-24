@@ -254,6 +254,8 @@ struct VerifySmartKeyboard {
         assert(ClipboardVault.items == ["Một đoạn được tự chọn"], "explicit opt-in save")
         ClipboardVault.saveExplicitly("Một đoạn được tự chọn")
         assert(ClipboardVault.items.count == 1, "clipboard deduplication")
+        assert(!ClipboardVault.saveExplicitly("OTP 123456"), "do not save OTP")
+        assert(ClipboardVault.items.count == 1, "blocked clipboard entry does not change storage")
         ClipboardVault.clear()
         assert(ClipboardVault.items.isEmpty, "clipboard clearing")
         assert(MessageSafety.warnings(in: "OTP: 123456").count > 0,

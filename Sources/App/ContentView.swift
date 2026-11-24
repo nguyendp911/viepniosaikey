@@ -751,6 +751,29 @@ struct ContentView: View {
             keyboardThemesCard
             keyboardShortcutsCard
             snippetsCard
+            keyboardPanel("Sao lưu cài đặt", icon: "externaldrive.badge.checkmark") {
+                KeyboardBackupView {
+                    typingMode = KeyboardSettings.typingMode
+                    telexEnabled = KeyboardSettings.telexEnabled
+                    keyboardTheme = KeyboardSettings.theme
+                    keypressEffect = KeyboardSettings.keypressEffect
+                    keySpacingValue = String(KeyboardSettings.keySpacing)
+                    keyHeightValue = String(KeyboardSettings.keyHeight)
+                    oneHandMode = KeyboardSettings.oneHandMode
+                    smartBilingual = KeyboardSettings.smartBilingual
+                    bilingualPreference = KeyboardSettings.bilingualPreference
+                    predictionsEnabled = KeyboardSettings.predictionsEnabled
+                    sentenceSuggestionsEnabled = KeyboardSettings.sentenceSuggestionsEnabled
+                    glideEnabled = KeyboardSettings.glideEnabled
+                    glideTrailEnabled = KeyboardSettings.glideTrailEnabled
+                    performanceMode = KeyboardSettings.performanceMode
+                    hapticEnabled = KeyboardSettings.hapticEnabled
+                    hapticStyle = KeyboardSettings.hapticStyle
+                    preferredTone = KeyboardSettings.preferredTone
+                    preferredLength = KeyboardSettings.preferredLength
+                    translationLanguage = KeyboardSettings.translationLanguage
+                }
+            }
         }
     }
 
@@ -2002,7 +2025,7 @@ struct ContentView: View {
                             .accessibilityLabel("Xóa đoạn " + String(index + 1))
                     }
                 }
-                Text("Lưu trong App Group trên thiết bị, chưa mã hóa bằng Keychain. Không lưu mật khẩu, OTP hoặc dữ liệu nhạy cảm.")
+                Text("Clipboard tự hết hạn sau 7 ngày kể từ lúc lưu (khi truy cập). Không lưu mật khẩu, OTP hoặc dữ liệu nhạy cảm. Dữ liệu lưu trên thiết bị trong App Group.")
                     .font(.system(size: 10))
                     .foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2014,7 +2037,7 @@ struct ContentView: View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: "hand.raised.fill")
                 .foregroundStyle(cyan)
-            Text("Không tự đọc cuộc hội thoại. Clipboard chỉ được truy cập khi bạn chủ động bấm Dán; nội dung được gửi tới dịch vụ AI khi bạn chọn AI Online. API Key được lưu trong App Group, chưa bảo vệ bằng Keychain.")
+            Text("Không tự đọc cuộc hội thoại. Clipboard chỉ được truy cập khi bạn chủ động bấm Dán; nội dung được gửi tới dịch vụ AI khi bạn chọn AI Online. API Key được lưu trong Keychain dùng chung App Group.")
                 .font(.system(size: 11))
                 .foregroundStyle(muted)
                 .fixedSize(horizontal: false, vertical: true)
