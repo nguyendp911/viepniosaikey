@@ -136,6 +136,8 @@ enum AIWritingService {
             ]
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
+        try Task.checkCancellation()
+        guard KeyboardSettings.allowCloudAI else { throw AIServiceError.missingConsent }
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

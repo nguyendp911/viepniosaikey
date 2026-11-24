@@ -62,6 +62,7 @@ extension KeyboardViewController {
             showStatus("Không đọc được clipboard. Kiểm tra quyền Dán trong Cài đặt.")
             return
         }
+        cancelAIRequest()
         selectedText = String(text.prefix(3000))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         clearSuggestions()

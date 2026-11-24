@@ -158,6 +158,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            provider = KeyboardSettings.provider
             favorites = KeyboardSettings.favoriteReplies
             phrases = KeyboardSettings.savedPhrases
             writingSamples = KeyboardSettings.writingSamples

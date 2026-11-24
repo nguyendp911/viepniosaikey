@@ -8,9 +8,14 @@ enum PersonalDictionary {
     }
     static func normalize(_ source: String) -> [String] {
         var seen = Set<String>()
-        return Array(source.components(separatedBy: .newlines).lazy.map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().precomposedStringWithCanonicalMapping
-        }.filter { $0.count >= 2 && $0.count <= 24 && $0.allSatisfy(\.isLetter) && seen.insert($0).inserted }.prefix(500))
+        var result: [String] = []
+        for line in source.components(separatedBy: .newlines) {
+            let word = line.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().precomposedStringWithCanonicalMapping
+            guard word.count >= 2, word.count <= 24, word.allSatisfy(\.isLetter), seen.insert(word).inserted else { continue }
+            result.append(word)
+            if result.count == 500 { break }
+        }
+        return result
     }
     static func merge(with learned: [String: Int]) -> [String: Int] {
         var merged = learned

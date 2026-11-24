@@ -6,6 +6,7 @@ struct OCRChatLine: Identifiable {
     let id = UUID()
     let text: String
     var speaker: String = "unknown"
+    var alignment: String = ""
 }
 enum ScreenshotStudioOCR {
     static func read(_ data: Data) async throws -> [OCRChatLine] {
@@ -28,7 +29,9 @@ enum ScreenshotStudioOCR {
             }.prefix(100).compactMap { row in
                 guard let text = row.topCandidates(1).first?.string, !text.isEmpty else { return nil }
                 // Never assign speakers based on alignment alone.
-                return OCRChatLine(text: text)
+                let x = row.boundingBox.midX
+                let side = x < 0.39 ? "Trái" : x > 0.61 ? "Phải" : "Giữa"
+                return OCRChatLine(text: text, alignment: side)
             }
         }.value
     }

@@ -21,6 +21,7 @@ struct ScreenshotStudioView: View {
             ForEach($lines) { $line in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(line.text).font(.subheadline)
+                    Text("Vị trí OCR: " + line.alignment + " · không xác định người nói").font(.caption2).foregroundStyle(.secondary)
                     Picker("Người nói", selection: $line.speaker) {
                         Text("Bỏ qua").tag("skip"); Text("Tôi").tag("me"); Text("Bạn ấy").tag("other"); Text("Chưa rõ").tag("unknown")
                     }.pickerStyle(.segmented)

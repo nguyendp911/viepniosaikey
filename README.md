@@ -254,3 +254,5 @@ Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; 
 
 - Hoàn tác/làm lại: chỉ chỉnh sửa do ViePN chèn, trong bộ nhớ phiên bàn phím, kiểm tra document ID và ngữ cảnh đầy đủ. Không thay lịch sử Undo của ứng dụng chủ.
 - Share Extension: chọn văn bản trong app khác → Chia sẻ → ViePN · Bản nháp, xác nhận nội dung, rồi Công cụ → Bản nháp trong bàn phím. Không gọi mạng. Bản signed cần thêm provisioning profile cho `com.viepn.aikey.share` cùng App Group: secrets `IOS_PROFILE_SHARE_BASE64` và `IOS_SHARE_PROFILE_NAME` trong môi trường ios-signing. Unsigned IPA CI kiểm tra cả hai extension.
+
+- Tìm emoji ngay trong menu bàn phím theo từ đang gõ hoặc văn bản được chọn; OCR hiển thị vị trí trái/phải/giữa như gợi ý bố cục, người dùng vẫn tự gắn nhãn. Phân tích offline có thể mở trực tiếp từ Công cụ → Offline.

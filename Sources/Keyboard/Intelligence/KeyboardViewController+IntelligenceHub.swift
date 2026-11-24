@@ -64,7 +64,7 @@ extension KeyboardViewController {
             ("Emoji", "face.smiling", emojiMenu(), nil),
             ("Prompt", "text.badge.plus", promptMenu(), nil),
             ("Đọc ảnh", "photo.text.rectangle", nil, { [weak self] in self?.recognizeRecipientFromCopiedScreenshot() }),
-            ("Offline", "wifi.slash", nil, { [weak self] in self?.offlineTapped() }),
+            ("Offline", "wifi.slash", offlineStudioMenu(), nil),
             ("Clipboard", "doc.on.clipboard", nil, { [weak self] in self?.pasteTapped() }),
             ("Bản nháp", "square.and.arrow.down", nil, { [weak self] in
                 guard let self else { return }
@@ -156,20 +156,44 @@ extension KeyboardViewController {
         return UIMenu(title: "Prompt cá nhân · tạo trong ViePN", children: items.isEmpty ? [UIAction(title: "Chưa có prompt", attributes: .disabled) { _ in }] : items)
     }
     func emojiMenu() -> UIMenu {
-        UIMenu(title: "Emoji & Symbol", children: SymbolCatalog.categories.dropFirst().map { category in
-            UIMenu(title: category, children: SymbolCatalog.search("", category: category).map { item in
-                UIAction(title: item.value + "  " + item.keywords) { [weak self] _ in
-                    guard let self else { return }
-                    self.closeIntelligenceHub()
-                    self.beginTyping()
-                    self.textDocumentProxy.insertText(item.value)
-                    self.resetBilingualComposition()
-                    self.recentWord = ""
-                    self.updateCandidates()
-                    KeyboardSettings.recordEmojiSelection(item.value)
-                }
-            })
-        })
+        let searchTerm = (textDocumentProxy.selectedText ?? recentWord).trimmingCharacters(in: .whitespacesAndNewlines)
+        func makeAction(_ item: SymbolEntry) -> UIAction {
+            UIAction(title: item.value + "  " + item.keywords) { [weak self] _ in
+                guard let self else { return }
+                self.closeIntelligenceHub()
+                self.beginTyping()
+                self.textDocumentProxy.insertText(item.value)
+                self.resetBilingualComposition()
+                self.recentWord = ""
+                self.updateCandidates()
+                KeyboardSettings.recordEmojiSelection(item.value)
+            }
+        }
+        var menus: [UIMenuElement] = []
+        if !searchTerm.isEmpty {
+            let matches = SymbolCatalog.search(String(searchTerm.prefix(40)))
+            menus.append(UIMenu(title: "Tìm theo từ đang gõ/chọn", children: matches.isEmpty
+                ? [UIAction(title: "Không có kết quả", attributes: .disabled) { _ in }]
+                : matches.map(makeAction)))
+        }
+        menus += SymbolCatalog.categories.dropFirst().map { category in
+            UIMenu(title: category, children: SymbolCatalog.search("", category: category).map(makeAction))
+        }
+        return UIMenu(title: "Emoji & Symbol", children: menus)
+    }
+    func offlineStudioMenu() -> UIMenu {
+        UIMenu(title: "Công cụ offline", children: [
+            UIAction(title: "Trả lời theo mẫu") { [weak self] _ in self?.closeIntelligenceHub(); self?.offlineTapped() },
+            UIAction(title: "Phân tích hội thoại trên máy") { [weak self] _ in
+                guard let self else { return }
+                self.closeIntelligenceHub()
+                let source = self.selectedText.isEmpty ? (self.textDocumentProxy.selectedText ?? self.requestedInput()) : self.selectedText
+                guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { self.showStatus("Hãy nhập hoặc chọn nội dung trước."); return }
+                let summary = ConversationLens.summary(ConversationLens.findings(in: source))
+                let tone = ToneInspector.suggestions(for: source).joined(separator: "\n")
+                self.show([ReplySuggestion(tone: "Phân tích offline", text: summary + (tone.isEmpty ? "" : "\n" + tone))])
+            }
+        ])
     }
     func cursorMenu() -> UIMenu {
         UIMenu(title: "Di chuyển con trỏ", children: [(-5,"← 5 ký tự"),(-1,"← 1 ký tự"),(1,"1 ký tự →"),(5,"5 ký tự →")].map { offset,title in
