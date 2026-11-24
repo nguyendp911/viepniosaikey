@@ -60,6 +60,16 @@ extension KeyboardViewController {
         ])
         stack.addArrangedSubview(scroll)
         let groups: [(String, String, UIMenu?, (() -> Void)?)] = [
+            ("Command", "command", nil, { [weak self] in self?.openPremiumPalette() }),
+            ("AI Premium", "brain", premiumAIMenu(), nil),
+            ("Workflow", "arrow.triangle.branch", premiumWorkflowMenu(), nil),
+            ("Macro", "bolt", premiumMacroMenu(), nil),
+            ("Biến mẫu", "curlybraces", premiumVariablesMenu(), nil),
+            ("Kho nháp", "archivebox", premiumVaultMenu(clipboard: false), nil),
+            ("Bộ sưu tập", "folder", premiumVaultMenu(clipboard: true), nil),
+            ("Máy tính", "calculator", nil, { [weak self] in self?.openPremiumCalculator() }),
+            ("Định dạng", "textformat", premiumOfflineMenu(), nil),
+            ("Văn bản", "selection.pin.in.out", premiumSelectionMenu(), nil),
             ("Bật/tắt Couple", "heart.fill", coupleHubMenu(), nil),
             ("Hội thoại", "bubble.left.and.bubble.right", studioMenu("Hội thoại"), nil),
             ("Tình cảm", "heart", studioMenu("Tình cảm"), nil),
@@ -98,6 +108,7 @@ extension KeyboardViewController {
             })
         ]
         let sections: [(String, [String])] = [
+            ("PREMIUM 2.0", ["Command", "AI Premium", "Workflow", "Macro", "Biến mẫu", "Kho nháp", "Bộ sưu tập", "Máy tính", "Định dạng", "Văn bản"]),
             ("GIAO TIẾP THÔNG MINH", ["Hội thoại", "Tình cảm", "Bật/tắt Couple", "Công việc", "Dịch"]),
             ("SOẠN THẢO", ["Viết lại", "Mẫu câu", "Prompt", "Đọc ảnh", "Offline", "Bản nháp"]),
             ("TIỆN ÍCH", ["Emoji", "Clipboard", "Hoàn tác", "Làm lại", "Con trỏ", "Riêng tư", "Nhà cung cấp", "Văn phong"])

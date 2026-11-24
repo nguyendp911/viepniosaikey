@@ -32,6 +32,7 @@ extension KeyboardViewController {
             }
         }
         beginTyping()
+        recordPremiumTouch(sender)
         let key = isUppercase && !isNumbers ? title.uppercased() : title
 
         if !isNumbers && typingMode == "telex" && telexEnabled,
@@ -298,7 +299,18 @@ extension KeyboardViewController {
     }
 
     @objc func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
-        if recognizer.state == .began { resetBilingualComposition() }
+        if recognizer.state == .began { resetBilingualComposition(); cancelAIRequest(); studioEdit = nil }
+        if premiumPreferences.spaceGesture != "cursor" {
+            if recognizer.state == .ended {
+                let delta = recognizer.translation(in: recognizer.view)
+                if abs(delta.x) >= 45 && abs(delta.x) > abs(delta.y) {
+                    if premiumPreferences.spaceGesture == "command" { openPremiumPalette() }
+                    else if premiumPreferences.spaceGesture == "delete", delta.x < 0 { premiumDeleteWord() }
+                }
+                recentWord = ""; updateCandidates()
+            }
+            return
+        }
         let space = recognizer.view
         switch recognizer.state {
         case .began:

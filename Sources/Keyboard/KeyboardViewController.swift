@@ -74,7 +74,10 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let anchor = String(context.suffix(80))
-        let words = OfflineSentenceSuggestions.nextWords(after: anchor, language: bilingualPreference.rawValue)
+        var words = OfflineSentenceSuggestions.nextWords(after: anchor, language: bilingualPreference.rawValue)
+        if premiumPreferences.ghost, !performanceMode, let suffix = GhostCompletion.suffix(after: anchor), !words.contains(suffix) {
+            words.insert(suffix, at: 0)
+        }
         guard !words.isEmpty else { updateCandidates(); return }
         nextWordAnchor = anchor
         nextWordDocument = textDocumentProxy.documentIdentifier
@@ -157,6 +160,8 @@ final class KeyboardViewController: UIInputViewController {
     var cursorSteps = 0
 
     func refreshTypingPreferences() {
+        premiumPreferences = PremiumStore.preferences
+        premiumTouchCounts = [:]
         typingMode = KeyboardSettings.typingMode
         telexEnabled = KeyboardSettings.telexEnabled
         performanceMode = KeyboardSettings.performanceMode
@@ -189,6 +194,8 @@ final class KeyboardViewController: UIInputViewController {
     var wallpaperView: UIImageView?
     var customSound = false
     var studioEdit: StudioEdit?
+    var premiumPreferences = PremiumStore.preferences
+    var premiumTouchCounts: [String: Int] = [:]
 
     override func viewDidLoad() {
         super.viewDidLoad()

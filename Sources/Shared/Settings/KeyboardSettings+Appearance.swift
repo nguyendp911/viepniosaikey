@@ -22,7 +22,7 @@ extension KeyboardSettings {
         "system", "midnight", "ocean", "rose", "lavender", "mint",
         "sunset", "graphite", "sakura", "forest", "sand", "aurora",
         "amoled", "neon", "cyberpunk", "coffee", "ice", "gold",
-        "titanium", "purewhite", "cyberneon", "rosegold", "jade", "heritage", "custom"
+        "titanium", "purewhite", "cyberneon", "rosegold", "jade", "heritage", "custom", "titaniumpro", "liquidglass", "rgbpro", "jadesignature"
     ]
 
     static var theme: String {
@@ -35,7 +35,7 @@ extension KeyboardSettings {
 
     /// Core Animation-only keypress animation. No text, touches or key
     /// coordinates are recorded, and all effects are disabled in light mode.
-    static let availableKeyEffects = ["off", "pop", "glow", "bounce", "flash"]
+    static let availableKeyEffects = ["off", "pop", "glow", "bounce", "flash", "wave", "rgb"]
     static var keypressEffect: String {
         get { defaults.string(forKey: prefix + "keypressEffect") ?? "off" }
         set {

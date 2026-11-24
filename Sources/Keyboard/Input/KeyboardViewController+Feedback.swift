@@ -33,6 +33,16 @@ extension KeyboardViewController {
             glow.toValue = layer.shadowOpacity
             glow.duration = 0.18
             animation = glow
+        case "wave", "rgb":
+            let pulse = CAKeyframeAnimation(keyPath: "backgroundColor")
+            let original = key.backgroundColor?.cgColor ?? UIColor.secondarySystemBackground.cgColor
+            let accent = keypressEffect == "rgb"
+                ? UIColor(hue: CGFloat(typingTouchCount % 24) / 24, saturation: 0.65, brightness: 0.85, alpha: 1).cgColor
+                : UIColor(red: 0.48, green: 0.36, blue: 0.95, alpha: 1).cgColor
+            pulse.values = [original, accent, original]
+            pulse.keyTimes = [0, 0.25, 1]
+            pulse.duration = 0.25
+            animation = pulse
         case "flash":
             let flash = CABasicAnimation(keyPath: "opacity")
             flash.fromValue = 0.57
@@ -47,7 +57,10 @@ extension KeyboardViewController {
     }
 
     func tactileFeedback() {
-        if customSound { AudioServicesPlaySystemSound(1104) }
+        if !performanceMode {
+            if premiumPreferences.sound == "click" || customSound { AudioServicesPlaySystemSound(1104) }
+            else if premiumPreferences.sound == "soft" { AudioServicesPlaySystemSound(1123) }
+        }
         guard hapticsEnabled else { return }
         if hapticsStyle == "vibrate" {
             // System vibration is much heavier than Taptic feedback.
@@ -59,7 +72,7 @@ extension KeyboardViewController {
                 AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
             }
         } else {
-            haptic.impactOccurred(intensity: 0.45)
+            haptic.impactOccurred(intensity: CGFloat(premiumPreferences.feedback))
         }
     }
 }

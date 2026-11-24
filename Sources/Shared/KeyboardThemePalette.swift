@@ -19,6 +19,26 @@ struct KeyboardThemePalette {
             keyColor = KeyboardDesign.color(design.key).withAlphaComponent(CGFloat(max(0.45, min(1, design.opacity))))
             primary = KeyboardDesign.color(design.text)
             modifier = KeyboardDesign.color(design.modifier)
+        case "titaniumpro":
+            canvas = UIColor(white: 0.045, alpha: 1)
+            keyColor = UIColor(red: 0.15, green: 0.17, blue: 0.21, alpha: 1)
+            primary = .white
+            modifier = UIColor(red: 0.27, green: 0.30, blue: 0.36, alpha: 1)
+        case "liquidglass":
+            canvas = UIColor(red: 0.12, green: 0.18, blue: 0.26, alpha: 1)
+            keyColor = UIColor(red: 0.76, green: 0.86, blue: 1, alpha: 0.23)
+            primary = .white
+            modifier = UIColor(red: 0.50, green: 0.66, blue: 0.87, alpha: 0.45)
+        case "rgbpro":
+            canvas = UIColor(red: 0.025, green: 0.035, blue: 0.08, alpha: 1)
+            keyColor = UIColor(red: 0.12, green: 0.10, blue: 0.23, alpha: 1)
+            primary = UIColor(red: 0.89, green: 0.92, blue: 1, alpha: 1)
+            modifier = UIColor(red: 0.24, green: 0.16, blue: 0.43, alpha: 1)
+        case "jadesignature":
+            canvas = UIColor(red: 0.035, green: 0.13, blue: 0.11, alpha: 1)
+            keyColor = UIColor(red: 0.10, green: 0.27, blue: 0.23, alpha: 1)
+            primary = UIColor(red: 0.99, green: 0.89, blue: 0.65, alpha: 1)
+            modifier = UIColor(red: 0.20, green: 0.38, blue: 0.30, alpha: 1)
         case "titanium":
             canvas = UIColor(red: 0.067, green: 0.075, blue: 0.094, alpha: 1)
             keyColor = UIColor(red: 0.19, green: 0.205, blue: 0.235, alpha: 1)
