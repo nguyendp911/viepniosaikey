@@ -39,7 +39,7 @@ enum GeminiModelCatalog {
             req.httpMethod = "GET"
             req.timeoutInterval = 20
             req.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-            let (data, response) = try await URLSession.shared.data(for: req)
+            let (data, response) = try await AITransport.data(for: req, maximumBytes: 1_000_000)
             guard let http = response as? HTTPURLResponse else { throw AIServiceError.invalidResponse }
             guard (200...299).contains(http.statusCode) else {
                 throw AIServiceError.provider(http.statusCode, "Không tải được danh sách model. Kiểm tra API Key.")

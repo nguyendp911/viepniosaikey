@@ -56,6 +56,24 @@ final class KeyboardViewController: UIInputViewController {
     private var learnedWordFlushWork: DispatchWorkItem?
     private var learnedWordDirty = false
     private var recentWord = ""
+    private var nextWordAnchor: String?
+    private var nextWordDocument: UUID?
+
+    private func showNextWords() {
+        guard useSuggestions, pendingGlideWord == nil,
+              (textDocumentProxy.selectedText?.isEmpty ?? true),
+              textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+              let context = textDocumentProxy.documentContextBeforeInput else {
+            updateCandidates()
+            return
+        }
+        let anchor = String(context.suffix(80))
+        let words = OfflineSentenceSuggestions.nextWords(after: anchor, language: bilingualPreference.rawValue)
+        guard !words.isEmpty else { updateCandidates(); return }
+        nextWordAnchor = anchor
+        nextWordDocument = textDocumentProxy.documentIdentifier
+        updateCandidates(words)
+    }
     private var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
     // can start a new composition without asking the host for its text context.
@@ -149,9 +167,10 @@ final class KeyboardViewController: UIInputViewController {
         useGlide = KeyboardSettings.glideEnabled && !performanceMode
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
-        learnedWords = KeyboardSettings.learnedWords
-        glideLearningEnabled = KeyboardSettings.glideLearningEnabled
-        glideUsageCounts = KeyboardSettings.glideUsageCounts
+        let privateMode = KeyboardSettings.privateTypingMode
+        learnedWords = privateMode ? [:] : KeyboardSettings.learnedWords
+        glideLearningEnabled = KeyboardSettings.glideLearningEnabled && !privateMode
+        glideUsageCounts = privateMode ? [:] : KeyboardSettings.glideUsageCounts
         cachedSnippets = KeyboardSettings.textSnippets
         cachedReplacements = KeyboardSettings.replacementDictionary
         autocapitalizeEnabled = KeyboardSettings.autoCapitalize
@@ -1332,7 +1351,7 @@ final class KeyboardViewController: UIInputViewController {
         textDocumentProxy.insertText(" ")
         knownWordBoundary = true
         recentWord = ""
-        updateCandidates()
+        showNextWords()
         if autocapitalizeEnabled && !isShiftLocked {
             let before = textDocumentProxy.documentContextBeforeInput ?? ""
             let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1631,6 +1650,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updateCandidates(_ override: [String]? = nil) {
+        if override == nil {
+            nextWordAnchor = nil
+            nextWordDocument = nil
+        }
         if override == nil && pendingGlideWord == nil {
             isGlideSuggestionVisible = false
         }
@@ -1779,6 +1802,24 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
+        if let anchor = nextWordAnchor {
+            guard nextWordDocument == textDocumentProxy.documentIdentifier,
+                  (textDocumentProxy.selectedText?.isEmpty ?? true),
+                  textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+                  (textDocumentProxy.documentContextBeforeInput ?? "").hasSuffix(anchor) else {
+                updateCandidates()
+                return
+            }
+            nextWordAnchor = nil
+            nextWordDocument = nil
+            resetBilingualComposition()
+            textDocumentProxy.insertText(chosen + " ")
+            knownWordBoundary = true
+            recentWord = ""
+            showNextWords()
+            tactileFeedback()
+            return
+        }
         if let committed = pendingGlideWord {
             // An explicitly chosen alternate can replace the word created by
             // the previous swipe, including its trailing space. Only touch
@@ -2151,6 +2192,8 @@ final class KeyboardViewController: UIInputViewController {
 
     private func beginTyping() {
         if isRequestRunning { cancelAIRequest() }
+        nextWordAnchor = nil
+        nextWordDocument = nil
         isComposingInteraction = true
         updateContextVisibility()
         // When the user continues after accepting the automatically chosen

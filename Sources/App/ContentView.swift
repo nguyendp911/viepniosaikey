@@ -1292,7 +1292,7 @@ struct ContentView: View {
                                                     .foregroundStyle(
                                                         ["amoled", "neon", "cyberpunk",
                                                          "coffee", "gold", "midnight",
-                                                         "graphite", "forest", "aurora"]
+                                                         "graphite", "forest", "aurora", "titanium", "cyberneon", "jade", "heritage"]
                                                         .contains(id)
                                                         ? Color.white : Color.black.opacity(0.72))
                                                     .frame(width: 18, height: 23)
@@ -1300,7 +1300,7 @@ struct ContentView: View {
                                                         Color.white.opacity(
                                                             ["amoled", "neon", "cyberpunk",
                                                              "coffee", "gold", "midnight",
-                                                             "graphite", "forest", "aurora"]
+                                                             "graphite", "forest", "aurora", "titanium", "cyberneon", "jade", "heritage"]
                                                             .contains(id) ? 0.19 : 0.83),
                                                         in: RoundedRectangle(cornerRadius: 5))
                                             }
@@ -1332,7 +1332,7 @@ struct ContentView: View {
                     }
                 } label: {
                     HStack(spacing: 5) {
-                        Text(showAllThemes ? "Thu gọn" : "Xem đủ 18 chủ đề")
+                        Text(showAllThemes ? "Thu gọn" : "Xem đủ \(themes.count) chủ đề")
                         Image(systemName: showAllThemes ? "chevron.up" : "chevron.down")
                     }
                     .font(.system(size: 11, weight: .semibold))

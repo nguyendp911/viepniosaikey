@@ -123,7 +123,7 @@ enum OpenAIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer " + apiKey, forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await AITransport.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AIServiceError.invalidResponse }
         guard (200...299).contains(http.statusCode) else {
             let reason: String

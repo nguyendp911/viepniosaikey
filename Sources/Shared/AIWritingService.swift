@@ -122,7 +122,7 @@ enum AIWritingService {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await AITransport.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AIServiceError.invalidResponse }
         guard (200...299).contains(http.statusCode) else {
             throw AIServiceError.provider(http.statusCode,

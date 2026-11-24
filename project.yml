@@ -16,6 +16,8 @@ targets:
       - path: Sources/Shared
       - path: Resources/Assets.xcassets
         buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey
@@ -41,6 +43,8 @@ targets:
     sources:
       - path: Sources/Keyboard
       - path: Sources/Shared
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey.keyboard

@@ -36,9 +36,7 @@ enum AIService {
         }
         let key = KeyboardSettings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw AIServiceError.missingKey }
-        let model = try await GeminiModelCatalog.resolve(KeyboardSettings.geminiModel, apiKey: key)
-        guard model.range(of: #"^gemini-[A-Za-z0-9.\-]+$"#, options: .regularExpression) != nil
-        else { throw AIServiceError.invalidModel }
+        let configuredModel = KeyboardSettings.geminiModel
         let incoming = String(message.prefix(3000))
         guard MessageSafety.warnings(in: incoming).isEmpty else { throw AIServiceError.malformedResponse("Hãy ẩn thông tin nhạy cảm trước khi gửi AI.") }
         let dateFormatter = DateFormatter()
@@ -108,6 +106,11 @@ enum AIService {
         let prompt = openingToday
             ? "TASK: Suggest a thoughtful, optional message to start a conversation today. Additional user note (optional):\n" + incoming
             : "Incoming message:\n" + incoming
+        let model = try await GeminiModelCatalog.resolve(configuredModel, apiKey: key)
+        try Task.checkCancellation()
+        guard KeyboardSettings.allowCloudAI,
+              model.range(of: #"^gemini-[A-Za-z0-9.\-]+$"#, options: .regularExpression) != nil
+        else { throw AIServiceError.invalidModel }
         let structured: GeminiOutput
         var activeModel = model
         do {
@@ -218,7 +221,7 @@ enum AIService {
         request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await AITransport.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AIServiceError.invalidResponse }
         guard (200...299).contains(http.statusCode) else {
             let reason: String
