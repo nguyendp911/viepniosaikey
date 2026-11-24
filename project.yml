@@ -37,6 +37,8 @@ targets:
     dependencies:
       - target: ViePNKeyboardExtension
         embed: true
+      - target: ViePNShareExtension
+        embed: true
   ViePNKeyboardExtension:
     type: app-extension
     platform: iOS
@@ -51,5 +53,21 @@ targets:
         INFOPLIST_FILE: Config/KeyboardInfo.plist
         CODE_SIGN_ENTITLEMENTS: Config/Keyboard.entitlements
         PROVISIONING_PROFILE_SPECIFIER: $(KEYBOARD_PROFILE_NAME)
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  ViePNShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/Share
+      - path: Sources/Shared/ShareDraft.swift
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey.share
+        INFOPLIST_FILE: Config/ShareInfo.plist
+        CODE_SIGN_ENTITLEMENTS: Config/Share.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(SHARE_PROFILE_NAME)
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES

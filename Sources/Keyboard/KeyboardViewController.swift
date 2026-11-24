@@ -185,6 +185,7 @@ final class KeyboardViewController: UIInputViewController {
     var intelligenceOverlay: UIView?
     var wallpaperView: UIImageView?
     var customSound = false
+    var studioEdit: StudioEdit?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -208,6 +209,7 @@ final class KeyboardViewController: UIInputViewController {
         // Persist at the end of a typing session, not on every space key.
         cancelAIRequest()
         closeIntelligenceHub()
+        studioEdit = nil
         clearSuggestions()
         flushLearnedWords()
         candidateUpdateWork?.cancel()

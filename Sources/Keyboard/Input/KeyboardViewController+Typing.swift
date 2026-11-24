@@ -320,6 +320,7 @@ extension KeyboardViewController {
     }
 
     func beginTyping() {
+        studioEdit = nil
         if isRequestRunning { cancelAIRequest() }
         nextWordAnchor = nil
         nextWordDocument = nil

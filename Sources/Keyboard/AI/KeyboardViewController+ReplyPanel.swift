@@ -223,14 +223,14 @@ extension KeyboardViewController {
         }
         // UIKit replaces the explicit selection; never loop over an unknown
         // documentContextBeforeInput (iOS may expose only a truncated suffix).
-        textDocumentProxy.insertText(answer)
+        insertTrackedStudioText(answer)
         dismissSuggestions()
         showStatus("Đã thay bản nháp bằng CHỈ câu trả lời")
     }
 
     @objc func insertSuggestion() {
         guard let answer = selectedReply() else { return }
-        textDocumentProxy.insertText(answer)
+        insertTrackedStudioText(answer)
         dismissSuggestions()
         showStatus("Đã chèn chỉ câu trả lời vào ô soạn")
     }

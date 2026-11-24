@@ -82,9 +82,15 @@ extension KeyboardViewController {
                 self.refreshTypingPreferences()
                 self.showStatus(KeyboardSettings.privateTypingMode ? "Đã bật gõ riêng tư" : "Đã tắt gõ riêng tư")
             }),
-            ("Hoàn tác", "arrow.uturn.backward", nil, { [weak self] in self?.undoWordCorrection() }),
+            ("Hoàn tác", "arrow.uturn.backward", nil, { [weak self] in self?.undoStudioEdit() }),
+            ("Làm lại", "arrow.uturn.forward", nil, { [weak self] in self?.redoStudioEdit() }),
             ("Con trỏ", "arrow.left.and.right", cursorMenu(), nil),
-            ("Mẫu câu", "text.quote", nil, { [weak self] in self?.phrasesTapped() })
+            ("Mẫu câu", "text.quote", nil, { [weak self] in self?.phrasesTapped() }),
+            ("Nhà cung cấp", "server.rack", providerMenu(), nil),
+            ("Văn phong", "person.text.rectangle", nil, { [weak self] in
+                let metrics = PersonalStyleDNA.analyze(KeyboardSettings.writingSamples)
+                self?.showStatus("DNA · \(metrics.count) mẫu · \(metrics.averageWords) từ/mẫu")
+            })
         ]
         for start in stride(from: 0, to: groups.count, by: 3) {
             let row = UIStackView()
@@ -122,9 +128,21 @@ extension KeyboardViewController {
     }
     func translatorMenu() -> UIMenu {
         UIMenu(title: "Dịch sang", children: IntelligenceTask.languages.map { lang in
-            UIAction(title: lang) { [weak self] _ in
+            UIMenu(title: lang, children: [(false,false,"Tự nhiên"),(true,false,"Song ngữ"),(false,true,"Trang trọng")].map { bilingual,formal,title in
+                UIAction(title: title) { [weak self] _ in
+                    self?.closeIntelligenceHub()
+                    self?.runStudio(title: "Dịch · " + lang, instruction: IntelligenceTask.translation(to: lang, bilingual: bilingual, formal: formal))
+                }
+            })
+        })
+    }
+    func providerMenu() -> UIMenu {
+        UIMenu(title: "Nhà cung cấp AI", children: ["gemini", "openai"].map { provider in
+            UIAction(title: provider == "gemini" ? "Gemini" : "OpenAI", state: KeyboardSettings.provider == provider ? .on : .off) { [weak self] _ in
                 self?.closeIntelligenceHub()
-                self?.runStudio(title: "Dịch · " + lang, instruction: IntelligenceTask.translation(to: lang, bilingual: false, formal: false))
+                self?.cancelAIRequest()
+                KeyboardSettings.provider = provider
+                self?.showStatus("Đã chọn " + provider)
             }
         })
     }

@@ -251,3 +251,6 @@ Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; 
 - Tab Công cụ và nút Công cụ trong keyboard: hội thoại, tình cảm, dịch, công việc, viết, emoji, prompt, clipboard, con trỏ và riêng tư.
 - AI Studio hỗ trợ Gemini/OpenAI theo từng yêu cầu trong app; kết quả chỉ xuất hiện để xem trước. Screenshot Studio OCR offline và xác nhận thủ công từng người nói.
 - Keyboard Designer: mã HEX, ảnh nền thu nhỏ trên máy, độ đục, bo góc, font, âm thanh; lưu App Group. Từ điển TXT giới hạn 500 từ, prompt cá nhân tối đa 20; Emoji & Symbol có tìm kiếm không dấu và yêu thích. Thứ tự toolbar giữ nguyên chức năng các nút.
+
+- Hoàn tác/làm lại: chỉ chỉnh sửa do ViePN chèn, trong bộ nhớ phiên bàn phím, kiểm tra document ID và ngữ cảnh đầy đủ. Không thay lịch sử Undo của ứng dụng chủ.
+- Share Extension: chọn văn bản trong app khác → Chia sẻ → ViePN · Bản nháp, xác nhận nội dung, rồi Công cụ → Bản nháp trong bàn phím. Không gọi mạng. Bản signed cần thêm provisioning profile cho `com.viepn.aikey.share` cùng App Group: secrets `IOS_PROFILE_SHARE_BASE64` và `IOS_SHARE_PROFILE_NAME` trong môi trường ios-signing. Unsigned IPA CI kiểm tra cả hai extension.
