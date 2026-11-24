@@ -83,7 +83,7 @@ struct AdvancedAssistantView: View {
         .onDisappear { historyUnlocked = false }
     }
 
-    private func section<Content: View>(_ heading: String, icon: String,
+    func section<Content: View>(_ heading: String, icon: String,
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(heading, systemImage: icon)

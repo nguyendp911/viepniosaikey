@@ -76,4 +76,3 @@ extension KeyboardSettings {
         set { defaults.set(Array(newValue.prefix(30)), forKey: prefix + "phrases") }
     }
 }
-}
