@@ -179,6 +179,7 @@ final class KeyboardViewController: UIInputViewController {
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         let privateMode = KeyboardSettings.privateTypingMode
+        premiumTouchAllowed = premiumPreferences.dynamicTouch && !privateMode && !performanceMode
         learnedWords = privateMode ? [:] : KeyboardSettings.learnedWords
         customWords = privateMode ? [:] : PersonalDictionary.merge(with: [:])
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled && !privateMode
@@ -195,7 +196,8 @@ final class KeyboardViewController: UIInputViewController {
     var customSound = false
     var studioEdit: StudioEdit?
     var premiumPreferences = PremiumStore.preferences
-    var premiumTouchCounts: [String: Int] = [:]
+    var premiumTouchCounts: [ObjectIdentifier: Int] = [:]
+    var premiumTouchAllowed = false
 
     override func viewDidLoad() {
         super.viewDidLoad()

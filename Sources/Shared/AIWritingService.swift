@@ -84,7 +84,8 @@ enum AIWritingService {
         Respect the user's explicitly selected recipient profile only as a
         tone/addressing preference; never claim to have verified the identity
         of the recipient or infer facts from the profile.
-        Don't quote the original, add explanations or claim to have sent a message.
+        \(instruction == nil ? "Do not add explanations or quote the original." : "Follow the requested format; analysis and simulations may include clearly labeled explanations and short source excerpts when necessary.")
+        Never claim to have sent a message.
         """
         let schema: [String: Any] = threeVersions
             ? ["type": "object",

@@ -45,7 +45,14 @@ enum PremiumCalculator {
         var parser = Parser(chars:Array(input.replacingOccurrences(of:"×",with:"*").replacingOccurrences(of:"÷",with:"/").filter { !$0.isWhitespace }))
         let value = try parser.expression()
         guard parser.index == parser.chars.count, value.isFinite, abs(value) <= 1e15 else { throw Failure.invalid }
-        return String(format:"%.12g", locale:Locale(identifier:"en_US_POSIX"), value == 0 ? 0 : value)
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier:"en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.maximumFractionDigits = 15
+        formatter.maximumIntegerDigits = 16
+        guard let formatted = formatter.string(from:NSNumber(value:value == 0 ? 0 : value)) else { throw Failure.invalid }
+        return formatted
     }
     private struct Parser {
         let chars:[Character]

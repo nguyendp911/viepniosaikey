@@ -4,10 +4,10 @@ extension KeyboardViewController {
     // Session-only counts of key hits in the keyboard's expanded gutter.
     // No text sequences, coordinates, or per-key statistics are persisted.
     func recordPremiumTouch(_ sender: UIButton) {
-        guard premiumPreferences.dynamicTouch, adaptiveTouchEnabled, !performanceMode, !KeyboardSettings.privateTypingMode,
+        guard premiumTouchAllowed, adaptiveTouchEnabled,
               let key = sender as? AdaptiveKeyButton else { return }
         // Use only the existing gap and never expand beyond its midpoint.
-        let id = String(ObjectIdentifier(key).hashValue)
+        let id = ObjectIdentifier(key)
         let count = min(20,(premiumTouchCounts[id] ?? 0)+1)
         premiumTouchCounts[id] = count
         let maximum = CGFloat(min(4, KeyboardSettings.keySpacing / 2))

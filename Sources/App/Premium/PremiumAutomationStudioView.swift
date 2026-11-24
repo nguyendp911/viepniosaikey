@@ -14,8 +14,7 @@ struct PremiumAutomationStudioView: View {
         VStack(alignment:.leading,spacing:12) {
             Text("Workflow & Macro").font(.title.bold())
             Text("Workflow chạy tuần tự tối đa 4 yêu cầu AI. Macro có thể chỉ chèn mẫu offline hoặc chạy thêm các bước AI. Mỗi bước cloud có thể sử dụng hạn mức API.").font(.caption).foregroundStyle(.secondary)
-            Picker("Loại",selection:$macroMode) { Text("Workflow").tag(false); Text("Macro").tag(true) }.pickerStyle(.segmented)
-                .onChange(of:macroMode) { _ in reset() }
+            Picker("Loại",selection:Binding(get:{ macroMode },set:{ value in if value != macroMode { reset(); macroMode = value } })) { Text("Workflow").tag(false); Text("Macro").tag(true) }.pickerStyle(.segmented)
             TextField("Tên",text:$title).textFieldStyle(.roundedBorder)
             if macroMode {
                 Text("Mẫu · {{ngay}}, {{gio}}, {{ten}}, hoặc biến riêng").font(.caption)

@@ -68,7 +68,8 @@ enum PremiumStore {
     static func save(_ text:String, title:String, category:String, isClipboard:Bool) -> Bool {
         let value = text.trimmingCharacters(in:.whitespacesAndNewlines)
         guard !KeyboardSettings.privateTypingMode, !value.isEmpty, value.count <= (isClipboard ? 1000 : 3000), MessageSafety.warnings(in:value).isEmpty else { return false }
-        let note = PremiumNote(title:String(title.prefix(60)),text:value,category:categories.contains(category) ? category : categories[0])
+        let safeTitle = MessageSafety.warnings(in:title).isEmpty ? String(title.prefix(60)) : "Nội dung đã lưu"
+        let note = PremiumNote(title:safeTitle,text:value,category:categories.contains(category) ? category : categories[0])
         if isClipboard { clipboard = [note] + clipboard } else { drafts = [note] + drafts }
         return true
     }
