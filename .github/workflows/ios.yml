@@ -19,10 +19,12 @@ jobs:
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-context" \
             Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
             Sources/Shared/CoupleStyleCatalog.swift \
             Sources/Shared/CoupleReplyGuide.swift \
             Sources/Shared/ConversationContext.swift \
             Sources/Shared/PersonalTools.swift \
+            Sources/Shared/Privacy/ClipboardVault.swift \
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_conversation_context.swift
           "$RUNNER_TEMP/verify-context"
@@ -57,6 +59,7 @@ jobs:
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-bilingual" \
             Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartTyping.swift \
+            Sources/Shared/Typing/*.swift \
             Sources/Shared/BilingualComposer.swift \
             Sources/Shared/FastTyping.swift \
             Scripts/verify_bilingual_composer.swift
@@ -66,14 +69,20 @@ jobs:
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-smart" \
             Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
             Sources/Shared/CoupleStyleCatalog.swift \
             Sources/Shared/CoupleReplyGuide.swift \
             Sources/Shared/ConversationContext.swift \
             Sources/Shared/ReplyEngine.swift \
             Sources/Shared/PersonalTools.swift \
+            Sources/Shared/Privacy/ClipboardVault.swift \
             Sources/Shared/SmartTyping.swift \
+            Sources/Shared/Typing/*.swift \
             Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartAssistantCore.swift \
+            Sources/Shared/Conversation/*.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/Diagnostics/KeyboardStability.swift \
             Scripts/verify_smart_keyboard.swift
           "$RUNNER_TEMP/verify-smart"
       - name: Install XcodeGen
