@@ -55,6 +55,7 @@ final class KeyboardViewController: UIInputViewController {
     // until the next physical key press, without editing arbitrary host text.
     var pendingGlideWord: String?
     var learnedWords: [String: Int] = [:]
+    var customWords: [String: Int] = [:]
     var learnedWordFlushWork: DispatchWorkItem?
     var learnedWordDirty = false
     var recentWord = ""
@@ -171,6 +172,7 @@ final class KeyboardViewController: UIInputViewController {
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         let privateMode = KeyboardSettings.privateTypingMode
         learnedWords = privateMode ? [:] : KeyboardSettings.learnedWords
+        customWords = privateMode ? [:] : PersonalDictionary.merge(with: [:])
         glideLearningEnabled = KeyboardSettings.glideLearningEnabled && !privateMode
         glideUsageCounts = privateMode ? [:] : KeyboardSettings.glideUsageCounts
         cachedSnippets = KeyboardSettings.textSnippets
@@ -180,6 +182,9 @@ final class KeyboardViewController: UIInputViewController {
     }
     var currentTheme: String = ""
     let aiGradient = CAGradientLayer()
+    var intelligenceOverlay: UIView?
+    var wallpaperView: UIImageView?
+    var customSound = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -202,6 +207,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
         cancelAIRequest()
+        closeIntelligenceHub()
         clearSuggestions()
         flushLearnedWords()
         candidateUpdateWork?.cancel()
@@ -233,6 +239,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
         applyTheme()
+        applyToolbarOrder()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
         configureGlideRecognizer()

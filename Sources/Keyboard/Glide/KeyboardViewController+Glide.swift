@@ -188,7 +188,7 @@ extension KeyboardViewController {
             glideTouchOrigin = nil
             glideLastPoint = nil
             guard isWordSwipe else { return }
-            let personalWords = learnedWords
+            let personalWords = learnedWords.merging(customWords, uniquingKeysWith: max)
             let usageCounts = glideLearningEnabled ? glideUsageCounts : [:]
             let language = useSmartBilingual ? bilingualPreference.rawValue : "vi"
             let generation = glideResultGeneration

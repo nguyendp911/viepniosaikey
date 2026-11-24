@@ -47,7 +47,8 @@ extension KeyboardViewController {
             ("Couple", "heart.fill", #selector(coupleTapped)),
             ("AI", "sparkles", #selector(cloudTapped)),
             ("Offline", "wifi.slash", #selector(offlineTapped)),
-            ("Mẫu", "text.quote", #selector(phrasesTapped))
+            ("Mẫu", "text.quote", #selector(phrasesTapped)),
+            ("Công cụ", "square.grid.2x2", #selector(openIntelligenceHub))
         ]
         for (index, spec) in tools.enumerated() {
             let button = UIButton(type: .system)
@@ -77,6 +78,7 @@ extension KeyboardViewController {
             toolButtons.append(button)
             commands.addArrangedSubview(button)
         }
+        applyToolbarOrder()
         commands.heightAnchor.constraint(equalToConstant: 37).isActive = true
         container.addArrangedSubview(commands)
         installWritingActions()
@@ -327,6 +329,7 @@ extension KeyboardViewController {
         let primary = palette.text
         let modifier = palette.modifier
         view.backgroundColor = canvas
+        applyCustomDesign()
         for button in letterButtons {
             button.backgroundColor = keyColor
             button.setTitleColor(primary, for: .normal)
@@ -347,7 +350,7 @@ extension KeyboardViewController {
             }
         }
         // Do not overwrite the colored Couple and AI buttons or the Paste selector.
-        for index in [3, 4] where index < toolButtons.count {
+        for index in [3, 4, 5] where index < toolButtons.count {
             if var config = toolButtons[index].configuration {
                 config.background.backgroundColor = keyColor
                 config.baseForegroundColor = primary

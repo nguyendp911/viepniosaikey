@@ -246,3 +246,8 @@ App: ContentView giữ state và navigation shell; các thư mục Navigation, C
 Keyboard: KeyboardViewController giữ state và vòng đời; Layout, Input, Suggestions, Glide, AI, Clipboard chứa các extension theo trách nhiệm. Các hàm và stored state cần được dùng giữa file có phạm vi internal trong cùng target; không thêm public API.
 
 Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; các type/keys/entitlement và signature hiện có được giữ nguyên. XcodeGen tự phát hiện file Swift trong Sources; workflow kiểm thử swiftc đã cập nhật để include các module mới.
+
+## ViePN Intelligence Studio
+- Tab Công cụ và nút Công cụ trong keyboard: hội thoại, tình cảm, dịch, công việc, viết, emoji, prompt, clipboard, con trỏ và riêng tư.
+- AI Studio hỗ trợ Gemini/OpenAI theo từng yêu cầu trong app; kết quả chỉ xuất hiện để xem trước. Screenshot Studio OCR offline và xác nhận thủ công từng người nói.
+- Keyboard Designer: mã HEX, ảnh nền thu nhỏ trên máy, độ đục, bo góc, font, âm thanh; lưu App Group. Từ điển TXT giới hạn 500 từ, prompt cá nhân tối đa 20; Emoji & Symbol có tìm kiếm không dấu và yêu thích. Thứ tự toolbar giữ nguyên chức năng các nút.

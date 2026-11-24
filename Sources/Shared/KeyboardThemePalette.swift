@@ -13,6 +13,12 @@ struct KeyboardThemePalette {
         let primary: UIColor
         let modifier: UIColor
         switch id {
+        case "custom":
+            let design = KeyboardDesign.current
+            canvas = KeyboardDesign.color(design.canvas)
+            keyColor = KeyboardDesign.color(design.key).withAlphaComponent(CGFloat(max(0.45, min(1, design.opacity))))
+            primary = KeyboardDesign.color(design.text)
+            modifier = KeyboardDesign.color(design.modifier)
         case "titanium":
             canvas = UIColor(red: 0.067, green: 0.075, blue: 0.094, alpha: 1)
             keyColor = UIColor(red: 0.19, green: 0.205, blue: 0.235, alpha: 1)

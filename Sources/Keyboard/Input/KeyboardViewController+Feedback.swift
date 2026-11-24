@@ -47,6 +47,7 @@ extension KeyboardViewController {
     }
 
     func tactileFeedback() {
+        if customSound { AudioServicesPlaySystemSound(1104) }
         guard hapticsEnabled else { return }
         if hapticsStyle == "vibrate" {
             // System vibration is much heavier than Taptic feedback.

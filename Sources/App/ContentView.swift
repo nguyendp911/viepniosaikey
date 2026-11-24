@@ -136,6 +136,7 @@ struct ContentView: View {
                         } else if selectedPage == "owner" {
                             OwnerInformationView()
                         } else {
+                            IntelligenceHubView()
                             activationGuide
                             keyboardDiagnostics
                             clipboardSettingsCard

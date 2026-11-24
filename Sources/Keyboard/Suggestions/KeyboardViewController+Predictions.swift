@@ -39,7 +39,7 @@ extension KeyboardViewController {
         let generation = candidateGeneration
         // Keep dictionary scanning and sorting off the keyboard UI thread.
         // Debounce the background work, then return only the final 3 labels.
-        let personalWords = learnedWords
+        let personalWords = learnedWords.merging(customWords, uniquingKeysWith: max)
         let sentenceSuggestionsEnabled = useSentenceSuggestions
         let wordSuggestionsEnabled = useSuggestions
         let sentenceTone = KeyboardSettings.preferredTone
