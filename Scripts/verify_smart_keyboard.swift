@@ -361,6 +361,9 @@ struct VerifySmartKeyboard {
         assert(KeyboardStability.report().contains("paste: 1 lần"),
                "local performance counters contain no text")
         KeyboardStability.clear()
+        KeyboardSettings.learnedWords = Dictionary(uniqueKeysWithValues: (0..<400).map { ("test\($0)", $0 + 1) })
+        assert(KeyboardSettings.learnedWords.count == 300, "personal lexicon bounded")
+        assert(KeyboardSettings.learnedWords["test399"] == 400 && KeyboardSettings.learnedWords["test0"] == nil, "retain most frequent words")
         KeyboardSettings.learnedWords = [:]
         KeyboardSettings.frequentlyUsedEmoji = [:]
         KeyboardSettings.recordEmojiSelection("❤️")

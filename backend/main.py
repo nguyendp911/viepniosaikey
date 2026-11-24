@@ -6,12 +6,39 @@ Keep GEMINI_API_KEY on the server, never in an iOS IPA.
 import json
 import os
 import re
+import secrets
+import time
+from collections import deque
+from contextlib import asynccontextmanager
+from asyncio import Lock
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="ViePN Gemini Reply Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        app.state.client = client
+        yield
+
+app = FastAPI(title="ViePN Gemini Reply Backend", lifespan=lifespan)
+requests_in_window = deque()
+rate_lock = Lock()
+
+async def authorize(authorization: str | None):
+    token = os.environ.get("VIEPN_BACKEND_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(503, "Backend authentication is not configured")
+    if not secrets.compare_digest((authorization or "").encode(), ("Bearer " + token).encode()):
+        raise HTTPException(401, "Unauthorized")
+    async with rate_lock:
+        now = time.monotonic()
+        while requests_in_window and requests_in_window[0] <= now - 60:
+            requests_in_window.popleft()
+        if len(requests_in_window) >= 30:
+            raise HTTPException(429, "Rate limit exceeded", headers={"Retry-After": "60"})
+        requests_in_window.append(now)
 
 
 class ReplyRequest(BaseModel):
@@ -26,7 +53,8 @@ async def health():
 
 
 @app.post("/reply")
-async def reply(data: ReplyRequest):
+async def reply(data: ReplyRequest, authorization: str | None = Header(default=None)):
+    await authorize(authorization)
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
     if not key:
@@ -57,13 +85,12 @@ async def reply(data: ReplyRequest):
         },
     }
     try:
-        async with httpx.AsyncClient(timeout=25.0) as client:
-            response = await client.post(
-                url,
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=payload,
-            )
-            response.raise_for_status()
+        response = await app.state.client.post(
+            url,
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            json=payload,
+        )
+        response.raise_for_status()
         candidate = response.json()["candidates"][0]
         raw = "".join(part.get("text", "") for part in candidate["content"]["parts"])
         parsed = json.loads(raw)

@@ -1,4 +1,7 @@
 import Foundation
+#if os(iOS)
+import Security
+#endif
 
 enum KeyboardSettings {
     static let groupID = "group.com.viepn.aikey"
@@ -10,40 +13,102 @@ enum KeyboardSettings {
         get { defaults.string(forKey: prefix + "apiURL") ?? "" }
         set { defaults.set(newValue, forKey: prefix + "apiURL") }
     }
-    // BYOK key shared with our own keyboard extension through App Group.
-    // This is stored in app-container preferences, not Keychain. For stronger
-    // protection, a future version should use a shared Keychain access group.
+    // On iOS the existing application group is also a Keychain access group.
+    // Never write new secrets to UserDefaults. Remove legacy values only after
+    // successful migration, or an explicit delete. macOS script tests use an
+    // isolated preference namespace rather than the device Keychain.
+    private static func secretQuery(_ name: String) -> [String: Any] {
+        #if os(iOS)
+        return [kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "com.viepn.aikey.provider",
+                kSecAttrAccount as String: name,
+                kSecAttrAccessGroup as String: groupID]
+        #else
+        return [:]
+        #endif
+    }
+
+    private static func readSecret(_ name: String) -> String {
+        #if os(iOS)
+        var query = secretQuery(name)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecSuccess, let data = item as? Data,
+           let value = String(data: data, encoding: .utf8) {
+            defaults.removeObject(forKey: prefix + name)
+            return value
+        }
+        if status == errSecItemNotFound,
+           let old = defaults.string(forKey: prefix + name), !old.isEmpty,
+           writeSecret(old, name: name) {
+            return old
+        }
+        return ""
+        #else
+        return defaults.string(forKey: prefix + "testSecret." + name) ?? ""
+        #endif
+    }
+
+    @discardableResult
+    private static func writeSecret(_ raw: String, name: String) -> Bool {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if os(iOS)
+        let query = secretQuery(name)
+        if value.isEmpty {
+            defaults.removeObject(forKey: prefix + name)
+            let status = SecItemDelete(query as CFDictionary)
+            return status == errSecSuccess || status == errSecItemNotFound
+        }
+        let data = Data(value.utf8)
+        var status = SecItemUpdate(query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var attributes = query
+            attributes[kSecValueData as String] = data
+            attributes[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            status = SecItemAdd(attributes as CFDictionary, nil)
+        }
+        guard status == errSecSuccess else { return false }
+        defaults.removeObject(forKey: prefix + name)
+        return true
+        #else
+        defaults.set(value, forKey: prefix + "testSecret." + name)
+        return true
+        #endif
+    }
+
+    @discardableResult
+    static func saveProviderKey(_ value: String, provider: String) -> Bool {
+        writeSecret(value, name: provider == "openai" ? "openAIAPIKey" : "geminiAPIKey")
+    }
     static var provider: String {
         get { defaults.string(forKey: prefix + "provider") ?? "gemini" }
         set { defaults.set(newValue == "openai" ? "openai" : "gemini", forKey: prefix + "provider") }
     }
     static var openAIAPIKey: String {
-        get { defaults.string(forKey: prefix + "openAIAPIKey") ?? "" }
-        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "openAIAPIKey") }
+        get { readSecret("openAIAPIKey") }
+        set { writeSecret(newValue, name: "openAIAPIKey") }
     }
     static var openAIModel: String {
         get { defaults.string(forKey: prefix + "openAIModel") ?? "gpt-4o-mini" }
         set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "openAIModel") }
     }
     static var geminiAPIKey: String {
-        get { defaults.string(forKey: prefix + "geminiAPIKey") ?? "" }
-        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "geminiAPIKey") }
+        get { readSecret("geminiAPIKey") }
+        set { writeSecret(newValue, name: "geminiAPIKey") }
     }
     static var geminiModel: String {
         get {
             let stored = defaults.string(forKey: prefix + "geminiModel") ?? ""
-            // Upgrade the old hard-coded default without overriding models chosen later.
-            let migrated = defaults.bool(forKey: prefix + "geminiModelMigrationV3")
-            if !migrated {
-                defaults.set(true, forKey: prefix + "geminiModelMigrationV3")
-                if stored.isEmpty || stored == "gemini-2.5-flash" {
-                    defaults.set("gemini-3.8-flash", forKey: prefix + "geminiModel")
-                    return "gemini-3.8-flash"
-                }
-            }
-            return stored.isEmpty ? "gemini-3.8-flash" : stored
+            return stored.isEmpty ? "auto" : stored
         }
-        set { defaults.set(newValue, forKey: prefix + "geminiModel") }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: prefix + "geminiModel") }
+    }
+    static var privateTypingMode: Bool {
+        get { defaults.bool(forKey: prefix + "privateTypingMode") }
+        set { defaults.set(newValue, forKey: prefix + "privateTypingMode") }
     }
     /// Optional privacy gate for viewing personal chat history in the
     /// containing app. Face ID/passcode unlock is a UI guard, not encryption.
@@ -60,7 +125,7 @@ enum KeyboardSettings {
     }
 
     static var allowCloudAI: Bool {
-        get { defaults.bool(forKey: prefix + "allowCloudAI") }
+        get { !privateTypingMode && defaults.bool(forKey: prefix + "allowCloudAI") }
         set { defaults.set(newValue, forKey: prefix + "allowCloudAI") }
     }
     // User-specified recipient overrides guesses from short chat messages.
@@ -189,7 +254,7 @@ enum KeyboardSettings {
         }
     }
     static func recordGlideChoice(_ word: String) {
-        guard glideLearningEnabled else { return }
+        guard glideLearningEnabled, !privateTypingMode else { return }
         let plain = word.lowercased()
             .folding(options: [.diacriticInsensitive], locale: Locale(identifier: "vi_VN"))
             .replacingOccurrences(of: "đ", with: "d")
@@ -205,8 +270,13 @@ enum KeyboardSettings {
     }
     static var learnedWords: [String: Int] {
         get { defaults.dictionary(forKey: prefix + "learnedWords") as? [String: Int] ?? [:] }
-        set { defaults.set(Dictionary(uniqueKeysWithValues: Array(newValue.prefix(300))
-                        .map { ($0.key, $0.value) }), forKey: prefix + "learnedWords") }
+        set {
+            let bounded = newValue.filter { !$0.key.isEmpty && $0.key.count <= 90 && $0.value > 0 }
+                .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+                .prefix(300)
+            defaults.set(Dictionary(uniqueKeysWithValues: bounded.map { ($0.key, min(10000, $0.value)) }),
+                         forKey: prefix + "learnedWords")
+        }
     }
     static var keyHeight: Int {
         get { defaults.object(forKey: prefix + "keyHeight") as? Int ?? 43 }
@@ -261,7 +331,8 @@ enum KeyboardSettings {
     static let availableThemes = [
         "system", "midnight", "ocean", "rose", "lavender", "mint",
         "sunset", "graphite", "sakura", "forest", "sand", "aurora",
-        "amoled", "neon", "cyberpunk", "coffee", "ice", "gold"
+        "amoled", "neon", "cyberpunk", "coffee", "ice", "gold",
+        "titanium", "purewhite", "cyberneon", "rosegold", "jade", "heritage"
     ]
 
     static var theme: String {

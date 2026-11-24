@@ -102,6 +102,17 @@ enum SmartTyping {
 
 
 
+    // Index immutable words by endpoints before any edit-distance work.
+    private static let glideBuckets: [String: [String]] = {
+        var result: [String: [String]] = [:]
+        for word in Set(englishWords + vietnameseWords).sorted() {
+            guard let spelling = glideSpelling(word),
+                  let first = spelling.first, let last = spelling.last else { continue }
+            result[String(first) + String(last), default: []].append(word)
+        }
+        return result
+    }()
+
     static func isEnglishWord(_ word: String) -> Bool {
         englishSet.contains(word.lowercased())
     }
@@ -227,6 +238,7 @@ enum SmartTyping {
         _ = isVietnameseWord("anh")
         _ = predictions(prefix: "th")
         _ = VietnameseTelex.composeKeys("tooi")
+        _ = glideBuckets["ai"]
     }
 
     /// Reject incidental tiny finger movements on a normal key tap.
@@ -251,11 +263,14 @@ enum SmartTyping {
               trace.allSatisfy({ $0.isASCII && $0.isLetter }) else { return [] }
         // English-only mode must never insert an accented Vietnamese word.
         // Learned plain ASCII words are still eligible in that mode.
-        let dictionary = language == "en"
-            ? englishWords + learned.keys.filter {
-                $0.allSatisfy({ $0.isASCII && $0.isLetter })
-            }
-            : englishWords + vietnameseWords + Array(learned.keys)
+        let endpoint = String(trace.first!) + String(trace.last!)
+        let builtIn = glideBuckets[endpoint] ?? []
+        let dictionary = Array(Set(builtIn.filter { language != "en" || englishSet.contains($0) }
+            + learned.keys.filter { word in
+                guard let spelling = glideSpelling(word),
+                      spelling.first == trace.first, spelling.last == trace.last else { return false }
+                return language != "en" || word.allSatisfy { $0.isASCII && $0.isLetter }
+            })).sorted()
 
         // Two-character swipes require an exact unaccented match, so "or"
         // remains English but "co" can propose "có" and "cô".
@@ -549,7 +564,9 @@ enum SmartTyping {
             if rms < 1.25 { scores.append((word, rms)) }
         }
         let ordered = scores.sorted {
-            if abs($0.cost - $1.cost) > 0.12 { return $0.cost < $1.cost }
+            // Quantized distance gives a strict, deterministic sort order.
+            let bucketA = Int($0.cost / 0.12), bucketB = Int($1.cost / 0.12)
+            if bucketA != bucketB { return bucketA < bucketB }
             let a = learned[$0.word] ?? 0, b = learned[$1.word] ?? 0
             if a != b { return a > b }
             return $0.cost < $1.cost

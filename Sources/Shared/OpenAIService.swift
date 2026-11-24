@@ -32,6 +32,7 @@ private struct OpenAIReplyPayload: Decodable {
 
 enum OpenAIService {
     static func reply(to message: String, openingToday: Bool = false) async throws -> [ReplySuggestion] {
+        guard KeyboardSettings.allowCloudAI else { throw AIServiceError.missingConsent }
         let apiKey = KeyboardSettings.openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else { throw AIServiceError.provider(401, "Chưa nhập OpenAI API Key.") }
         let model = KeyboardSettings.openAIModel
@@ -39,6 +40,7 @@ enum OpenAIService {
         else { throw AIServiceError.invalidModel }
 
         let incoming = String(message.prefix(3000))
+        guard MessageSafety.warnings(in: incoming).isEmpty else { throw AIServiceError.malformedResponse("Hãy ẩn thông tin nhạy cảm trước khi gửi AI.") }
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "vi_VN")
         dateFormatter.timeZone = .current
@@ -55,8 +57,8 @@ enum OpenAIService {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
         }
-        let contactStyle = ConversationIntelligence.stylePrompt(
-            for: PersonaStore.activeID)
+        let contactStyle = MessageSafety.redacted(ConversationIntelligence.stylePrompt(for: PersonaStore.activeID))
+        let writingStyle = MessageSafety.redacted(KeyboardSettings.personalStylePrompt)
         let conversationTask = openingToday
             ? """
               Offer THREE optional, natural, low-pressure Vietnamese conversation
@@ -89,7 +91,7 @@ enum OpenAIService {
         an actual timestamp; never assert a future meeting as certain.
         If you use past details, ground them in the selected excerpts.
         Do not claim you have access to other chats, contacts or live app data.
-        \(KeyboardSettings.personalStylePrompt)
+        \(writingStyle)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         These relationship rules override romantic Couple styles or generic anh/em examples.
         Return only JSON: {"replies":[{"tone":"Dịu dàng","text":"..."},{"tone":"Tự nhiên","text":"..."},{"tone":"Quan tâm","text":"..."}]}.
@@ -140,7 +142,7 @@ enum OpenAIService {
         guard let output = envelope.choices.first?.message.content?.data(using: .utf8)
         else { throw AIServiceError.invalidResponse }
         let decoded = try JSONDecoder().decode(OpenAIReplyPayload.self, from: output)
-        let result = decoded.replies.prefix(5).compactMap { item -> ReplySuggestion? in
+        let result = decoded.replies.prefix(3).compactMap { item -> ReplySuggestion? in
             let text = ReplyTextCleaner.answerOnly(item.text, source: openingToday ? "" : message)
             guard !text.isEmpty, recipientContext.accepts(text) else { return nil }
             return ReplySuggestion(tone: String(item.tone.prefix(40)), text: String(EmojiEnhancer.decorate(text, tone: item.tone).prefix(1500)))

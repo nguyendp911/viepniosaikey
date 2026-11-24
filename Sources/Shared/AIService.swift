@@ -36,10 +36,11 @@ enum AIService {
         }
         let key = KeyboardSettings.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw AIServiceError.missingKey }
-        let model = KeyboardSettings.geminiModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = try await GeminiModelCatalog.resolve(KeyboardSettings.geminiModel, apiKey: key)
         guard model.range(of: #"^gemini-[A-Za-z0-9.\-]+$"#, options: .regularExpression) != nil
         else { throw AIServiceError.invalidModel }
         let incoming = String(message.prefix(3000))
+        guard MessageSafety.warnings(in: incoming).isEmpty else { throw AIServiceError.malformedResponse("Hãy ẩn thông tin nhạy cảm trước khi gửi AI.") }
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "vi_VN")
         dateFormatter.timeZone = .current
@@ -56,8 +57,8 @@ enum AIService {
             throw AIServiceError.malformedResponse(
                 "Lịch sử có thể chứa thông tin nhạy cảm. Hãy kiểm tra, chỉnh sửa hoặc xóa trước khi gửi AI.")
         }
-        let contactStyle = ConversationIntelligence.stylePrompt(
-            for: PersonaStore.activeID)
+        let contactStyle = MessageSafety.redacted(ConversationIntelligence.stylePrompt(for: PersonaStore.activeID))
+        let writingStyle = MessageSafety.redacted(KeyboardSettings.personalStylePrompt)
         let conversationTask = openingToday
             ? """
               Propose THREE different, low-pressure, natural Vietnamese first messages
@@ -92,7 +93,7 @@ enum AIService {
         an actual timestamp; never assert a future meeting as certain.
         If you use past details, ground them in the selected excerpts.
         Do not claim you have access to other chats, contacts or live app data.
-        \(KeyboardSettings.personalStylePrompt)
+        \(writingStyle)
         If multiple chat turns are provided, use the last message as the reply target and earlier turns only as context.
         The recipient relationship is more important than any saved Couple style.
         Suggest short, context-aware Vietnamese messages for the requested task.
@@ -184,7 +185,7 @@ enum AIService {
         guard let url = URL(string:
             "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")
         else { throw AIServiceError.invalidModel }
-        var config: [String: Any] = ["temperature": 0.3, "maxOutputTokens": 4096]
+        var config: [String: Any] = ["temperature": 0.3, "maxOutputTokens": 2048]
         if jsonMode {
             config["responseMimeType"] = "application/json"
             config["responseJsonSchema"] = [

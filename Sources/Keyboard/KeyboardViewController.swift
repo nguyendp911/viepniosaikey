@@ -17,6 +17,14 @@ final class KeyboardViewController: UIInputViewController {
     private var suggestionContainer: UIStackView?
     private var isRequestRunning = false
     private var requestID = UUID()
+    private var aiTask: Task<Void, Never>?
+
+    private func cancelAIRequest() {
+        aiTask?.cancel()
+        aiTask = nil
+        requestID = UUID()
+        isRequestRunning = false
+    }
     private var letterButtons: [UIButton] = []
     private var letterRows: [UIStackView] = []
     private var secondaryRow: UIStackView?
@@ -147,7 +155,7 @@ final class KeyboardViewController: UIInputViewController {
         cachedSnippets = KeyboardSettings.textSnippets
         cachedReplacements = KeyboardSettings.replacementDictionary
         autocapitalizeEnabled = KeyboardSettings.autoCapitalize
-        learnWordsEnabled = KeyboardSettings.autoLearnWords && !performanceMode
+        learnWordsEnabled = KeyboardSettings.autoLearnWords && !performanceMode && !KeyboardSettings.privateTypingMode
     }
     private var currentTheme: String = ""
     private let aiGradient = CAGradientLayer()
@@ -172,6 +180,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
+        cancelAIRequest()
+        clearSuggestions()
         flushLearnedWords()
         candidateUpdateWork?.cancel()
         candidateGeneration &+= 1
@@ -473,6 +483,7 @@ final class KeyboardViewController: UIInputViewController {
         let selected = ReplyRecipient(rawValue: KeyboardSettings.recipientMode) ?? .automatic
         let receivers = ReplyRecipient.allCases.map { recipient -> UIAction in
             let action = UIAction(title: recipient.title) { [weak self] _ in
+                self?.cancelAIRequest()
                 PersonaStore.activeID = ""
                 KeyboardSettings.recipientMode = recipient.rawValue
                 self?.installWritingActions()
@@ -491,6 +502,7 @@ final class KeyboardViewController: UIInputViewController {
         )
         let personaActions: [UIAction] = PersonaStore.all.map { person in
             let item = UIAction(title: person.name) { [weak self] _ in
+                self?.cancelAIRequest()
                 PersonaStore.select(person.id)
                 self?.installWritingActions()
                 self?.refreshIdleActions()
@@ -504,6 +516,7 @@ final class KeyboardViewController: UIInputViewController {
             title: "Hồ sơ người nhận",
             image: UIImage(systemName: "person.crop.rectangle.stack"),
             children: [UIAction(title: "Tắt hồ sơ") { [weak self] _ in
+                self?.cancelAIRequest()
                 PersonaStore.clearSelection()
                 self?.installWritingActions()
                 self?.refreshIdleActions()
@@ -550,6 +563,10 @@ final class KeyboardViewController: UIInputViewController {
         ) { [weak self] _ in
             self?.recognizeRecipientFromCopiedScreenshot()
         }
+        let cancelAction = UIAction(title: "Hủy yêu cầu AI", image: UIImage(systemName: "xmark.circle")) { [weak self] _ in
+            self?.cancelAIRequest()
+            self?.showStatus("Đã hủy yêu cầu.")
+        }
         let openingAction = UIAction(title: "Hôm nay nhắn gì? · Theo lịch sử",
                                      image: UIImage(systemName: "sun.max")) { [weak self] _ in
             self?.suggestDailyMessage()
@@ -557,7 +574,7 @@ final class KeyboardViewController: UIInputViewController {
         toolButtons[2].menu = UIMenu(
             title: "AI · Hội thoại và viết lại",
             children: [receiverMenu, profileMenu, screenshotAction, openingAction,
-                       importDraft, privacyAction, undoAction, variantsAction] + actions
+                       importDraft, privacyAction, undoAction, variantsAction, cancelAction] + actions
         )
         toolButtons[2].showsMenuAsPrimaryAction = false
         toolButtons[2].accessibilityHint =
@@ -720,14 +737,16 @@ final class KeyboardViewController: UIInputViewController {
         let activeID = UUID()
         requestID = activeID
         showStatus("Đang gợi ý lời nhắn hôm nay cho " + person.name)
-        Task { [weak self] in
+        let documentID = textDocumentProxy.documentIdentifier
+        aiTask = Task { [weak self] in
             do {
                 let suggestions = try await AIService.reply(
                     to: "", openingToday: true)
                 await MainActor.run {
-                    guard let self, self.requestID == activeID,
-                          PersonaStore.activeID == person.id else { return }
+                    guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
+                    guard PersonaStore.activeID == person.id,
+                          self.textDocumentProxy.documentIdentifier == documentID else { return }
                     self.show(suggestions)
                 }
             } catch {
@@ -757,12 +776,14 @@ final class KeyboardViewController: UIInputViewController {
         showStatus("AI đang xử lý: " + action.rawValue)
         let activeID = UUID()
         requestID = activeID
-        Task { [weak self] in
+        let documentID = textDocumentProxy.documentIdentifier
+        aiTask = Task { [weak self] in
             do {
                 let transformed = try await AIWritingService.transform(source, action: action)
                 await MainActor.run {
                     guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
+                    guard self.textDocumentProxy.documentIdentifier == documentID else { return }
                     self.show([ReplySuggestion(tone: action.rawValue, text: transformed)])
                 }
             } catch {
@@ -792,12 +813,14 @@ final class KeyboardViewController: UIInputViewController {
         let activeID = UUID()
         requestID = activeID
         showStatus("Đang tạo 3 phiên bản để bạn chọn")
-        Task { [weak self] in
+        let documentID = textDocumentProxy.documentIdentifier
+        aiTask = Task { [weak self] in
             do {
                 let texts = try await AIWritingService.transformVariants(source)
                 await MainActor.run {
                     guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
+                    guard self.textDocumentProxy.documentIdentifier == documentID else { return }
                     let labels = ["Tự nhiên", "Lịch sự", "Ngắn gọn"]
                     self.show(texts.enumerated().map {
                         ReplySuggestion(tone: labels[$0.offset], text: $0.element)
@@ -899,6 +922,36 @@ final class KeyboardViewController: UIInputViewController {
         let primary: UIColor
         let modifier: UIColor
         switch currentTheme {
+        case "titanium":
+            canvas = UIColor(red: 0.067, green: 0.075, blue: 0.094, alpha: 1)
+            keyColor = UIColor(red: 0.19, green: 0.205, blue: 0.235, alpha: 1)
+            primary = UIColor(red: 0.98, green: 0.98, blue: 1, alpha: 1)
+            modifier = UIColor(red: 0.3, green: 0.34, blue: 0.4, alpha: 1)
+        case "purewhite":
+            canvas = UIColor(red: 0.9, green: 0.92, blue: 0.95, alpha: 1)
+            keyColor = UIColor(red: 1, green: 1, blue: 1, alpha: 1)
+            primary = UIColor(red: 0.12, green: 0.15, blue: 0.2, alpha: 1)
+            modifier = UIColor(red: 0.75, green: 0.8, blue: 0.87, alpha: 1)
+        case "cyberneon":
+            canvas = UIColor(red: 0.04, green: 0.067, blue: 0.14, alpha: 1)
+            keyColor = UIColor(red: 0.12, green: 0.17, blue: 0.28, alpha: 1)
+            primary = UIColor(red: 0.61, green: 0.94, blue: 1, alpha: 1)
+            modifier = UIColor(red: 0.18, green: 0.33, blue: 0.45, alpha: 1)
+        case "rosegold":
+            canvas = UIColor(red: 0.92, green: 0.81, blue: 0.77, alpha: 1)
+            keyColor = UIColor(red: 1, green: 0.94, blue: 0.9, alpha: 1)
+            primary = UIColor(red: 0.42, green: 0.23, blue: 0.2, alpha: 1)
+            modifier = UIColor(red: 0.83, green: 0.64, blue: 0.59, alpha: 1)
+        case "jade":
+            canvas = UIColor(red: 0.06, green: 0.18, blue: 0.15, alpha: 1)
+            keyColor = UIColor(red: 0.14, green: 0.31, blue: 0.26, alpha: 1)
+            primary = UIColor(red: 0.85, green: 0.98, blue: 0.88, alpha: 1)
+            modifier = UIColor(red: 0.22, green: 0.43, blue: 0.35, alpha: 1)
+        case "heritage":
+            canvas = UIColor(red: 0.3, green: 0.07, blue: 0.08, alpha: 1)
+            keyColor = UIColor(red: 0.48, green: 0.13, blue: 0.15, alpha: 1)
+            primary = UIColor(red: 0.99, green: 0.86, blue: 0.59, alpha: 1)
+            modifier = UIColor(red: 0.62, green: 0.23, blue: 0.22, alpha: 1)
         case "midnight":
             canvas = UIColor(red: 0.09, green: 0.11, blue: 0.19, alpha: 1)
             keyColor = UIColor(red: 0.18, green: 0.22, blue: 0.33, alpha: 1)
@@ -2097,6 +2150,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func beginTyping() {
+        if isRequestRunning { cancelAIRequest() }
         isComposingInteraction = true
         updateContextVisibility()
         // When the user continues after accepting the automatically chosen
@@ -2123,6 +2177,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func dismissSuggestions() {
+        if isRequestRunning { cancelAIRequest() }
         clearSuggestions()
         statusLabel.isHidden = true
         updateKeyboardHeight()
@@ -2204,13 +2259,15 @@ final class KeyboardViewController: UIInputViewController {
         let originalPersonaID = PersonaStore.activeID
         let context = ConversationContextResolver.resolve(source)
         showStatus("AI đang phân tích · Người nhận: " + context.displayName)
-        Task { [weak self] in
+        let documentID = textDocumentProxy.documentIdentifier
+        aiTask = Task { [weak self] in
             do {
                 let suggestions = try await AIService.reply(to: source)
                 await MainActor.run {
                     guard let self, self.requestID == currentRequestID else { return }
                     self.isRequestRunning = false
-                    guard PersonaStore.activeID == originalPersonaID else {
+                    guard PersonaStore.activeID == originalPersonaID,
+                          self.textDocumentProxy.documentIdentifier == documentID else {
                         self.showStatus("Đã đổi hồ sơ người nhận · Bỏ kết quả AI cũ.")
                         return
                     }
@@ -2425,14 +2482,12 @@ final class KeyboardViewController: UIInputViewController {
         guard let answer = selectedReply() else { return }
         // Prevent deleting unrelated content after the caret, or deleting
         // incomplete context exposed by secure/restricted third-party fields.
-        guard textDocumentProxy.selectedText == nil,
-              let before = textDocumentProxy.documentContextBeforeInput,
-              (textDocumentProxy.documentContextAfterInput ?? "").isEmpty,
-              before.count <= 2000 else {
-            showStatus("Không thể thay an toàn · Chọn Sao chép rồi tự dán")
+        guard let selection = textDocumentProxy.selectedText, !selection.isEmpty else {
+            showStatus("Hãy bôi đen đoạn cần thay, hoặc Sao chép rồi tự dán")
             return
         }
-        for _ in before { textDocumentProxy.deleteBackward() }
+        // UIKit replaces the explicit selection; never loop over an unknown
+        // documentContextBeforeInput (iOS may expose only a truncated suffix).
         textDocumentProxy.insertText(answer)
         dismissSuggestions()
         showStatus("Đã thay bản nháp bằng CHỈ câu trả lời")

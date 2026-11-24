@@ -16,6 +16,12 @@ private struct GeminiModelList: Decodable {
 }
 
 enum GeminiModelCatalog {
+    // Automatic mode uses the key's actual catalog, not an invented model ID.
+    static func resolve(_ configured: String, apiKey: String) async throws -> String {
+        guard configured.isEmpty || configured == "auto" else { return configured }
+        return try await GeminiAutoModelCache.shared.resolve(apiKey: apiKey)
+    }
+
     static func fetch(apiKey: String) async throws -> [GeminiModelOption] {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AIServiceError.missingKey
@@ -56,10 +62,26 @@ enum GeminiModelCatalog {
             if cursor == nil || cursor == "" { break }
         }
         let unique = Dictionary(grouping: found, by: \.id).compactMap { $0.value.first }
-        return unique.sorted {
-            let a = $0.id == "gemini-3.8-flash" ? "0" : $0.id
-            let b = $1.id == "gemini-3.8-flash" ? "0" : $1.id
-            return a < b
+        return unique.sorted { $0.id < $1.id }
+    }
+}
+
+private actor GeminiAutoModelCache {
+    static let shared = GeminiAutoModelCache()
+    private var entry: (key: String, model: String, expiry: Date)?
+    func resolve(apiKey: String) async throws -> String {
+        if let entry, entry.key == apiKey, entry.expiry > Date() { return entry.model }
+        let models = try await GeminiModelCatalog.fetch(apiKey: apiKey)
+        let textModels = models.filter { option in
+            let name = option.id.lowercased()
+            return !["image", "audio", "tts", "live", "embedding", "robotics", "computer-use"].contains { name.contains($0) }
         }
+        let stable = textModels.filter { !$0.id.contains("preview") && !$0.id.contains("experimental") && !$0.id.contains("-exp") }
+        let pool = stable.isEmpty ? textModels : stable
+        guard let model = (pool.filter { $0.id.contains("flash") && !$0.id.contains("lite") }.last ?? pool.last)?.id else {
+            throw AIServiceError.invalidModel
+        }
+        entry = (apiKey, model, Date().addingTimeInterval(600))
+        return model
     }
 }

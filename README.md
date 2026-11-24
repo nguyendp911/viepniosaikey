@@ -217,3 +217,16 @@ Mỗi push lên `main` chạy kiểm thử Swift và build iOS qua workflow [iOS
 Ứng dụng hỗ trợ khóa Gemini hoặc OpenAI do người dùng nhập (Bring Your Own Key). Chọn model tương thích, bật đồng ý dùng AI và thử kết nối trong ứng dụng; chỉ sử dụng tác vụ online nếu đã có khóa hợp lệ. Nên đặt giới hạn chi tiêu và không công khai khóa trong GitHub/IPA.
 
 Backend Python tham khảo ở `backend/` là tùy chọn, không bắt buộc đối với chế độ gọi trực tiếp. Nếu triển khai backend ra Internet, phải thêm xác thực, rate limit và HTTPS.
+
+## ViePN – Core upgrade
+
+- API Key: lưu bằng Keychain của App Group trên iOS; key cũ chỉ bị xóa sau khi chuyển thành công. IPA ký lại phải giữ entitlement App Group. Nếu không lưu được key, ứng dụng báo lỗi và không ghi key mới vào UserDefaults.
+- Gemini: nhập `auto` để chọn model từ catalog của API Key, hoặc chọn ID thủ công. Catalog ưu tiên model text ổn định, giữ cache ngắn trong bộ nhớ.
+- Gõ riêng tư: tắt gọi AI và tự học từ khi bật; không tự xóa lịch sử đã lưu. Các thao tác lưu thủ công vẫn do người dùng quyết định.
+- AI: hủy khi gõ tiếp, rời bàn phím hoặc đổi hồ sơ; menu giữ AI có lệnh Hủy yêu cầu. Thay bản nháp chỉ thực hiện khi có vùng văn bản được chọn rõ ràng.
+- Sáu theme mới: Titanium Black, Pure White, Cyber Neon, Rose Gold, Emerald Jade, Vietnam Heritage.
+- Glide: chỉ mục đầu/cuối từ, giữ nguyên xử lý dấu; từ học giữ 300 mục có tần suất cao nhất.
+
+Cần kiểm thử ký IPA, Keychain/App Group, thay văn bản, chuyển hồ sơ và hiệu năng trên iPhone thật trước khi phát hành rộng.
+
+Backend tùy chọn: đặt `VIEPN_BACKEND_TOKEN` dài/ngẫu nhiên trên máy chủ và gửi `Authorization: Bearer <token>` cho /reply. Rate limit 30 request/phút trên mỗi tiến trình; triển khai nhiều worker cần rate limiter dùng chung ở reverse proxy. Không nhúng token máy chủ vào IPA phát hành công khai.

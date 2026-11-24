@@ -42,6 +42,7 @@ struct ContentView: View {
     @State private var adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
     @State private var writingSamples = KeyboardSettings.writingSamples
     @State private var newWritingSample = ""
+    @State private var privateTypingMode = KeyboardSettings.privateTypingMode
     @State private var autoLearnWords = KeyboardSettings.autoLearnWords
     @State private var oneHandMode = KeyboardSettings.oneHandMode
     @State private var keySpacingValue = String(KeyboardSettings.keySpacing)
@@ -646,15 +647,20 @@ struct ContentView: View {
 
                 if provider == "gemini" {
                     keyField("Gemini API Key", text: $geminiAPIKey, revealed: $showGeminiKey)
-                        .onChange(of: geminiAPIKey) { KeyboardSettings.geminiAPIKey = $0 }
-                    modelField("Model Gemini", text: $geminiModel)
+                        .onChange(of: geminiAPIKey) {
+                            if !KeyboardSettings.saveProviderKey($0, provider: "gemini") {
+                                apiFeedback = "Không lưu được Keychain. Kiểm tra quyền App Group và ký IPA."
+                            }
+                        }
+                    modelField("Model Gemini (auto hoặc ID)", text: $geminiModel)
                         .onChange(of: geminiModel) { KeyboardSettings.geminiModel = $0 }
                     modelField("Model dự phòng (429/503)", text: $fallbackModel)
                         .onChange(of: fallbackModel) { KeyboardSettings.fallbackModel = $0 }
 
                     if !availableModels.isEmpty {
                         Picker("Model được Google cung cấp", selection: $geminiModel) {
-                            if !availableModels.contains(where: { $0.id == geminiModel }) {
+                            Text("Tự động chọn model").tag("auto")
+                            if geminiModel != "auto", !availableModels.contains(where: { $0.id == geminiModel }) {
                                 Text("Model đang nhập: \(geminiModel)").tag(geminiModel)
                             }
                             ForEach(availableModels) { item in
@@ -678,7 +684,11 @@ struct ContentView: View {
                     }
                 } else {
                     keyField("OpenAI API Key", text: $openAIAPIKey, revealed: $showOpenAIKey)
-                        .onChange(of: openAIAPIKey) { KeyboardSettings.openAIAPIKey = $0 }
+                        .onChange(of: openAIAPIKey) {
+                            if !KeyboardSettings.saveProviderKey($0, provider: "openai") {
+                                apiFeedback = "Không lưu được Keychain. Kiểm tra quyền App Group và ký IPA."
+                            }
+                        }
                     modelField("Model OpenAI", text: $openAIModel)
                         .onChange(of: openAIModel) { KeyboardSettings.openAIModel = $0 }
 
@@ -698,7 +708,7 @@ struct ContentView: View {
                 }
 
                 HStack {
-                    Label("Khóa lưu trong App Group, chưa mã hóa bằng Keychain",
+                    Label("Khóa lưu trong Keychain dùng chung App Group",
                           systemImage: "lock.shield")
                         .font(.system(size: 11))
                         .foregroundStyle(muted)
@@ -722,6 +732,12 @@ struct ContentView: View {
 
     private func themeSampleColor(_ id: String) -> Color {
         switch id {
+        case "titanium": return Color(red: 0.067, green: 0.075, blue: 0.094)
+        case "purewhite": return Color(red: 0.9, green: 0.92, blue: 0.95)
+        case "cyberneon": return Color(red: 0.04, green: 0.067, blue: 0.14)
+        case "rosegold": return Color(red: 0.92, green: 0.81, blue: 0.77)
+        case "jade": return Color(red: 0.06, green: 0.18, blue: 0.15)
+        case "heritage": return Color(red: 0.3, green: 0.07, blue: 0.08)
         case "midnight": return Color(red: 0.09, green: 0.11, blue: 0.19)
         case "ocean": return Color(red: 0.73, green: 0.87, blue: 0.94)
         case "rose": return Color(red: 0.95, green: 0.84, blue: 0.89)
@@ -744,7 +760,8 @@ struct ContentView: View {
     }
 
     private func themeDisplayName(_ id: String) -> String {
-        id.prefix(1).uppercased() + id.dropFirst()
+        let names = ["titanium": "Titanium Black", "purewhite": "Pure White", "cyberneon": "Cyber Neon", "rosegold": "Rose Gold", "jade": "Emerald Jade", "heritage": "Vietnam Heritage"]
+        return names[id] ?? (id.prefix(1).uppercased() + id.dropFirst())
     }
 
     // Four focused cards keep settings aligned, labeled, and easy to tap.
@@ -1045,6 +1062,12 @@ struct ContentView: View {
                 Text("Chỉ mở rộng vùng chạm trong khe giữa các phím; không tự thay chữ hay ghi lại tọa độ ngón tay.")
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
+                keyboardDivider()
+                keyboardToggleRow("Chế độ gõ riêng tư (tắt AI và tự học)", symbol: "hand.raised.fill", isOn: $privateTypingMode)
+                    .onChange(of: privateTypingMode) {
+                        KeyboardSettings.privateTypingMode = $0
+                        cloudEnabled = KeyboardSettings.allowCloudAI
+                    }
                 keyboardDivider()
                 keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
                                   symbol: "book.closed", isOn: $autoLearnWords)
@@ -2044,9 +2067,9 @@ struct ContentView: View {
                 if models.isEmpty {
                     apiFeedback = "Danh sách không có model hỗ trợ generateContent cho API Key này."
                 } else {
-                    if !models.contains(where: { $0.id == geminiModel }), let first = models.first {
-                        geminiModel = first.id
-                        KeyboardSettings.geminiModel = first.id
+                    if geminiModel != "auto", !models.contains(where: { $0.id == geminiModel }) {
+                        geminiModel = "auto"
+                        KeyboardSettings.geminiModel = "auto"
                     }
                     apiFeedback = "✓ Đã tải \(models.count) model từ Google."
                 }
