@@ -256,3 +256,8 @@ Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; 
 - Share Extension: chọn văn bản trong app khác → Chia sẻ → ViePN · Bản nháp, xác nhận nội dung, rồi Công cụ → Bản nháp trong bàn phím. Không gọi mạng. Bản signed cần thêm provisioning profile cho `com.viepn.aikey.share` cùng App Group: secrets `IOS_PROFILE_SHARE_BASE64` và `IOS_SHARE_PROFILE_NAME` trong môi trường ios-signing. Unsigned IPA CI kiểm tra cả hai extension.
 
 - Tìm emoji ngay trong menu bàn phím theo từ đang gõ hoặc văn bản được chọn; OCR hiển thị vị trí trái/phải/giữa như gợi ý bố cục, người dùng vẫn tự gắn nhãn. Phân tích offline có thể mở trực tiếp từ Công cụ → Offline.
+
+## Premium UI
+- Toolbar Premium mặc định: Dán, Couple (icon), ViePN AI, Mẫu, Công cụ; Offline nằm trong Hub. Compact dùng icon; Classic dùng icon trên chữ dưới. Tự giảm nhãn khi thiếu chỗ và cuộn ngang khi cần; không giảm độ rộng dưới 44 pt.
+- Toolbar Studio: đổi chế độ, kéo thả hoặc mũi tên để sắp xếp, ghim nút, chỉnh độ cao và bo góc, xem trước cùng layout engine. Dán/AI/Công cụ không thể ẩn để giữ các menu thiết yếu. Cấu hình được sao lưu JSON và tương thích backup cũ.
+- Chip emoji/gợi ý thu gọn và theo theme; Intelligence Hub phân nhóm giao tiếp, soạn thảo, tiện ích. Không thay đổi Bundle ID hoặc hai extension.

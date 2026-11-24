@@ -8,14 +8,14 @@ extension KeyboardViewController {
     /// path. Conversation starters are editable, optional local templates.
     func refreshIdleActions() {
         let defaults = ["❤️", "😂", "😊", "🥰", "👍", "🙏", "😍", "✨", "🎉", "😅"]
-        let usage = KeyboardSettings.frequentlyUsedEmoji
+        let usage = KeyboardSettings.privateTypingMode ? [:] : KeyboardSettings.frequentlyUsedEmoji
         let emoji = defaults.sorted {
             let a = usage[$0] ?? 0, b = usage[$1] ?? 0
             if a != b { return a > b }
             return (defaults.firstIndex(of: $0) ?? 0)
                 < (defaults.firstIndex(of: $1) ?? 0)
         }
-        let person = PersonaStore.active
+        let person = KeyboardSettings.privateTypingMode ? nil : PersonaStore.active
         let greeting = person.flatMap {
             ConversationIntelligence.offlineStarter(for: $0.id)
         } ?? (person == nil ? "Hôm nay bạn thế nào?"
@@ -24,7 +24,7 @@ extension KeyboardViewController {
         idleActions = topEmoji.map { (title: $0, insert: $0, emoji: true) }
         // Keep a useful conversation starter in the visible portion of the
         // strip, rather than hiding it behind ten emoji on narrow screens.
-        idleActions.append((title: "💬 Hỏi thăm", insert: greeting, emoji: false))
+        idleActions.append((title: "Hỏi thăm", insert: greeting, emoji: false))
         idleActions.append(contentsOf: emoji.dropFirst(4).map {
             (title: $0, insert: $0, emoji: true)
         })
@@ -45,21 +45,18 @@ extension KeyboardViewController {
             idleBar.removeArrangedSubview(child)
             child.removeFromSuperview()
         }
+        let palette = KeyboardThemePalette.resolve(currentTheme)
         for (index, item) in idleActions.enumerated() {
             let chip = UIButton(type: .system)
             chip.tag = index
             chip.setTitle(item.title, for: .normal)
-            chip.titleLabel?.font = .systemFont(
-                ofSize: item.emoji ? 23 : 12,
-                weight: item.emoji ? .regular : .medium)
-            chip.setTitleColor(.label, for: .normal)
-            chip.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.8)
-            chip.layer.cornerRadius = 13
-            chip.contentEdgeInsets = UIEdgeInsets(
-                top: 8, left: item.emoji ? 11 : 13,
-                bottom: 8, right: item.emoji ? 11 : 13)
-            chip.widthAnchor.constraint(greaterThanOrEqualToConstant:
-                item.emoji ? 49 : 110).isActive = true
+            SuggestionChipView.style(chip, palette: palette)
+            chip.titleLabel?.font = .systemFont(ofSize: item.emoji ? 21 : 12,
+                                               weight: item.emoji ? .regular : .medium)
+            chip.contentEdgeInsets = UIEdgeInsets(top: 6, left: item.emoji ? 8 : 12,
+                                                   bottom: 6, right: item.emoji ? 8 : 12)
+            chip.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            chip.widthAnchor.constraint(greaterThanOrEqualToConstant: item.emoji ? 44 : 82).isActive = true
             chip.accessibilityLabel = item.emoji ? "Chèn emoji " + item.title
                 : "Chèn câu gợi ý " + item.title
             chip.addTarget(self, action: #selector(idleActionTapped(_:)),

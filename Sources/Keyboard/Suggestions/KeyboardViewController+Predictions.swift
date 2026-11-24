@@ -97,9 +97,7 @@ extension KeyboardViewController {
             let button = UIButton(type: .system)
             button.tag = index
             button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-            button.setTitleColor(.label, for: .normal)
-            button.backgroundColor = UIColor.secondarySystemBackground
-            button.layer.cornerRadius = 11
+            SuggestionChipView.style(button, palette: KeyboardThemePalette.resolve(currentTheme))
             button.contentEdgeInsets = UIEdgeInsets(
                 top: 6, left: 13, bottom: 6, right: 13)
             button.addTarget(self, action: #selector(candidateTapped(_:)),
@@ -132,7 +130,7 @@ extension KeyboardViewController {
             more.setTitle("Tất cả  ···", for: .normal)
             more.setTitleColor(cyanColor, for: .normal)
             more.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
-            more.backgroundColor = UIColor.tertiarySystemBackground
+            SuggestionChipView.style(more, palette: KeyboardThemePalette.resolve(currentTheme))
             more.layer.cornerRadius = 11
             more.contentEdgeInsets = UIEdgeInsets(
                 top: 6, left: 12, bottom: 6, right: 12)

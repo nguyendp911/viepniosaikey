@@ -101,6 +101,21 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_intelligence.swift
           "$RUNNER_TEMP/verify-intelligence"
+      - name: Verify adaptive Premium Toolbar
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-toolbar" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/Intelligence/ToolbarPreferences.swift \
+            Sources/Shared/Intelligence/ToolbarLayoutEngine.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_toolbar.swift
+          "$RUNNER_TEMP/verify-toolbar"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo

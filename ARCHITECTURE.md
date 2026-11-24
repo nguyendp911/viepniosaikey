@@ -13,3 +13,6 @@
 
 ## Rules
 Keep UIKit lifecycle overrides and stored controller state in the primary class. Use extensions for feature methods, avoid unrelated changes during structural migrations, and preserve user settings keys. Use private access for helpers within a module file where possible; cross-file members use internal scope. Keep app-only frameworks out of command-line Swift verification targets. New files in Sources are discovered by XcodeGen; update explicit Swift CLI test lists in the workflow when splitting shared files.
+
+### Premium Toolbar
+`Shared/Intelligence/ToolbarPreferences.swift` defines stable action IDs and validated persisted configuration. `ToolbarLayoutEngine.swift` is pure Foundation, shared by SwiftUI preview and UIKit keyboard. `Keyboard/Toolbar/` contains the scroll container, button, palette and selector router; the controller binds actions by ID rather than position. `IntelligenceToolCell` and `SuggestionChipView` handle reusable theme-aware visuals. `verify_toolbar.swift` checks width, ordering, mode and migration.

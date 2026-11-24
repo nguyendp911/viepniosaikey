@@ -3,8 +3,10 @@ import UIKit
 extension KeyboardViewController {
     @objc func openIntelligenceHub() {
         closeIntelligenceHub()
+        let palette = KeyboardThemePalette.resolve(currentTheme)
         let panel = UIView()
-        panel.backgroundColor = .systemBackground
+        panel.backgroundColor = palette.canvas
+        panel.accessibilityViewIsModal = true
         panel.layer.cornerRadius = 14
         panel.clipsToBounds = true
         panel.translatesAutoresizingMaskIntoConstraints = false
@@ -32,12 +34,14 @@ extension KeyboardViewController {
         let label = UILabel()
         label.text = "ViePN Intelligence"
         label.font = .systemFont(ofSize: 17, weight: .bold)
-        label.textColor = .label
+        label.textColor = palette.text
         let close = UIButton(type: .system)
         close.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         close.accessibilityLabel = "Đóng công cụ"
         close.addAction(UIAction { [weak self] _ in self?.closeIntelligenceHub() }, for: .touchUpInside)
-        close.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        close.tintColor = palette.text
+        close.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        close.heightAnchor.constraint(equalToConstant: 44).isActive = true
         header.addArrangedSubview(label)
         header.addArrangedSubview(close)
         stack.addArrangedSubview(header)
@@ -56,6 +60,7 @@ extension KeyboardViewController {
         ])
         stack.addArrangedSubview(scroll)
         let groups: [(String, String, UIMenu?, (() -> Void)?)] = [
+            ("Bật/tắt Couple", "heart.fill", coupleHubMenu(), nil),
             ("Hội thoại", "bubble.left.and.bubble.right", studioMenu("Hội thoại"), nil),
             ("Tình cảm", "heart", studioMenu("Tình cảm"), nil),
             ("Công việc", "briefcase", studioMenu("Công việc"), nil),
@@ -65,7 +70,7 @@ extension KeyboardViewController {
             ("Prompt", "text.badge.plus", promptMenu(), nil),
             ("Đọc ảnh", "photo.text.rectangle", nil, { [weak self] in self?.recognizeRecipientFromCopiedScreenshot() }),
             ("Offline", "wifi.slash", offlineStudioMenu(), nil),
-            ("Clipboard", "doc.on.clipboard", nil, { [weak self] in self?.pasteTapped() }),
+            ("Clipboard", "doc.on.clipboard", clipboardHubMenu(), nil),
             ("Bản nháp", "square.and.arrow.down", nil, { [weak self] in
                 guard let self else { return }
                 let draft = ShareDraft.current
@@ -92,32 +97,74 @@ extension KeyboardViewController {
                 self?.showStatus("DNA · \(metrics.count) mẫu · \(metrics.averageWords) từ/mẫu")
             })
         ]
-        for start in stride(from: 0, to: groups.count, by: 3) {
-            let row = UIStackView()
-            row.distribution = .fillEqually
-            row.spacing = 6
-            for spec in groups[start..<min(start+3, groups.count)] {
-                let button = UIButton(type: .system)
-                var config = UIButton.Configuration.filled()
-                config.title = spec.0
-                config.image = UIImage(systemName: spec.1)
-                config.imagePlacement = .top
-                config.imagePadding = 4
-                config.baseForegroundColor = .label
-                config.baseBackgroundColor = .secondarySystemBackground
-                config.cornerStyle = .medium
-                config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 2, bottom: 8, trailing: 2)
-                button.configuration = config
-                button.heightAnchor.constraint(equalToConstant: 58).isActive = true
-                if let menu = spec.2 { button.menu = menu; button.showsMenuAsPrimaryAction = true }
-                else if let action = spec.3 { button.addAction(UIAction { [weak self] _ in self?.closeIntelligenceHub(); action() }, for: .touchUpInside) }
-                row.addArrangedSubview(button)
+        let sections: [(String, [String])] = [
+            ("GIAO TIẾP THÔNG MINH", ["Hội thoại", "Tình cảm", "Bật/tắt Couple", "Công việc", "Dịch"]),
+            ("SOẠN THẢO", ["Viết lại", "Mẫu câu", "Prompt", "Đọc ảnh", "Offline", "Bản nháp"]),
+            ("TIỆN ÍCH", ["Emoji", "Clipboard", "Hoàn tác", "Làm lại", "Con trỏ", "Riêng tư", "Nhà cung cấp", "Văn phong"])
+        ]
+        let columns = view.bounds.width >= 420 ? 4 : (view.bounds.width < 300 ? 2 : 3)
+        for (title, names) in sections {
+            let section = UILabel()
+            section.text = title
+            section.font = .systemFont(ofSize: 10, weight: .semibold)
+            section.textColor = palette.text.withAlphaComponent(0.75)
+            section.accessibilityTraits = .header
+            rows.addArrangedSubview(section)
+            let items = names.compactMap { name in groups.first { $0.0 == name } }
+            for start in stride(from: 0, to: items.count, by: columns) {
+                let row = UIStackView()
+                row.distribution = .fillEqually
+                row.spacing = 6
+                let end = min(start + columns, items.count)
+                for spec in items[start..<end] {
+                    let cell = IntelligenceToolCell(title: spec.0, symbol: spec.1, palette: palette)
+                    if let menu = spec.2 { cell.menu = menu; cell.showsMenuAsPrimaryAction = true }
+                    else if let action = spec.3 {
+                        cell.addAction(UIAction { [weak self] _ in self?.closeIntelligenceHub(); action() }, for: .touchUpInside)
+                    }
+                    row.addArrangedSubview(cell)
+                }
+                for _ in (end-start)..<columns { row.addArrangedSubview(UIView()) }
+                rows.addArrangedSubview(row)
             }
-            rows.addArrangedSubview(row)
         }
         UIAccessibility.post(notification: .screenChanged, argument: label)
     }
-    func closeIntelligenceHub() { intelligenceOverlay?.removeFromSuperview(); intelligenceOverlay = nil }
+    func closeIntelligenceHub() {
+        guard intelligenceOverlay != nil else { return }
+        intelligenceOverlay?.removeFromSuperview(); intelligenceOverlay = nil
+        UIAccessibility.post(notification: .layoutChanged, argument: toolbarButtons[.tools])
+    }
+    func coupleHubMenu() -> UIMenu {
+        let toggle = UIAction(title: KeyboardSettings.coupleEnabled ? "Tắt Couple" : "Bật Couple") { [weak self] _ in
+            self?.closeIntelligenceHub(); self?.coupleTapped()
+        }
+        let styles = CoupleStyleCatalog.styles.map { style in
+            UIAction(title: style.icon + " " + style.title, state: KeyboardSettings.coupleEnabled && KeyboardSettings.coupleStyle == style.id ? .on : .off) { [weak self] _ in
+                KeyboardSettings.coupleEnabled = true
+                KeyboardSettings.coupleStyle = style.id
+                self?.closeIntelligenceHub()
+                self?.updateCoupleTool()
+                self?.showStatus("Couple: " + style.title)
+            }
+        }
+        return UIMenu(title: "Couple", children: [toggle] + styles)
+    }
+    func clipboardHubMenu() -> UIMenu {
+        let paste = UIAction(title: "Dán", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
+            self?.closeIntelligenceHub(); self?.pasteTapped()
+        }
+        let entries = ClipboardVault.items.map { value in
+            UIAction(title: String(value.prefix(40))) { [weak self] _ in
+                guard let self else { return }
+                self.closeIntelligenceHub()
+                self.cancelAIRequest()
+                self.selectedText = value
+                self.showStatus("Đã chọn clipboard · Nhấn AI")
+            }
+        }
+        return UIMenu(title: "Clipboard", children: [paste] + entries)
+    }
     func studioMenu(_ group: String) -> UIMenu {
         UIMenu(title: group, children: IntelligenceTask.tasks.filter { $0.group == group }.map { task in
             UIAction(title: task.title, image: UIImage(systemName: task.symbol)) { [weak self] _ in
