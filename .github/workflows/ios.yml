@@ -141,6 +141,7 @@ jobs:
           test -d "$SHARE"
           /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$SHARE/Info.plist" | grep -Fx 'com.apple.share-services'
           test -f "$SHARE/ViePNShareExtension"
+          python3 scripts/verify-app-bundles.py "$APP"
           mkdir -p "$RUNNER_TEMP/Unsigned/Payload" artifacts
           cp -R "$APP" "$RUNNER_TEMP/Unsigned/Payload/"
           cd "$RUNNER_TEMP/Unsigned"
