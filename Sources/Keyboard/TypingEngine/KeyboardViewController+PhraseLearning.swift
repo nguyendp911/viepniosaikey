@@ -2,9 +2,13 @@ import UIKit
 
 extension KeyboardViewController {
     func reloadPhraseLearning() {
-        phraseSaveWork?.cancel()
-        phraseRevision=PersonalPhraseStore.revision
-        phraseModel=PersonalPhraseStore.load()
+        let revision=PersonalPhraseStore.revision
+        if !learnWordsEnabled || proPrivate {
+            phraseSaveWork?.cancel();phraseSaveWork=nil;phraseModel=PersonalPhraseModel();phraseRevision=""
+        } else if phraseRevision != revision {
+            phraseSaveWork?.cancel();phraseSaveWork=nil;phraseRevision=revision
+            phraseModel=PersonalPhraseStore.load()
+        }
         resetPhraseContext()
     }
     func resetPhraseContext() {
@@ -13,7 +17,7 @@ extension KeyboardViewController {
     // Begin observing only when our own letter starts at a word boundary.
     // Never adopt a word already typed by a host app or another keyboard.
     func beginPhraseKey(_ key:String) {
-        guard learnWordsEnabled,!proPrivate,KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode else{resetPhraseContext();return}
+        guard learnWordsEnabled,!proPrivate else{resetPhraseContext();return}
         guard key.first?.isLetter==true else {
             if typingMode != "vni" {resetPhraseContext()}
             return
@@ -22,9 +26,9 @@ extension KeyboardViewController {
         let doc=proxy.documentIdentifier
         if phraseStart != nil && phraseDocument==doc {return}
         guard (proxy.selectedText?.isEmpty ?? true),
-              proxy.documentContextAfterInput?.first?.isLetter != true,
-              let before=proxy.documentContextBeforeInput,
-              before.last?.isLetter != true,before.last?.isNumber != true else{resetPhraseContext();return}
+              proxy.documentContextAfterInput?.first?.isLetter != true else{resetPhraseContext();return}
+        let before=proxy.documentContextBeforeInput ?? ""
+        guard before.last.map({$0.isWhitespace || ".!?,".contains($0)}) ?? true else{resetPhraseContext();return}
         if phraseDocument != doc || phraseEnd.map({!before.hasSuffix($0)}) != false {phraseChain=[]}
         phraseDocument=doc;phraseStart=String(before.suffix(100))
     }

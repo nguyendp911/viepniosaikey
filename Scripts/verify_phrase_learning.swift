@@ -14,8 +14,16 @@ import Foundation
         let restored=try JSONDecoder().decode(PersonalPhraseModel.self,from:JSONEncoder().encode(model))
         precondition(restored.suggestions(context:["em","ăn"],day:100).first=="gì chưa nè")
         print("PASS personal phrase learning: repeated prefix, partial, recency, privacy and persistence")
+        var crowded=model
+        let samples=["xin","chào","ngày","mai","vui","khỏe","mình","bạn","tôi","đi","làm","học","nhà","trường"]
+        for i in samples.indices {for j in samples.indices {for z in 0..<6 {
+            let words=[samples[i],samples[j],samples[(i+j+z)%samples.count]]
+            crowded.observe(words,day:99)
+        }}}
+        crowded.prune(day:100)
+        precondition(crowded.entries.count<=PersonalPhraseModel.maximum)
         let start=Date()
-        for _ in 0..<10000 {_=model.suggestions(context:["em","ăn"],day:100)}
-        print("Phrase lookup (small fixture) mean ms:",Date().timeIntervalSince(start)*1000/10000)
+        for _ in 0..<10000 {_=crowded.suggestions(context:["em","ăn"],day:100)}
+        print("Phrase lookup (\(crowded.entries.count) ngrams) mean ms:",Date().timeIntervalSince(start)*1000/10000)
     }
 }

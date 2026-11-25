@@ -70,6 +70,9 @@ final class KeyboardViewController: UIInputViewController {
     var phraseEnd:String?
     var phraseChain:[String]=[]
     var phraseSaveWork:DispatchWorkItem?
+    var learnedPhraseChoices:[String:String]=[:]
+    var learnedPhraseAnchor:String?
+    var learnedPhraseDocument:UUID?
     let phraseStorageQueue=DispatchQueue(label:"com.viepn.phrase-storage",qos:.utility)
     var nextWordAnchor: String?
     var nextWordDocument: UUID?

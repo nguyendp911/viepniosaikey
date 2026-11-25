@@ -125,7 +125,7 @@ struct PrivacyStudioView: View {
         VStack(alignment: .leading, spacing: 14) {
             Toggle("Gõ riêng tư", isOn: $incognito).onChange(of: incognito) { KeyboardSettings.privateTypingMode = $0 }
             Text("Tắt AI cloud và học từ mới trong chế độ riêng tư. Dữ liệu cũ không bị tự động xóa.").font(.caption).foregroundStyle(.secondary)
-            Button("Xóa clipboard, từ đã học, emoji thường dùng và bản nháp", role: .destructive) { confirm = true }
+            Button("Xóa clipboard, từ/cụm từ đã học, emoji thường dùng và bản nháp", role: .destructive) { confirm = true }
                 .buttonStyle(.bordered)
         }.alert("Xóa dữ liệu cục bộ?", isPresented: $confirm) {
             Button("Xóa", role: .destructive) {

@@ -4,6 +4,7 @@ import Vision
 
 extension KeyboardViewController {
     func updateCandidates(_ override: [String]? = nil) {
+        learnedPhraseChoices=[:];learnedPhraseAnchor=nil;learnedPhraseDocument=nil
         if override == nil {
             nextWordAnchor = nil
             nextWordDocument = nil
@@ -43,10 +44,8 @@ extension KeyboardViewController {
         let sentenceSuggestionsEnabled = useSentenceSuggestions
         let wordSuggestionsEnabled = useSuggestions
         let sentenceTone = KeyboardSettings.preferredTone
-        let phraseContext = (textDocumentProxy.documentContextBeforeInput ?? "")
-        let phraseDocument = textDocumentProxy.documentIdentifier
-        let prefixContext = phraseContext.hasSuffix(word) ? String(phraseContext.dropLast(word.count)) : ""
-        let phraseSnapshot = learnWordsEnabled && !proPrivate && sentenceSuggestionsEnabled ? phraseModel : PersonalPhraseModel()
+        let phraseEnabled = learnWordsEnabled && !proPrivate && sentenceSuggestionsEnabled
+        let phraseSnapshot = phraseEnabled ? phraseModel : PersonalPhraseModel()
         let phraseVersion = phraseRevision
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
@@ -54,6 +53,10 @@ extension KeyboardViewController {
         let job = DispatchWorkItem { [weak self] in
             guard let self, self.candidateGeneration == generation,
                   self.recentWord == word else { return }
+            // Read host context only after the debounce, not on every key.
+            let phraseContext = phraseEnabled ? (self.textDocumentProxy.documentContextBeforeInput ?? "") : ""
+            let phraseDocument = self.textDocumentProxy.documentIdentifier
+            let prefixContext = phraseContext.hasSuffix(word) ? String(phraseContext.dropLast(word.count)) : ""
             self.predictionQueue.async { [weak self] in
                 var results = wordSuggestionsEnabled
                     ? SmartTyping.predictions(prefix: word, learned: personalWords)
@@ -76,8 +79,17 @@ extension KeyboardViewController {
                        KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,
                        self.textDocumentProxy.documentIdentifier==phraseDocument,
                        (self.textDocumentProxy.documentContextBeforeInput ?? "")==phraseContext {
-                        let rest=results.filter{!learned.contains($0) && $0 != word}
-                        results=[word]+learned+rest
+                        var labels:[String]=[]
+                        for completion in learned {
+                            let prefix=word.lowercased()+" "
+                            let label=completion.hasPrefix(prefix) ? String(completion.dropFirst(prefix.count)) : completion
+                            guard !label.isEmpty,!labels.contains(label),label != word else{continue}
+                            self.learnedPhraseChoices[label]=completion
+                            labels.append(label)
+                        }
+                        self.learnedPhraseAnchor=phraseContext;self.learnedPhraseDocument=phraseDocument
+                        let rest=results.filter{!labels.contains($0) && $0 != word}
+                        results=[word]+labels+rest
                     }
                     self.renderCandidates(results)
                 }
@@ -168,6 +180,20 @@ extension KeyboardViewController {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
         resetPhraseContext()
+        if let completion=learnedPhraseChoices[chosen] {
+            guard learnedPhraseDocument==textDocumentProxy.documentIdentifier,
+                  learnedPhraseAnchor==(textDocumentProxy.documentContextBeforeInput ?? ""),
+                  (textDocumentProxy.selectedText?.isEmpty ?? true),
+                  textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+                  KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode else{updateCandidates();return}
+            resetBilingualComposition()
+            replaceCurrentWord(completion)
+            if completion.contains(" ") {
+                textDocumentProxy.insertText(" ")
+                knownWordBoundary=true;recentWord="";showNextWords()
+            }
+            tactileFeedback();return
+        }
         if let anchor = nextWordAnchor {
             guard nextWordDocument == textDocumentProxy.documentIdentifier,
                   (textDocumentProxy.selectedText?.isEmpty ?? true),

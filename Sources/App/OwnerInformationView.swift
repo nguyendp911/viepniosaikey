@@ -8,13 +8,14 @@ struct OwnerInformationView: View {
     private let phone = "0788811107"
     private let email = "nguyendp.vie@gmail.com"
     private let ink = Color(red: 0.055, green: 0.075, blue: 0.14)
-    private let accent = Color(red: 0.31, green: 0.82, blue: 0.95)
+    private let accent = Color(red: 0.79, green: 0.69, blue: 0.46)
     private let muted = Color(red: 0.67, green: 0.73, blue: 0.85)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             hero
             contactCard
+            projectCard
             rightsCard
             footer
         }
@@ -23,60 +24,61 @@ struct OwnerInformationView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 12) {
+        VStack(alignment:.leading,spacing:18) {
+            HStack {
+                Text("VIEPN").font(.system(size:13,weight:.heavy,design:.monospaced)).tracking(4).foregroundStyle(accent)
+                Spacer()
+                Text("DEVELOPER PROFILE").font(.system(size:9,weight:.semibold)).tracking(1.4).foregroundStyle(muted)
+            }
+            Divider().overlay(accent.opacity(0.23))
+            HStack(alignment:.center,spacing:15) {
+                ZStack {
+                    RoundedRectangle(cornerRadius:24).fill(LinearGradient(colors:[accent.opacity(0.23),.black.opacity(0.3)],startPoint:.topLeading,endPoint:.bottomTrailing))
+                    RoundedRectangle(cornerRadius:24).strokeBorder(accent.opacity(0.65),lineWidth:1)
+                    Text("DPN").font(.system(size:25,weight:.semibold,design:.serif)).foregroundStyle(accent)
+                }.frame(width:84,height:84).accessibilityHidden(true)
+                VStack(alignment:.leading,spacing:6) {
+                    Text("CHỦ SỞ HỮU & PHÁT TRIỂN").font(.system(size:9,weight:.bold)).tracking(1.1).foregroundStyle(accent)
+                    Text(owner).font(.system(size:24,weight:.bold,design:.serif)).foregroundStyle(.white).minimumScaleFactor(0.7)
+                    Text("ViePN AI Keyboard").font(.subheadline).foregroundStyle(muted)
+                }
+            }
+            Text("Một không gian nhập liệu dành cho người Việt — tinh tế, thực dụng và tôn trọng quyền riêng tư.")
+                .font(.system(size:13)).foregroundStyle(muted).fixedSize(horizontal:false,vertical:true)
+            HStack(spacing:10) {
+                Label("Nhà phát triển",systemImage:"person.crop.circle").font(.caption.weight(.semibold))
+                Spacer()
+                Image(systemName:"keyboard").font(.system(size:18,weight:.light))
+            }.foregroundStyle(accent)
+        }.padding(20)
+        .background {
             ZStack {
-                Circle()
-                    .fill(.white.opacity(0.07))
-                    .frame(width: 105, height: 105)
-                Circle()
-                    .stroke(.white.opacity(0.16), lineWidth: 1)
-                    .frame(width: 92, height: 92)
-                Image(systemName: "person.crop.circle.fill.badge.checkmark")
-                    .font(.system(size: 57, weight: .thin))
-                    .foregroundStyle(.white)
-                    .accessibilityHidden(true)
-            }
-            Text("CHỦ SỞ HỮU & PHÁT TRIỂN")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .tracking(2.1)
-                .foregroundStyle(accent)
-            Text(owner)
-                .font(.system(size: 27, weight: .bold, design: .rounded))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.white)
-                .minimumScaleFactor(0.8)
-            Text("ViePN AI Keyboard")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
-            HStack(spacing: 6) {
-                Image(systemName: "shield.lefthalf.filled")
-                Text("Thông tin chính thức từ nhà phát triển")
-            }
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white.opacity(0.85))
-            .padding(.horizontal, 13)
-            .padding(.vertical, 8)
-            .background(.white.opacity(0.12), in: Capsule())
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 27)
-        .padding(.horizontal, 14)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.18, green: 0.25, blue: 0.56),
-                    Color(red: 0.17, green: 0.13, blue: 0.37),
-                    ink
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 25)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 25)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
-        }
+                LinearGradient(colors:[Color(red:0.12,green:0.16,blue:0.25),ink,Color.black.opacity(0.95)],startPoint:.topLeading,endPoint:.bottomTrailing)
+                Circle().strokeBorder(accent.opacity(0.10),lineWidth:1).frame(width:230,height:230).offset(x:140,y:-100)
+                Circle().strokeBorder(accent.opacity(0.07),lineWidth:1).frame(width:280,height:280).offset(x:140,y:-100)
+            }.clipShape(RoundedRectangle(cornerRadius:24))
+        }.overlay {RoundedRectangle(cornerRadius:24).strokeBorder(accent.opacity(0.28),lineWidth:1)}
+    }
+
+    private var projectCard: some View {
+        VStack(alignment:.leading,spacing:12) {
+            sectionTitle("Thông tin dự án",symbol:"info.circle")
+            let version=Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "—"
+            let build=Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "—"
+            HStack {
+                VStack(alignment:.leading,spacing:4) {
+                    Text("PHIÊN BẢN").font(.system(size:10,weight:.semibold)).tracking(1).foregroundStyle(muted)
+                    Text(version).font(.system(size:22,weight:.semibold,design:.monospaced)).foregroundStyle(.white)
+                }
+                Spacer()
+                VStack(alignment:.trailing,spacing:4) {
+                    Text("BUILD").font(.system(size:10,weight:.semibold)).tracking(1).foregroundStyle(muted)
+                    Text(build).font(.system(size:22,weight:.semibold,design:.monospaced)).foregroundStyle(.white)
+                }
+            }.padding(12).background(.white.opacity(0.045),in:RoundedRectangle(cornerRadius:12))
+            contactLink("Mã nguồn GitHub",detail:"nguyendp911/viepniosaikey",symbol:"chevron.left.forwardslash.chevron.right",destination:"https://github.com/nguyendp911/viepniosaikey")
+        }.padding(17).background(ink,in:RoundedRectangle(cornerRadius:20))
+            .overlay {RoundedRectangle(cornerRadius:20).strokeBorder(.white.opacity(0.09))}
     }
 
     private var contactCard: some View {
@@ -119,6 +121,12 @@ struct OwnerInformationView: View {
                     .minimumScaleFactor(0.8)
             }
             Spacer(minLength: 4)
+            Button {
+                UIPasteboard.general.string = detail
+            } label: {
+                Image(systemName:"doc.on.doc").font(.system(size:13,weight:.medium))
+                    .foregroundStyle(accent).frame(width:34,height:35)
+            }.buttonStyle(.plain).accessibilityLabel("Sao chép "+title)
             Link(destination: URL(string: destination)!) {
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 13, weight: .bold))

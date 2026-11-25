@@ -48,12 +48,13 @@ struct PersonalPhraseModel: Codable {
         guard !prior.isEmpty,prior.count==min(8,context.count),limit>0 else{return []}
         let typed=partial.isEmpty ? "" : (Self.token(partial) ?? "")
         guard partial.isEmpty || !typed.isEmpty else{return []}
+        let prefixes=(1...prior.count).reversed().map { (length:$0,text:prior.suffix($0).joined(separator:" ")+" ") }
         var ranked:[String:Int]=[:]
         for (phrase,entry) in entries where entry.count>=2 && day-entry.day<=90 {
-            let words=phrase.split(separator:" ").map(String.init)
-            for n in stride(from:min(prior.count,words.count-1),through:1,by:-1) {
-                guard Array(prior.suffix(n))==Array(words.prefix(n)) else{continue}
-                let rest=Array(words.dropFirst(n))
+            for prefix in prefixes {
+                guard phrase.hasPrefix(prefix.text) else{continue}
+                let n=prefix.length
+                let rest=phrase.dropFirst(prefix.text.count).split(separator:" ").map(String.init)
                 guard !rest.isEmpty,typed.isEmpty || rest[0].hasPrefix(typed) else{continue}
                 if !typed.isEmpty && rest.count==1 && rest[0]==typed {continue}
                 let result=rest.joined(separator:" ")
