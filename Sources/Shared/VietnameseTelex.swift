@@ -1,260 +1,44 @@
 import Foundation
 
-/// Simple inline Telex composition for Vietnamese text.
-/// Converts only when a Telex suffix is typed; never sends keyboard input away.
 enum VietnameseTelex {
-    private static let toneIndex: [Character: Int] = ["s": 1, "f": 2, "r": 3, "x": 4, "j": 5]
-    private static let vowels: [Character: String] = [
-        "a":"aáàảãạ", "ă":"ăắằẳẵặ", "â":"âấầẩẫậ",
-        "e":"eéèẻẽẹ", "ê":"êếềểễệ",
-        "i":"iíìỉĩị",
-        "o":"oóòỏõọ", "ô":"ôốồổỗộ", "ơ":"ơớờởỡợ",
-        "u":"uúùủũụ", "ư":"ưứừửữự",
-        "y":"yýỳỷỹỵ"
-    ]
-    private static let shape: [String: Character] = [
-        "aa":"â", "ee":"ê", "oo":"ô", "dd":"đ",
-        "aw":"ă", "ow":"ơ", "uw":"ư"
-    ]
-
-    // The previous base() scanned 12 vowel tables and allocated a String on
-    // every character for every key. Build a single immutable map instead.
-    private static let vowelBase: [Character: Character] = {
-        var result: [Character: Character] = [:]
-        for (vowel, forms) in vowels {
-            for character in forms {
-                result[character] = vowel
-                if let upper = String(character).uppercased().first {
-                    result[upper] = vowel
-                }
-            }
-        }
-        return result
-    }()
-
-    private static func base(_ value: Character) -> Character? {
-        vowelBase[value]
-    }
-
-    // Accent keys s/f/r/x/j are also ordinary Latin letters. Interpret them
-    // as a Vietnamese tone only when the preceding characters can form a
-    // Vietnamese syllable. This protects English words such as "store",
-    // "stress", "spring", "thanks" from unwanted diacritics.
-    private static let vietnameseOnsets: Set<String> = [
-        "", "b", "c", "ch", "d", "đ", "g", "gh", "gi", "h", "k", "kh",
-        "l", "m", "n", "ng", "ngh", "nh", "p", "ph", "q", "qu",
-        "r", "s", "t", "th", "tr", "v", "x"
-    ]
-
-    private static let vietnameseCodas: Set<String> = [
-        "", "c", "ch", "m", "n", "ng", "nh", "p", "t"
-    ]
-
-    private static func plausibleVietnameseSyllable(_ chars: [Character]) -> Bool {
-        guard let firstVowel = chars.firstIndex(where: { base($0) != nil }),
-              let lastVowel = chars.lastIndex(where: { base($0) != nil }) else {
-            return false
-        }
-        let onset = String(chars[..<firstVowel]).lowercased()
-        let coda = lastVowel + 1 < chars.count
-            ? String(chars[(lastVowel + 1)...]).lowercased() : ""
-        return vietnameseOnsets.contains(onset) && vietnameseCodas.contains(coda)
-    }
-
-    /// Change the shape while preserving any tone already applied.
-    private static func restyle(_ original: Character, as newBase: Character) -> Character {
-        let lower = Character(String(original).lowercased())
-        let oldBase = base(lower) ?? newBase
-        let oldForms = Array(vowels[oldBase] ?? "")
-        let newForms = Array(vowels[newBase] ?? "")
-        let tone = oldForms.firstIndex(of: lower) ?? 0
-        let output = tone < newForms.count ? newForms[tone] : newBase
-        return String(original).uppercased() == String(original)
-            ? Character(String(output).uppercased()) : output
-    }
-
-    /// Users may type "thuongw", "truongw", "muaw" without placing W next to
-    /// the vowel. Always prioritize the uo -> ươ syllable pattern.
-    private static func shiftedW(in letters: [Character]) -> String? {
-        guard !letters.isEmpty else { return nil }
-        var output = letters
-        if letters.count >= 2 {
-            for index in 0..<(letters.count - 1) {
-                if base(letters[index]) == "u", base(letters[index + 1]) == "o" {
-                    output[index] = restyle(letters[index], as: "ư")
-                    output[index + 1] = restyle(letters[index + 1], as: "ơ")
-                    if output != letters { return String(output) }
-                }
-            }
-            // For "mua" + w, the a is the vowel nucleus, while u becomes ư.
-            for index in 0..<(letters.count - 1) {
-                if base(letters[index]) == "u", base(letters[index + 1]) == "a" {
-                    output[index] = restyle(letters[index], as: "ư")
-                    if output != letters { return String(output) }
-                }
-            }
-        }
-        for index in letters.indices.reversed() {
-            guard let oldBase = base(letters[index]) else { continue }
-            let target: Character
-            switch oldBase {
-            case "u": target = "ư"
-            case "o": target = "ơ"
-            case "a": target = "ă"
-            default: continue
-            }
-            output[index] = restyle(letters[index], as: target)
-            if output != letters { return String(output) }
-        }
-        return nil
-    }
-
-    /// Rebuild the displayed word from its original key sequence. Unlike
-    /// incremental edits this can revoke an earlier Telex conversion when the
-    /// completed word is clearly English, without losing the original keys.
-    static func composeKeys(_ raw: String) -> String {
-        var rendered = ""
+    private static let tones:[Character:Int]=["s":1,"f":2,"r":3,"x":4,"j":5]
+    static func composeKeys(_ raw:String)->String {
+        var word=""
         for char in raw {
-            let key = String(char)
-            if let converted = transformed(word: rendered, key: key) {
-                rendered = converted
-            } else {
-                rendered.append(char)
-                rendered = normalizedTonePosition(rendered) ?? rendered
+            if let result=transformed(word:word,key:String(char)){word=result}
+            else {word.append(char);word=normalizedTonePosition(word) ?? word}
+        }
+        return word
+    }
+    static func normalizedTonePosition(_ word:String)->String? { VietnameseOrthography.normalize(word) }
+    static func transformed(word:String,key:String)->String? {
+        guard word.count<=40,key.count==1,let code=key.lowercased().first,!word.isEmpty else{return nil}
+        let chars=Array(word)
+        let rules=VietnameseOrthography.self
+        if code=="d",let last=chars.last,last.lowercased()=="d" {
+            return String(chars.dropLast())+(last.isUppercase ? "Đ":"đ")
+        }
+        if code=="d",let last=chars.last,last.lowercased()=="đ" {
+            return String(chars.dropLast())+(last.isUppercase ? "D":"d")+key
+        }
+        if code=="w" {
+            if let result=rules.horn(chars){return result}
+            if let index=rules.nucleus(chars).last,let v=rules.lookup[chars[index]],let plain=[1:0,8:6,10:9][v.group],rules.plausible(chars){
+                var output=chars;output[index]=rules.form(chars[index],group:plain,tone:v.tone);return String(output)+key
             }
         }
-        return rendered
-    }
-
-    /// Keep a previously typed tone on the correct vowel when more letters
-    /// are appended. This makes early and late Telex tone keys equivalent.
-    /// Only touch a single existing tone in a plausible Vietnamese syllable.
-    static func normalizedTonePosition(_ word: String) -> String? {
-        let chars = Array(word)
-        guard chars.count > 1, chars.count <= 40,
-              plausibleVietnameseSyllable(chars) else { return nil }
-        var marked: [(index: Int, tone: Int)] = []
-        let vowelIndices = chars.indices.filter { base(chars[$0]) != nil }
-        for index in vowelIndices {
-            guard let vowel = base(chars[index]), let forms = vowels[vowel],
-                  let offset = Array(forms).firstIndex(of: Character(String(chars[index]).lowercased())),
-                  offset > 0 else { continue }
-            marked.append((index, offset))
-        }
-        guard marked.count == 1 else { return nil }
-        let old = marked[0]
-        // In ươ, the tone belongs to ơ, not ư.
-        let preferred = vowelIndices.filter { index in
-            guard let vowel = base(chars[index]) else { return false }
-            return "ăâêôơư".contains(vowel) &&
-                !(vowel == "ư" && index + 1 < chars.count && base(chars[index + 1]) == "ơ")
-        }
-        let target: Int
-        if let shaped = preferred.last {
-            target = shaped
-        } else if vowelIndices.count > 1,
-                  let last = vowelIndices.last,
-                  "iuy".contains(base(chars[last]) ?? " "),
-                  let previous = vowelIndices.dropLast().last {
-            target = previous
-        } else {
-            target = vowelIndices.last!
-        }
-        guard target != old.index, let targetBase = base(chars[target]),
-              let targetForms = vowels[targetBase],
-              let oldBase = base(chars[old.index]) else { return nil }
-        var result = chars
-        result[old.index] = restyle(chars[old.index], as: oldBase)
-        let plain = Array(vowels[oldBase]!)[0]
-        result[old.index] = String(chars[old.index]).uppercased() == String(chars[old.index])
-            ? Character(String(plain).uppercased()) : plain
-        let replacement = Array(targetForms)[old.tone]
-        result[target] = String(chars[target]).uppercased() == String(chars[target])
-            ? Character(String(replacement).uppercased()) : replacement
-        return String(result)
-    }
-
-    /// Returns nil when the typed key should be inserted literally.
-    static func transformed(word: String, key: String) -> String? {
-        guard word.count <= 40, let letter = key.first, key.count == 1 else { return nil }
-        let code = Character(String(letter).lowercased())
-        let chars = Array(word)
-        guard !chars.isEmpty else { return nil }
-
-        // Telex W can be typed at the end of the whole syllable, not just
-        // immediately after the vowel: "thuongw" -> "thương".
-        if code == "w", let shifted = shiftedW(in: chars) {
-            return normalizedTonePosition(shifted) ?? shifted
-        }
-
-        // Other Telex double-letter shape keys still work as before.
-        let previous = String(chars[chars.count - 1]).lowercased()
-        let pair = previous + String(code)
-        if let replacement = shape[pair],
-           (pair == "dd" || plausibleVietnameseSyllable(chars)) {
-            var result = chars
-            let output = String(chars.last!).uppercased() == String(chars.last!)
-                ? Character(String(replacement).uppercased()) : replacement
-            result[result.count - 1] = output
-            return String(result)
-        }
-
-        if code == "z" {
-            // Remove the tone of the rightmost accented vowel without
-            // removing its Telex shape. If no tone exists, insert z normally.
-            for index in chars.indices.reversed() {
-                guard let vowel = base(chars[index]), let sequence = vowels[vowel],
-                      let offset = sequence.firstIndex(of: Character(String(chars[index]).lowercased()))
-                else { continue }
-                let tone = sequence.distance(from: sequence.startIndex, to: offset)
-                if tone == 0 { continue }
-                var output = chars
-                let original = vowel
-                output[index] = String(chars[index]).uppercased() == String(chars[index])
-                    ? Character(String(original).uppercased()) : original
-                return String(output)
+        if let pair:[Int]=["a":[0,2],"e":[3,4],"o":[6,7]][code] {
+            // Immediate or end-of-syllable shape; avoid interpreting a normal
+            // second nucleus vowel as a shape when the last key differs.
+            if let last=chars.last,let v=rules.lookup[last],v.group==pair[0],let result=rules.shape(chars,from:pair[0],to:pair[1]){return result}
+            if let last=chars.last,let v=rules.lookup[last],v.group==pair[1],rules.plausible(chars){
+                return String(chars.dropLast())+String(rules.form(last,group:pair[0],tone:v.tone))+key
             }
+            if chars.last.map({rules.lookup[$0]==nil})==true,let result=rules.shape(chars,from:pair[0],to:pair[1]){return result}
         }
-
-        guard let targetTone = toneIndex[code],
-              plausibleVietnameseSyllable(chars) else { return nil }
-        let indices = chars.indices.filter { base(chars[$0]) != nil }
-        guard !indices.isEmpty else { return nil }
-
-        // Favor shaped vowels, then central vowels. In e.g. "lai", the final i
-        // is a glide so the tone belongs on a rather than i.
-        let shaped = indices.filter { index in
-            guard let vowel = base(chars[index]) else { return false }
-            return "ăâêôơư".contains(vowel) &&
-                !(vowel == "ư" && index + 1 < chars.count && base(chars[index + 1]) == "ơ")
-        }
-        let chosen: Int
-        if let marked = shaped.last {
-            chosen = marked
-        } else if indices.count > 1,
-                  let last = indices.last,
-                  "iuy".contains(Character(String(chars[last]).lowercased())),
-                  let prior = indices.dropLast().last {
-            chosen = prior
-        } else {
-            chosen = indices.last!
-        }
-        guard let vowel = base(chars[chosen]), let sequence = vowels[vowel] else { return nil }
-        var output = chars
-        let forms = Array(sequence)
-        // A repeated tone key escapes the previous tone, allowing literal
-        // English text even in Vietnamese-only mode: o+r => ỏ, ỏ+r => or.
-        // Keep the second physical key as the literal suffix; otherwise the
-        // user cannot recover "or" by pressing r again.
-        if forms[targetTone] == Character(String(chars[chosen]).lowercased()) {
-            output[chosen] = String(chars[chosen]).uppercased() == String(chars[chosen])
-                ? Character(String(vowel).uppercased()) : vowel
-            return String(output) + key
-        }
-        let marked = forms[targetTone]
-        output[chosen] = String(chars[chosen]).uppercased() == String(chars[chosen])
-            ? Character(String(marked).uppercased()) : marked
-        if output[chosen] == chars[chosen] { return nil }
-        return String(output)
+        if code=="z" {return rules.removeTone(chars)}
+        guard let tone=tones[code],rules.plausible(chars),let result=rules.applyingTone(chars,tone:tone) else{return nil}
+        if result==word,let plain=rules.removeTone(chars){return plain+key}
+        return result==word ? nil : result
     }
 }

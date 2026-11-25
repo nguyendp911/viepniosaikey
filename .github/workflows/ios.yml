@@ -32,6 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-telex" \
+            Sources/Shared/TypingEngine/Vietnamese/VietnameseOrthography.swift \
             Sources/Shared/VietnameseTelex.swift Scripts/verify_telex.swift
           "$RUNNER_TEMP/verify-telex"
       - name: Verify offline whole-sentence completions
@@ -45,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-vni" \
+            Sources/Shared/TypingEngine/Vietnamese/VietnameseOrthography.swift \
             Sources/Shared/VietnameseVNI.swift Scripts/verify_vni.swift
           "$RUNNER_TEMP/verify-vni"
       - name: Verify fast keyboard input edits
@@ -57,6 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-bilingual" \
+            Sources/Shared/TypingEngine/Vietnamese/VietnameseOrthography.swift \
             Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartTyping.swift \
             Sources/Shared/Typing/*.swift \
@@ -78,6 +81,7 @@ jobs:
             Sources/Shared/Privacy/ClipboardVault.swift \
             Sources/Shared/SmartTyping.swift \
             Sources/Shared/Typing/*.swift \
+            Sources/Shared/TypingEngine/Vietnamese/VietnameseOrthography.swift \
             Sources/Shared/VietnameseTelex.swift \
             Sources/Shared/SmartAssistantCore.swift \
             Sources/Shared/Conversation/*.swift \

@@ -61,5 +61,12 @@ struct VerifyVietnameseTelex {
         test("stop", expected: "stop")
         test("thos", expected: "thó")
         test("mafr", expected: "mả")
+        test("quas", expected: "quá")
+        test("giaf", expected: "già")
+        test("quys", expected: "quý")
+        test("ngoais", expected: "ngoái")
+        test("hoas", expected: "hoá")
+        test("muan", expected: "muan")
+        test("aaa", expected: "aa")
     }
 }

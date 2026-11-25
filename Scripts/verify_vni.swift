@@ -27,7 +27,12 @@ struct VerifyVNI {
         expect("dương", "7", nil)
         expect("hello", "0", nil)
         expect("hello", "9", nil)
-        expect("abc", "2", "àbc")
+        expect("abc", "2", nil) // Invalid Vietnamese coda: preserve the digit literally.
+        expect("qua", "1", "quá")
+        expect("gia", "2", "già")
+        expect("hoà", "1", "hoá")
+        expect("muon", "6", "muôn")
+        expect("thuong", "7", "thương")
         print("PASS [VNI] tones, shapes, end-position d9, undo tone with 0")
     }
 }
