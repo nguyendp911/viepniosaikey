@@ -51,16 +51,17 @@ struct EverydayBackupView:View {
             else{SecureField("Khóa khôi phục Base64",text:$key).textFieldStyle(.roundedBorder)}
             Toggle("Hiển thị khóa",isOn:$showKey)
             Button("Tạo khóa ngẫu nhiên"){
-                key=SymmetricKey(size:.bits256).withUnsafeBytes{Data($0).base64EncodedString()};status="Hãy lưu khóa an toàn trước khi xuất."
+                key=EverydayEncryption.makeKey();status="Hãy lưu khóa an toàn trước khi xuất."
             }.buttonStyle(.bordered)
             Button("Sao chép khóa (60 giây)"){
                 UIPasteboard.general.setItems([[UTType.plainText.identifier:key]],options:[.localOnly:true,.expirationDate:Date().addingTimeInterval(60)])
             }.disabled(validKey==nil).buttonStyle(.bordered)
             Button("Xuất bản sao mã hóa"){
                 guard let validKey,!KeyboardSettings.privateTypingMode else{status="Cần khóa hợp lệ và không ở chế độ riêng tư.";return}
+                guard PersonalPhraseStore.canReadForBackup else{status="Không đọc được kho cụm từ. Kiểm tra App Group hoặc mở khóa thiết bị.";return}
                 do {
                     let data=try JSONEncoder().encode(EverydayLearningArchive.capture())
-                    guard let sealed=try AES.GCM.seal(data,using:validKey).combined else{throw CocoaError(.fileWriteUnknown)}
+                    let sealed=try EverydayEncryption.seal(data,using:validKey)
                     document=EverydayEncryptedFile(data:sealed);exporting=true
                 }catch{status=error.localizedDescription}
             }.buttonStyle(.borderedProminent)
@@ -74,7 +75,7 @@ struct EverydayBackupView:View {
                 guard let validKey,!KeyboardSettings.privateTypingMode else{status="Cần khóa hợp lệ và không ở chế độ riêng tư.";return}
                 let url=try result.get();let access=url.startAccessingSecurityScopedResource();defer{if access{url.stopAccessingSecurityScopedResource()}}
                 guard let size=try? url.resourceValues(forKeys:[.fileSizeKey]).fileSize,size<=1_000_000 else{status="Tệp không hợp lệ.";return}
-                let data=try AES.GCM.open(AES.GCM.SealedBox(combined:Data(contentsOf:url)),using:validKey)
+                let data=try EverydayEncryption.open(Data(contentsOf:url),using:validKey)
                 let archive=try JSONDecoder().decode(EverydayLearningArchive.self,from:data)
                 guard archive.version==1 else{status="Phiên bản không hỗ trợ.";return};confirmation=archive
             }catch{status="Không giải mã được. Kiểm tra khóa và tệp."}
@@ -85,7 +86,6 @@ struct EverydayBackupView:View {
         .onDisappear{key="";confirmation=nil}
     }
     private var validKey:SymmetricKey? {
-        guard let data=Data(base64Encoded:key.trimmingCharacters(in:.whitespacesAndNewlines)),data.count==32 else{return nil}
-        return SymmetricKey(data:data)
+        EverydayEncryption.key(key)
     }
 }

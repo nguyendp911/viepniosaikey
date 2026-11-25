@@ -201,6 +201,24 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_typing_pro6.swift
           "$RUNNER_TEMP/verify-pro6"
+      - name: Verify Typing Premium 7.0 Everyday engines
+        run: |
+          set -euo pipefail
+          swiftc -O -swift-version 5 -o "$RUNNER_TEMP/verify-everyday7" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/TypingEngine/Vietnamese/VietnameseOrthography.swift \
+            Sources/Shared/TypingEngine/Prediction/PersonalPhraseModel.swift \
+            Sources/Shared/TypingEngine/Pro6/*.swift \
+            Sources/Shared/TypingEngine/Pro7/*.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_everyday7.swift
+          "$RUNNER_TEMP/verify-everyday7"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo

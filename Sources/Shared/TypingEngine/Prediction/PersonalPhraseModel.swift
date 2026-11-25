@@ -133,6 +133,21 @@ enum PersonalPhraseStore {
         guard let data=readData(),let decoded=try? JSONDecoder().decode(Envelope.self,from:data),decoded.revision==revision else{return .init()}
         var model=decoded.model;model.prune();return model
     }
+    static var canReadForBackup:Bool {
+        guard !KeyboardSettings.privateTypingMode else{return false}
+        #if os(iOS)
+        guard let url else{return false}
+        if !FileManager.default.fileExists(atPath:url.path){return true}
+        #endif
+        if let data=readData() {
+            return (try? JSONDecoder().decode(Envelope.self,from:data))?.revision==revision
+        }
+        #if os(iOS)
+        return false
+        #else
+        return KeyboardSettings.defaults.data(forKey:key)==nil
+        #endif
+    }
     private static func readData()->Data? {
         #if os(iOS)
         guard let url,let size=try? url.resourceValues(forKeys:[.fileSizeKey]).fileSize,size<=500_000 else{return nil}

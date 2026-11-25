@@ -31,3 +31,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Typing Premium 6.0
 Shared/TypingEngine/Pro6 holds optional preferences, feedback, bounded text recovery and customization; Keyboard/TypingEngine/KeyboardViewController+Pro6.swift integrates guarded actions; App/KeyboardStudio/TypingPro* isolates settings and asynchronous dashboard from the large Keyboard tab. Existing phrase store schema is additive. CLI tests cover pure logic and migration; simulator smoke covers host navigation, not actual keyboard extension gestures.
+
+### Everyday 7.0
+Shared/TypingEngine/Pro7 contains opt-in preferences, local spelling heuristics, positional aggregation and authenticated backup crypto. The existing PersonalPhraseModel schema is extended with optional pinned; file revision checks prevent stale keyboard writes from replacing management edits. Keyboard/TypingEngine/KeyboardViewController+Everyday.swift provides context-guarded explicit UI actions. App/KeyboardStudio/Everyday* owns lazy screens, protected learning backup and MetricKit aggregate host diagnostics. No new entitlement or extension; Owner tab unchanged.
