@@ -133,6 +133,24 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_premium.swift
           "$RUNNER_TEMP/verify-premium"
+      - name: Verify Personal Intelligence 3.0 offline engines
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-personal" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/PersonalIntelligence/PersonalMemoryStore.swift \
+            Sources/Shared/PersonalIntelligence/PersonalIntelligenceCatalog.swift \
+            Sources/Shared/PersonalIntelligence/PersonalUtilities.swift \
+            Sources/Shared/PersonalIntelligence/ThemeSchedule.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_personal_intelligence.swift
+          "$RUNNER_TEMP/verify-personal"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo

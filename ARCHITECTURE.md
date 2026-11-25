@@ -19,3 +19,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Premium 2.0
 `Shared/Premium/` separates command catalog, deterministic offline utilities, bounded stores and cloud workflow service. `App/Premium/` contains Command, workflow/macro, vault and experience studios. `Keyboard/Premium/` binds tools through Intelligence Hub, an independent search/calculator panel, and bounded input gestures. `verify_premium.swift` validates pure logic offline; physical-device UI, network responses and installation require device testing.
+
+### Personal Intelligence 3.0
+`Shared/PersonalIntelligence/` contains scoped memory with iOS file protection, catalog, tone presets, arena transport, offline units/diff/password/date parsing, and scheduler. `App/PersonalIntelligence/` provides full studios and Mini Apps; `Keyboard/PersonalIntelligence/` exposes explicit actions in Hub/Command with cancellation and document checks, and scheduled theme presentation. QR/password/reminders/photo import are app-only. `verify_personal_intelligence.swift` covers deterministic logic without provider keys.

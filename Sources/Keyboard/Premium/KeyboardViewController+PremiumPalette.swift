@@ -45,6 +45,12 @@ extension KeyboardViewController {
                 let cell = self.premiumKey("/"+command.id+" · "+command.title,palette:palette) { [weak self] in self?.executePremium(command,source:source) }
                 cell.heightAnchor.constraint(equalToConstant:36).isActive = true; list.addArrangedSubview(cell)
             }
+            for task in PersonalIntelligenceCatalog.tasks where task.id != "memory" && (search.isEmpty || task.id.contains(search) || task.title.lowercased().contains(search)) {
+                let cell = self.premiumKey("/"+task.id+" · "+task.title,palette:palette) { [weak self] in
+                    self?.closeIntelligenceHub(); self?.runPersonalAI(title:task.title,source:source,instruction:task.instruction)
+                }
+                cell.heightAnchor.constraint(equalToConstant:36).isActive = true; list.addArrangedSubview(cell)
+            }
             if !KeyboardSettings.privateTypingMode {
                 for prompt in PersonalPromptStore.items where search.isEmpty || prompt.title.lowercased().contains(search) {
                     let cell = self.premiumKey("Prompt · "+prompt.title,palette:palette) { [weak self] in self?.closeIntelligenceHub(); self?.runStudio(title:prompt.title,instruction:prompt.instruction,style:true) }

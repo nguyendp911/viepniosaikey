@@ -133,6 +133,6 @@ struct PrivacyStudioView: View {
                 KeyboardSettings.frequentlyUsedEmoji = [:]; ShareDraft.clear()
             }
             Button("Hủy", role: .cancel) {}
-        } message: { Text("Không xóa hồ sơ, lịch sử hội thoại, API Key hoặc từ điển tự nhập.") }
+        } message: { Text("Không xóa hồ sơ, lịch sử hội thoại, bộ nhớ 3.0, API Key hoặc từ điển tự nhập. Xóa bộ nhớ 3.0 trong Second Brain.") }
     }
 }
