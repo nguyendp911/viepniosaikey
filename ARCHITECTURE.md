@@ -22,3 +22,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Personal Intelligence 3.0
 `Shared/PersonalIntelligence/` contains scoped memory with iOS file protection, catalog, tone presets, arena transport, offline units/diff/password/date parsing, and scheduler. `App/PersonalIntelligence/` provides full studios and Mini Apps; `Keyboard/PersonalIntelligence/` exposes explicit actions in Hub/Command with cancellation and document checks, and scheduled theme presentation. QR/password/reminders/photo import are app-only. `verify_personal_intelligence.swift` covers deterministic logic without provider keys.
+
+### Offline Pro 4.0
+`Shared/OfflinePro/` holds pure layout/config, Hangul, guarded history and text utilities, profiles and sound path. `Keyboard/OfflinePro/` handles actual typing/gesture/history, capped visuals and Hub menus. `App/OfflinePro/` contains editors and offline tools, including local media rendering. `verify_offline_pro.swift` tests deterministic logic without network. No new entitlement or extension.

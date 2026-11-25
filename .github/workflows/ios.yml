@@ -151,6 +151,21 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_personal_intelligence.swift
           "$RUNNER_TEMP/verify-personal"
+      - name: Verify Offline Edition 4.0 engines
+        run: |
+          set -euo pipefail
+          swiftc -swift-version 5 -o "$RUNNER_TEMP/verify-offline" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/OfflinePro/*.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_offline_pro.swift
+          "$RUNNER_TEMP/verify-offline"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
