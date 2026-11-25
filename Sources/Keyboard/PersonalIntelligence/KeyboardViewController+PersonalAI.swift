@@ -53,7 +53,7 @@ extension KeyboardViewController {
         let ticket=UUID();requestID=ticket;isRequestRunning=true
         let document=textDocumentProxy.documentIdentifier;let persona=PersonaStore.activeID;let provider=KeyboardSettings.provider
         showStatus("Đang xử lý · "+title)
-        aiTask=Task{[weak self] in
+        aiTask = Task{[weak self] in
             do{
                 let value=try await AIWritingService.studio(source,instruction:instruction,provider:provider)
                 guard let self,self.requestID==ticket else{return};self.isRequestRunning=false
@@ -73,7 +73,7 @@ extension KeyboardViewController {
             guard let self else{return};self.closeIntelligenceHub()
             guard self.textDocumentProxy.documentIdentifier==document,PersonaStore.activeID==persona,self.hasFullAccess,KeyboardSettings.allowCloudAI,!self.isRequestRunning else{return}
             let ticket=UUID();self.requestID=ticket;self.isRequestRunning=true;self.showStatus("Đang so sánh hai AI…")
-            self.aiTask=Task{[weak self] in
+            self.aiTask = Task{[weak self] in
                 let results=await PersonalAIService.arena(source)
                 guard let self,self.requestID==ticket else{return};self.isRequestRunning=false
                 guard self.textDocumentProxy.documentIdentifier==document,PersonaStore.activeID==persona else{return}
