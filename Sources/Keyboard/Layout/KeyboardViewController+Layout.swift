@@ -273,7 +273,9 @@ extension KeyboardViewController {
     }
 
     func applyTheme() {
-        currentTheme = KeyboardSettings.theme
+        scheduledBaseTheme = KeyboardSettings.theme
+        scheduledTheme = ThemeSchedule.effective()
+        currentTheme = scheduledTheme
         let palette = KeyboardThemePalette.resolve(currentTheme)
         let canvas = palette.canvas
         let keyColor = palette.key
@@ -281,6 +283,7 @@ extension KeyboardViewController {
         let modifier = palette.modifier
         view.backgroundColor = canvas
         applyCustomDesign()
+        applyPersonalThemeBackdrop()
         for button in letterButtons {
             button.backgroundColor = keyColor
             button.setTitleColor(primary, for: .normal)

@@ -22,7 +22,7 @@ extension KeyboardSettings {
         "system", "midnight", "ocean", "rose", "lavender", "mint",
         "sunset", "graphite", "sakura", "forest", "sand", "aurora",
         "amoled", "neon", "cyberpunk", "coffee", "ice", "gold",
-        "titanium", "purewhite", "cyberneon", "rosegold", "jade", "heritage", "custom", "titaniumpro", "liquidglass", "rgbpro", "jadesignature"
+        "titanium", "purewhite", "cyberneon", "rosegold", "jade", "heritage", "custom", "titaniumpro", "liquidglass", "rgbpro", "jadesignature", "holographic", "obsidiangold", "zenedition", "auroralive"
     ]
 
     static var theme: String {

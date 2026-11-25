@@ -190,6 +190,9 @@ final class KeyboardViewController: UIInputViewController {
         learnWordsEnabled = KeyboardSettings.autoLearnWords && !performanceMode && !KeyboardSettings.privateTypingMode
     }
     var currentTheme: String = ""
+    var themeScheduleTimer: Timer?
+    var scheduledBaseTheme = ""
+    var scheduledTheme = ""
     let aiGradient = CAGradientLayer()
     var intelligenceOverlay: UIView?
     var wallpaperView: UIImageView?
@@ -211,7 +214,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
-        if currentTheme != KeyboardSettings.theme { applyTheme() }
+        if scheduledBaseTheme != KeyboardSettings.theme { refreshScheduledTheme() }
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.
         // Destructive rewrites are independently guarded by host suffix checks.
@@ -219,6 +222,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
+        themeScheduleTimer?.invalidate(); themeScheduleTimer = nil
         cancelAIRequest()
         closeIntelligenceHub()
         studioEdit = nil
@@ -252,7 +256,11 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
-        applyTheme()
+        refreshScheduledTheme(force:true)
+        themeScheduleTimer?.invalidate()
+        themeScheduleTimer = Timer.scheduledTimer(withTimeInterval:60,repeats:true) { [weak self] _ in
+            Task { @MainActor in self?.refreshScheduledTheme() }
+        }
         reloadToolbarConfiguration()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -269,6 +277,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        view.layer.sublayers?.first(where: { $0.name == "viepn.aurora" })?.frame = view.bounds
         refreshToolbarLayout()
         if let button = toolbarButtons[.ai] { aiGradient.frame = button.bounds }
         for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {
