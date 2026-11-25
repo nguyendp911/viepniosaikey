@@ -129,6 +129,9 @@ struct CoupleLibraryStudio:View{
     @State private var status=""
     var body:some View{
         List{
+            if KeyboardSettings.privateTypingMode {
+                Text("Đang riêng tư · không hiển thị kho câu đã lưu.")
+            }else{
             Section("Câu yêu thích hiện có"){
                 ForEach(Array(items.enumerated()),id:\.offset){index,item in
                     HStack{
@@ -139,6 +142,7 @@ struct CoupleLibraryStudio:View{
                 }
                 if items.isEmpty{Text("Chưa có câu yêu thích. Lưu từ màn hình Hội thoại.").font(.caption)}
                 Text(status).font(.caption)
+            }
             }
         }
     }

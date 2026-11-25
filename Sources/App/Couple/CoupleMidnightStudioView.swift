@@ -45,6 +45,7 @@ private enum CoupleRoute:String,Identifiable {
     }
 }
 struct CoupleMidnightStudioView:View {
+    var onSettingsChanged:()->Void = {}
     @State private var route:CoupleRoute?
     private let rose=Color(red:0.91,green:0.66,blue:0.74)
     var body:some View {
@@ -75,7 +76,7 @@ struct CoupleMidnightStudioView:View {
                 }
             }
             Label("Riêng tư · Không tự đọc hay gửi tin nhắn",systemImage:"lock.shield").font(.caption).foregroundStyle(rose.opacity(0.85))
-        }.sheet(item:$route){item in
+        }.sheet(item:$route,onDismiss:onSettingsChanged){item in
             NavigationStack{
                 Group {
                     switch item {

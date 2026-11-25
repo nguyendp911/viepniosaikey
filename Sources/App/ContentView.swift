@@ -124,7 +124,13 @@ struct ContentView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 12) {
                         if selectedPage == "couple" {
-                            AnyView(CoupleMidnightStudioView())
+                            AnyView(CoupleMidnightStudioView(onSettingsChanged:{
+                                coupleEnabled=KeyboardSettings.coupleEnabled
+                                coupleStage=KeyboardSettings.coupleStage
+                                coupleAddress=KeyboardSettings.coupleAddress
+                                coupleStyle=KeyboardSettings.coupleStyle
+                                favorites=KeyboardSettings.favoriteReplies
+                            }))
                             DisclosureGroup("Thiết lập Couple hiện tại"){AnyView(coupleStudio)}.tint(.pink)
                             testArea
                             savedReplies

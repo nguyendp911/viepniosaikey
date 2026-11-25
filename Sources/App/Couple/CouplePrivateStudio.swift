@@ -24,6 +24,12 @@ private enum CouplePrivateStore{
     }
     static func write<T:Encodable>(_ values:[T],name:String)->Bool{
         guard !KeyboardSettings.privateTypingMode,let url=url(name),let data=try? JSONEncoder().encode(values),data.count<=1_000_000 else{return false}
+        // Never replace an existing unreadable or corrupt file with an empty
+        // in-memory model (e.g. before first unlock).
+        if FileManager.default.fileExists(atPath:url.path) {
+            guard let existing=try? Data(contentsOf:url),existing.count<=1_000_000,
+                  (try? JSONSerialization.jsonObject(with:existing)) is [Any] else{return false}
+        }
         do{try data.write(to:url,options:[.atomic,.completeFileProtection]);return true}catch{return false}
     }
 }

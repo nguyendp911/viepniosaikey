@@ -187,6 +187,7 @@ enum CoupleLocalEngine {
     }
     static let topics:[(String,[String])]=[
         ("Ranh giới",["không muốn","đừng nhắn","chia tay","cần không gian","ép","dừng lại","không đồng ý"]),
+        ("Lời mời ở lại",["ngủ lại","qua đêm","ở lại qua đêm","khách sạn"]),
         ("Xin lỗi",["xin lỗi","tha lỗi","lỗi của"]),
         ("Mâu thuẫn",["giận","cãi nhau","thất vọng","tổn thương","hiểu lầm"]),
         ("Mệt mỏi",["mệt","áp lực","stress","kiệt sức","khó khăn"]),
@@ -206,6 +207,18 @@ enum CoupleLocalEngine {
         let last=incoming(conversation)
         let match=topics.lazy.compactMap{topic,keys in keys.first(where:{hasPhrase(last,$0)}).map{(topic,$0)}}.first
         if let match{return Reading(topic:match.0,evidence:match.1,caution:"Từ khóa gợi ý sắc thái, không xác định chắc chắn cảm xúc hoặc ý định.")}
+        // Only earlier explicitly labeled incoming turns provide a tentative
+        // topic for an ambiguous acknowledgment. No claim about actual mood.
+        if ["ừ","ừm","vâng","dạ","ok","được","thế à","vậy à"].contains(where:{normalize(last)==normalize($0)}) {
+            let prior=conversation.components(separatedBy:.newlines).dropLast().suffix(8).reversed()
+            for line in prior {
+                let n=normalize(line)
+                guard n.hasPrefix("doi phuong ") || n.hasPrefix("nguoi ay ") || n.hasPrefix("ban ay ") else{continue}
+                if let earlier=topics.lazy.compactMap({topic,keys in keys.first(where:{hasPhrase(line,$0)}).map{(topic,$0)}}).first {
+                    return Reading(topic:"Tiếp nối · "+earlier.0,evidence:"Ngữ cảnh trước: "+earlier.1,caution:"Tin cuối chỉ là phản hồi ngắn; chủ đề trước đó có thể vẫn liên quan. Không suy đoán cảm xúc.")
+                }
+            }
+        }
         return Reading(topic:"Chưa rõ",evidence:"Không đủ dấu hiệu trực tiếp",caution:"Không suy diễn từ một tin nhắn ngắn. Có thể hỏi lại nhẹ nhàng.")
     }
     static func address(_ value:String)->(String,String) {
@@ -223,6 +236,7 @@ enum CoupleLocalEngine {
         var samples:[String]
         switch info.topic {
         case "Ranh giới":samples=["{me} hiểu. {me} tôn trọng điều {you} vừa nói.","Ừ, {me} sẽ để {you} có không gian riêng.","Cảm ơn {you} đã nói rõ. {me} sẽ không gây áp lực."]
+        case "Lời mời ở lại":samples=["{you} thấy sao về lời mời đó? Điều quan trọng là {you} thoải mái và an toàn.","Nếu không muốn, {you} có thể từ chối rõ ràng nhé.","{you} muốn {me} lắng nghe hay cùng nghĩ cách trả lời?"]
         case "Xin lỗi":samples=["Cảm ơn {you} đã nói vậy. Mình cùng bình tĩnh nhé.","{me} trân trọng lời xin lỗi của {you}.","Mình nói tiếp khi cả hai thấy thoải mái nhé."]
         case "Mâu thuẫn":samples=["{me} muốn nghe điều làm {you} không vui.","Mình nói chuyện rõ hơn khi cả hai bình tĩnh nhé.","{me} không muốn đôi mình hiểu lầm thêm."]
         case "Mệt mỏi","Buồn":samples=["{you} cứ nghỉ ngơi nhé, khi nào muốn kể thì {me} nghe.","{you} muốn {me} lắng nghe hay giúp gì không?","Không cần cố vui đâu, cứ từ từ nhé."]
@@ -238,14 +252,23 @@ enum CoupleLocalEngine {
         case "Chào hỏi":samples=["Chào {you}, hôm nay thế nào?","{you} đang làm gì đó?","Hôm nay có chuyện gì vui không nè?"]
         default:samples=["{me} nghe đây, {you} nói thêm được không?","Ừ, {me} hiểu phần {you} vừa nói.","Mình nói rõ hơn một chút nhé?"]
         }
-        // Serious boundaries take precedence over tone presets.
-        if info.topic != "Ranh giới" {
+        // Serious boundaries and sensitive contexts take precedence over tone.
+        let sensitive=["Ranh giới","Lời mời ở lại","Mâu thuẫn","Mệt mỏi","Buồn","Ghen tuông"].contains(info.topic)
+        if !["Ranh giới","Lời mời ở lại"].contains(info.topic) {
             if ["cold","minimal","firm","honest","disappointed"].contains(effective) {
                 samples = info.topic=="Bận" ? ["Ừ, khi nào rảnh thì nói chuyện.","{me} hiểu rồi.","{you} cứ lo việc trước."] : [samples[0],"Ừ, mình nói tiếp khi thuận tiện.","{me} muốn nghe rõ hơn trước khi trả lời."]
             } else if ["hurt","sulky","coldwarm","regret"].contains(effective) && ["Bận","Mâu thuẫn","Xin lỗi"].contains(info.topic) {
                 samples=["{me} hơi chạnh lòng, nhưng vẫn muốn hiểu {you}.","{me} cần chút thời gian, khi nào thuận tiện mình nói nhé.","{me} muốn nói thật cảm xúc của mình, không phải trách {you}."]
             } else if ["sweet","romantic","caring","gentle","healing","maturelove","peace"].contains(effective) && ["Bận","Mệt mỏi","Buồn","Nhớ thương","Ngủ nghỉ"].contains(info.topic) {
                 samples[0] += " {me} vẫn sẵn lòng lắng nghe."
+            } else if !sensitive,["flirty","playful","funny"].contains(effective),["Chào hỏi","Nhớ thương","Hẹn gặp"].contains(info.topic) {
+                samples[0] += " Kể {me} nghe thêm đi, {me} đang tò mò nè."
+            } else if !sensitive,["deep","poetic","subtle","peace"].contains(effective) {
+                samples[0] += " Mình cứ nói với nhau thật lòng, không cần vội."
+            } else if ["apology","reconcile","mature"].contains(effective),info.topic=="Mâu thuẫn" {
+                samples[0] = "Mình nói rõ chuyện vừa rồi nhé. {me} sẵn sàng nghe và xem lại phần của mình."
+            } else if effective=="afterbreakup" {
+                samples=["{me} tôn trọng lựa chọn của {you}.","Cảm ơn {you} đã nói rõ. Mình giữ ranh giới cho nhau nhé.","{me} mong cả hai có thời gian và không gian riêng."]
             }
         }
         let catalog=CoupleStyleCatalog.selected(effective)
@@ -254,9 +277,10 @@ enum CoupleLocalEngine {
             if preferences.customEmotion {
                 if preferences.length=="short",let end=text.firstIndex(where:{".!?".contains($0)}){text=String(text[...end])}
                 if preferences.length=="long",info.topic != "Ranh giới",text.count<125{text+=" "+render("Khi nào {you} thấy thoải mái, mình nói thêm nhé.",address:address)}
-                if preferences.emoji && !["Ranh giới","Mâu thuẫn","Ghen tuông","Buồn"].contains(info.topic) && index==0{text+=" 🤍"}
+                if preferences.emoji && !sensitive && index==0{text+=" 🤍"}
             }
-            return ReplySuggestion(tone:catalog.variantNames[index % catalog.variantNames.count],text:text)
+            let labels=sensitive ? ["Lắng nghe","Tôn trọng","Rõ ràng"] : catalog.variantNames
+            return ReplySuggestion(tone:labels[index % labels.count],text:text)
         }
     }
     static func guardian(_ text:String)->[String] {
