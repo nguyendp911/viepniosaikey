@@ -15,12 +15,39 @@ extension KeyboardViewController {
     }
     func flushEverydayHeatmap() {
         guard everydayHeatmapDirty,!proPrivate,everyday7.heatmap,everydayHeatmapRevision==EverydayTouchMap.revision else{return}
-        everydayHeatmapDirty=false;EverydayTouchMap.current=everydayHeatmap
+        everydayHeatmapDirty=false
+        let snapshot=everydayHeatmap,revision=everydayHeatmapRevision
+        typingDiagnosticsQueue.async {
+            guard revision==EverydayTouchMap.revision,EverydayPreferences.current.heatmap,!KeyboardSettings.privateTypingMode else{return}
+            EverydayTouchMap.current=snapshot
+        }
     }
     func acceptEverydayCompletion() {
         guard let label=everydayCompletionLabel,let index=candidateWords.firstIndex(of:label),
               (nextWordAnchor != nil || learnedPhraseChoices[label] != nil) else{showStatus("Chưa có câu tiếp nối phù hợp");return}
         let button=UIButton();button.tag=index;candidateTapped(button)
+    }
+    func acceptEverydayFirstWord(_ label:String) {
+        let proxy=textDocumentProxy
+        guard (proxy.selectedText?.isEmpty ?? true),proxy.documentContextAfterInput?.first?.isLetter != true,
+              let before=proxy.documentContextBeforeInput,KeyboardSettings.autoLearnWords,
+              !KeyboardSettings.privateTypingMode,phraseRevision==PersonalPhraseStore.revision else{return}
+        if let anchor=nextWordAnchor,nextWordDocument==proxy.documentIdentifier,before.hasSuffix(anchor),
+           let first=label.split(separator:" ").first {
+            resetPhraseContext();resetBilingualComposition()
+            proxy.insertText(String(first)+" ")
+        } else if let full=learnedPhraseChoices[label],learnedPhraseDocument==proxy.documentIdentifier,
+                  learnedPhraseAnchor==before,!recentWord.isEmpty,before.hasSuffix(recentWord) {
+            let words=full.split(separator:" ").map(String.init)
+            guard let first=words.first,first.hasPrefix(recentWord.lowercased()) else{return}
+            let take=first==recentWord.lowercased() ? min(2,words.count) : 1
+            let part=words.prefix(take).joined(separator:" ")
+            resetPhraseContext();resetBilingualComposition()
+            replaceCurrentWord(part)
+            guard (proxy.documentContextBeforeInput ?? "").hasSuffix(part) else{return}
+            proxy.insertText(" ")
+        } else{return}
+        knownWordBoundary=true;recentWord="";showNextWords();tactileFeedback()
     }
     @objc func everydayExpandTapped() {
         guard !candidateWords.isEmpty else{showStatus("Chưa có gợi ý phù hợp");return}
@@ -31,6 +58,15 @@ extension KeyboardViewController {
         scroll.addSubview(list);stack.addArrangedSubview(scroll)
         NSLayoutConstraint.activate([list.leadingAnchor.constraint(equalTo:scroll.contentLayoutGuide.leadingAnchor),list.trailingAnchor.constraint(equalTo:scroll.contentLayoutGuide.trailingAnchor),list.topAnchor.constraint(equalTo:scroll.contentLayoutGuide.topAnchor),list.bottomAnchor.constraint(equalTo:scroll.contentLayoutGuide.bottomAnchor),list.widthAnchor.constraint(equalTo:scroll.frameLayoutGuide.widthAnchor)])
         // Preserve all original options; an expanded glide choice can use the existing handler.
+        if everyday7.liveCompletion,let label=everydayCompletionLabel {
+            let first=premiumKey("Chèn một từ tiếp theo",palette:palette){[weak self] in
+                guard let self else{return};self.closeIntelligenceHub()
+                guard self.candidateGeneration==generation,self.textDocumentProxy.documentIdentifier==document,
+                      self.textDocumentProxy.documentContextBeforeInput==before,self.textDocumentProxy.documentContextAfterInput==after else{return}
+                self.acceptEverydayFirstWord(label)
+            }
+            first.heightAnchor.constraint(equalToConstant:38).isActive=true;list.addArrangedSubview(first)
+        }
         let options=pendingGlideWord == nil ? candidateWords+everydayExpandedChoices : fullGlideOptions
         for option in options.prefix(24) {
             let key=premiumKey(option,palette:palette){[weak self] in
@@ -66,7 +102,9 @@ extension KeyboardViewController {
         let (stack,palette)=premiumPanel(title:"Phạm vi trước con trỏ")
         let label=UILabel();label.numberOfLines=3;label.textColor=palette.text;label.font = .systemFont(ofSize:14);stack.addArrangedSubview(label)
         let slider=UISlider();slider.minimumValue=1;slider.maximumValue=Float(min(80,before.count));slider.value=min(10,slider.maximumValue)
-        let render={ label.text=String(before.suffix(Int(slider.value.rounded()))) }
+        let render={ [weak slider,weak label] in
+            guard let slider else{return};label?.text=String(before.suffix(Int(slider.value.rounded())))
+        }
         render();slider.addAction(UIAction{_ in render()},for:.valueChanged);stack.addArrangedSubview(slider)
         let copy=premiumKey("Sao chép phạm vi",palette:palette){[weak self] in
             guard let self,self.hasFullAccess else{self?.showStatus("Cần quyền truy cập đầy đủ để sao chép");return}

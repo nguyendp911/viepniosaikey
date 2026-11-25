@@ -25,6 +25,7 @@ import CryptoKit
         let known:Set<String>=["sửa","sữa","giữ","chuyển","nghĩ","nghỉ","nhiều","khỏe","sắp"]
         precondition(EverydayLanguage.spell("sữ",known:known)==["sửa"])
         precondition(EverydayLanguage.spell("giử",known:known)==["giữ"])
+        precondition(EverydayLanguage.spell("muôn",known:["muông"]).contains("muông"))
         precondition(EverydayLanguage.accent("hoà",style:"traditional")=="hòa")
         precondition(EverydayLanguage.accent("Thủy",style:"modern")=="Thuỷ")
         precondition(EverydayLanguage.accent("quý",style:"traditional")=="quý")

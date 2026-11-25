@@ -94,7 +94,8 @@ struct PersonalPhraseModel: Codable {
     }
     mutating func remove(_ key:String) { entries.removeValue(forKey:key) }
     mutating func edit(_ old:String?,to input:String,day:Int=Self.day())->Bool {
-        guard let key=Self.phraseKey(input),old==nil || entries[old!] != nil else{return false}
+        guard let key=Self.phraseKey(input) else{return false}
+        if let old,entries[old]==nil{return false}
         guard old==key || entries[key]==nil else{return false}
         let previous=old.flatMap{entries[$0]}
         if let old {entries.removeValue(forKey:old)}

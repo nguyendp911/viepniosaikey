@@ -94,10 +94,11 @@ extension KeyboardViewController {
                     results=[word]+local+results.filter{$0 != word && !local.contains($0)}
                 }
                 let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []
-                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2,minimum:max(2,min(5,pro6.confidence)))
+                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:pro7.expandedBar ? 8 : 2,minimum:max(2,min(5,pro6.confidence)))
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
                           self.recentWord == word else { return }
+                    var extendedPersonal:[String]=[]
                     if !learned.isEmpty,phraseVersion==PersonalPhraseStore.revision,
                        KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,
                        self.textDocumentProxy.documentIdentifier==phraseDocument,
@@ -112,10 +113,12 @@ extension KeyboardViewController {
                         }
                         self.learnedPhraseAnchor=phraseContext;self.learnedPhraseDocument=phraseDocument
                         self.everydayCompletionLabel=pro7.liveCompletion ? labels.first(where:{$0.contains(" ")}) : nil
+                        let primary=Array(labels.prefix(2))
+                        extendedPersonal=Array(labels.dropFirst(2))
                         let rest=results.filter{!labels.contains($0) && $0 != word}
-                        results=[word]+labels+rest
+                        results=[word]+primary+rest
                     }
-                    self.everydayExpandedChoices=extra.filter{!results.contains($0)}
+                    self.everydayExpandedChoices=extendedPersonal+extra.filter{!results.contains($0) && !extendedPersonal.contains($0)}
                     self.renderCandidates(results)
                 }
             }

@@ -105,9 +105,9 @@ extension KeyboardViewController {
         let snapshot=phraseModel, revision=phraseRevision
         phraseStorageQueue.async {PersonalPhraseStore.save(snapshot,revision:revision)}
     }
-    func personalPhraseSuggestions(context:String,partial:String="")->[String] {
+    func personalPhraseSuggestions(context:String,partial:String="",limit:Int=3)->[String] {
         guard learnWordsEnabled,!proPrivate,KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,
               phraseRevision==PersonalPhraseStore.revision else{return []}
-        return phraseModel.suggestions(context:PersonalPhraseModel.context(context),partial:partial,minimum:max(2,min(5,typingPro6.confidence)))
+        return phraseModel.suggestions(context:PersonalPhraseModel.context(context),partial:partial,limit:limit,minimum:max(2,min(5,typingPro6.confidence)))
     }
 }

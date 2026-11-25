@@ -50,6 +50,10 @@ enum EverydayLanguage {
                     if known.contains(candidate){options.append(candidate)}
                 }
             }
+            for (from,to) in [("n","ng"),("ng","n"),("t","c"),("c","t")] where w.hasSuffix(from) && w.count>from.count {
+                let candidate=String(w.dropLast(from.count))+to
+                if known.contains(candidate){options.append(candidate)}
+            }
             if let index=w.firstIndex(where:{VietnameseOrthography.lookup[$0]?.tone==3 || VietnameseOrthography.lookup[$0]?.tone==4}),
                let tone=VietnameseOrthography.lookup[w[index]]?.tone,
                let candidate=VietnameseOrthography.applyingTone(Array(w),tone:tone==3 ? 4 : 3),known.contains(candidate){options.append(candidate)}

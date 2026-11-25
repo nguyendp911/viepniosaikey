@@ -122,7 +122,8 @@ final class KeyboardViewController: UIInputViewController {
         if premiumPreferences.ghost, !performanceMode, let suffix = GhostCompletion.suffix(after: anchor), !words.contains(suffix) {
             words.insert(suffix, at: 0)
         }
-        let personalized=personalPhraseSuggestions(context:anchor).filter{useSentenceSuggestions || !$0.contains(" ")}
+        let allPersonalized=personalPhraseSuggestions(context:anchor,limit:everyday7.expandedBar ? 10 : 3).filter{useSentenceSuggestions || !$0.contains(" ")}
+        let personalized=Array(allPersonalized.prefix(3))
         if typingPro6.contextualEmoji {
             let last = PersonalPhraseModel.context(anchor).last ?? ""
             words += TypingProText.emoji(last).filter { !words.contains($0) }
@@ -133,6 +134,7 @@ final class KeyboardViewController: UIInputViewController {
         nextWordAnchor = anchor
         nextWordDocument = textDocumentProxy.documentIdentifier
         updateCandidates(words)
+        if everyday7.expandedBar {everydayExpandedChoices=allPersonalized.filter{!words.contains($0)}}
     }
     var typingTouchCount: UInt64 = 0
     // Set only after this keyboard inserts a word boundary. The next letter
