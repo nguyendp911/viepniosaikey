@@ -64,8 +64,13 @@ extension SmartTyping {
         return Array(candidates.sorted {
             let a = learned[$0] ?? 0, b = learned[$1] ?? 0
             if a != b { return a > b }
+            if $0 == $1 { return false }
             if $0 == prefix { return true }
             if $1 == prefix { return false }
+            // Keep common vocabulary ahead of obscure extended syllables.
+            let coreA = coreVietnameseSet.contains($0) || englishSet.contains($0)
+            let coreB = coreVietnameseSet.contains($1) || englishSet.contains($1)
+            if coreA != coreB { return coreA }
             if $0.count != $1.count { return $0.count < $1.count }
             return $0 < $1
         }.prefix(limit))

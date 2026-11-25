@@ -22,6 +22,8 @@ struct VerifySmartKeyboard {
         assert(!SmartTyping.shouldKeepLiteral("thuong", adding: "w"), "Vietnamese end W is not blocked")
         assert(SmartTyping.predictions(prefix: "sto").contains("store"), "offline English suggestions")
         assert(SmartTyping.predictions(prefix: "thư").contains("thương"), "offline Vietnamese suggestions")
+        assert(SmartTyping.predictions(prefix: "thư", learned: ["thừa": 10]).first == "thừa", "personal frequency outranks built-in priority")
+        assert(SmartTyping.predictions(prefix: "nguyệ").contains("nguyện"), "extended Vietnamese lexicon remains searchable")
         assert(SmartTyping.predictions(prefix: "xyzz").isEmpty, "unknown prefixes return nothing")
         // Compare indexed predictions with the reference full scan for
         // English, Vietnamese, personalized, and accented prefixes.
@@ -41,8 +43,13 @@ struct VerifySmartKeyboard {
             return Array(words.sorted {
                 let a = personal[$0] ?? 0, b = personal[$1] ?? 0
                 if a != b { return a > b }
+                if $0 == $1 { return false }
                 if $0 == prefix { return true }
                 if $1 == prefix { return false }
+                let core = SmartTyping.coreVietnameseWords
+                let knownA = core.contains($0) || SmartTyping.englishWords.contains($0)
+                let knownB = core.contains($1) || SmartTyping.englishWords.contains($1)
+                if knownA != knownB { return knownA }
                 if $0.count != $1.count { return $0.count < $1.count }
                 return $0 < $1
             }.prefix(limit))
