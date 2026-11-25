@@ -41,7 +41,7 @@ enum SmartTyping {
         "we","web","website","week","well","were","what","when","where","which",
         "white","who","why","wifi","will","win","windows","with","word","work",
         "world","would","write","wrong","year","yes","you","young","your",
-        "youtube","zalo","zoom"
+        "youtube","zalo","zoom","swift","swiftui","github","git","json","html","css","javascript","python","typescript","docker","linux","macos","api","https","http","localhost","react","flutter","xcode","debug","commit","merge","branch","build","release","repository","extension","launcher","proxy","widget","backup","restore","downloaded","username","authentication","notification","notifications","settings","keyboard","framework","function","variable","string","boolean"
     ]
 
     static let vietnameseWords: [String] = [
@@ -78,7 +78,7 @@ enum SmartTyping {
         "vâng","vật","vấn","vị","viên","viết","vừa","xe","xem","xinh",
         "xuống","yên","yếu"
 
-    ]
+    ] + extraVietnameseWords
 
     static let englishSet = Set(englishWords)
     static let englishPrefixes: Set<String> = {

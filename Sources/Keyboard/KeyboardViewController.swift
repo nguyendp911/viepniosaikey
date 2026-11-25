@@ -70,6 +70,9 @@ final class KeyboardViewController: UIInputViewController {
     var phraseEnd:String?
     var phraseChain:[String]=[]
     var phraseSaveWork:DispatchWorkItem?
+    var phraseIdleWork:DispatchWorkItem?
+    var phrasePendingWords:[String]?
+    var phrasePendingDocument:UUID?
     var learnedPhraseChoices:[String:String]=[:]
     var learnedPhraseAnchor:String?
     var learnedPhraseDocument:UUID?
@@ -90,7 +93,7 @@ final class KeyboardViewController: UIInputViewController {
         if premiumPreferences.ghost, !performanceMode, let suffix = GhostCompletion.suffix(after: anchor), !words.contains(suffix) {
             words.insert(suffix, at: 0)
         }
-        let personalized=personalPhraseSuggestions(context:anchor)
+        let personalized=personalPhraseSuggestions(context:anchor).filter{useSentenceSuggestions || !$0.contains(" ")}
         words=personalized+words.filter{!personalized.contains($0)}
         guard !words.isEmpty else { updateCandidates(); return }
         nextWordAnchor = anchor
@@ -249,6 +252,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        learnPhraseAfterHostClear()
         if scheduledBaseTheme != KeyboardSettings.theme { refreshScheduledTheme() }
         // Do not reset composition here: iOS may call textDidChange for
         // normal inserts made by this keyboard, not only external edits.

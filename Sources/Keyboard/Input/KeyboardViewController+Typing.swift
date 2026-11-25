@@ -48,6 +48,7 @@ extension KeyboardViewController {
         recordPremiumTouch(sender)
         let key = isUppercase && !isNumbers ? title.uppercased() : title
         beginPhraseKey(key)
+        defer { stagePhraseWord() }
 
         if !isNumbers && typingMode == "telex" && telexEnabled,
            key.count == 1, key.first?.isLetter == true {
@@ -244,6 +245,7 @@ extension KeyboardViewController {
         }
     }
     @objc func deleteTapped() {
+        cancelPhrasePending()
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
         resetProHangul()
@@ -296,11 +298,14 @@ extension KeyboardViewController {
         knownWordBoundary = false
         beginTyping()
         tactileFeedback()
+        if !(textDocumentProxy.selectedText ?? "").isEmpty {
+            textDocumentProxy.deleteBackward();recentWord="";updateCandidates();return
+        }
         let before = textDocumentProxy.documentContextBeforeInput ?? ""
         let reversed = before.reversed()
         let spaces = reversed.prefix(while: { $0.isWhitespace }).count
         let letters = reversed.dropFirst(spaces).prefix(while: { $0.isLetter || $0.isNumber }).count
-        for _ in 0..<(spaces + max(1, letters)) { textDocumentProxy.deleteBackward() }
+        for _ in 0..<min(80,min(before.count,spaces + max(1, letters))) { textDocumentProxy.deleteBackward() }
         recentWord = ""
         updateCandidates()
     }
@@ -324,6 +329,7 @@ extension KeyboardViewController {
     }
 
     @objc func globeTapped() {
+        resetPhraseContext()
         resetBilingualComposition()
         knownWordBoundary = false
         tactileFeedback()

@@ -23,6 +23,10 @@ extension SmartTyping {
         let original = Array(word)
         guard original.count >= 2, original.count <= 32,
               !word.contains(" ") else { return [word] }
+        if VietnameseOrthography.plausible(original) {
+            let forms=[0,2,1,4,3,5].compactMap{VietnameseOrthography.applyingTone(original,tone:$0)}
+            if forms.count==6{return forms}
+        }
         let vowelIndices = original.indices.filter {
             toneLookup[Character(String(original[$0]).lowercased())] != nil
         }

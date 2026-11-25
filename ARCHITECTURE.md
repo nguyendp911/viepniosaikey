@@ -25,3 +25,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Offline Pro 4.0
 `Shared/OfflinePro/` holds pure layout/config, Hangul, guarded history and text utilities, profiles and sound path. `Keyboard/OfflinePro/` handles actual typing/gesture/history, capped visuals and Hub menus. `App/OfflinePro/` contains editors and offline tools, including local media rendering. `verify_offline_pro.swift` tests deterministic logic without network. No new entitlement or extension.
+
+### Typing Engine 5.0
+`Shared/TypingEngine/Vietnamese/` provides shared orthography; `Shared/TypingEngine/Prediction/PersonalPhraseModel.swift` provides bounded personalized n-grams, context ranking and persistence. `Keyboard/TypingEngine/KeyboardViewController+PhraseLearning.swift` verifies document boundaries, stages final words in RAM, debounces storage, and rejects stale contexts. All inference is on-device. The phrase regression suite also reports a bounded-model lookup benchmark; it is not an iPhone end-to-end latency benchmark.

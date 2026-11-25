@@ -191,12 +191,20 @@ extension KeyboardViewController {
             let personalWords = learnedWords.merging(customWords, uniquingKeysWith: max)
             let usageCounts = glideLearningEnabled ? glideUsageCounts : [:]
             let language = useSmartBilingual ? bilingualPreference.rawValue : "vi"
+            let swipeDocument=textDocumentProxy.documentIdentifier
+            let swipeBefore=textDocumentProxy.documentContextBeforeInput ?? ""
+            let currentToken=String(swipeBefore.reversed().prefix(while:{$0.isLetter}).reversed())
+            let context=String(swipeBefore.dropLast(currentToken.count))
+            let phraseSnapshot=learnWordsEnabled && !proPrivate ? phraseModel : PersonalPhraseModel()
             let generation = glideResultGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
             glideRecognitionQueue.async { [weak self] in
-                let suggestions = SmartTyping.glideCandidates(
+                let original = SmartTyping.glideCandidates(
                     trace: trace, learned: personalWords, language: language, limit: 12)
+                let preferred=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(context),limit:5).compactMap{$0.split(separator:" ").first.map(String.init)}
+                let ranked=preferred.filter{original.contains($0)}
+                let suggestions=ranked+original.filter{!ranked.contains($0)}
                 let complete = SmartTyping.glideOptions(
                     suggestions, language: language, usage: usageCounts, showAll: true)
                 let display = SmartTyping.glideOptions(
@@ -204,7 +212,9 @@ extension KeyboardViewController {
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.glideResultGeneration == generation,
-                          self.typingTouchCount == touchCount else { return }
+                          self.typingTouchCount == touchCount,
+                          self.textDocumentProxy.documentIdentifier==swipeDocument,
+                          (self.textDocumentProxy.documentContextBeforeInput ?? "")==swipeBefore else { return }
                     guard !display.isEmpty else {
                         self.showStatus("Chưa nhận diện được từ · Thử vuốt chậm hơn")
                         return
@@ -224,6 +234,7 @@ extension KeyboardViewController {
                         // touchDown already inserted the first letter.
                         // Replace just that letter with the recognized word.
                         self.replaceCurrentWord(display[0])
+                        self.commitPhraseWord(boundary:" ")
                         self.textDocumentProxy.insertText(" ")
                         self.knownWordBoundary = true
                         self.resetBilingualComposition()
