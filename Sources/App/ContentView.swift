@@ -44,6 +44,7 @@ struct ContentView: View {
     @State var newWritingSample = ""
     @State var privateTypingMode = KeyboardSettings.privateTypingMode
     @State var autoLearnWords = KeyboardSettings.autoLearnWords
+    @State var phraseCountRefresh = UUID()
     @State var oneHandMode = KeyboardSettings.oneHandMode
     @State var keySpacingValue = String(KeyboardSettings.keySpacing)
     @State var keyHeightValue = String(KeyboardSettings.keyHeight)
@@ -130,7 +131,7 @@ struct ContentView: View {
                             aiConfiguration
                             personaSettingsCard
                         } else if selectedPage == "keyboard" {
-                            personalization
+                            AnyView(personalization)
                         } else if selectedPage == "assistant" {
                             AdvancedAssistantView()
                         } else if selectedPage == "owner" {
@@ -158,6 +159,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            phraseCountRefresh = UUID()
             provider = KeyboardSettings.provider
             favorites = KeyboardSettings.favoriteReplies
             phrases = KeyboardSettings.savedPhrases

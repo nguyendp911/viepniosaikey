@@ -73,3 +73,27 @@ targets:
         PROVISIONING_PROFILE_SPECIFIER: $(SHARE_PROFILE_NAME)
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
+  ViePNKeyboardUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/KeyboardUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.viepn.aikey.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: ViePNAIKeyboard
+schemes:
+  ViePNAIKeyboard:
+    build:
+      targets:
+        ViePNAIKeyboard: all
+  ViePNKeyboardSmoke:
+    build:
+      targets:
+        ViePNAIKeyboard: all
+        ViePNKeyboardUITests: [test]
+    test:
+      targets:
+        - ViePNKeyboardUITests

@@ -17,14 +17,20 @@ extension ContentView {
     // No system Picker is placed directly in a large VStack: every selection
     // belongs to its own full-width Menu row.
     var personalization: some View {
-        VStack(spacing: 12) {
-            keyboardInputCard
-            keyboardPreferencesCard
-            smartTypingCard
-            personalWritingCard
-            keyboardThemesCard
-            keyboardShortcutsCard
-            snippetsCard
+        LazyVStack(spacing: 12) {
+            AnyView(keyboardInputCard).accessibilityIdentifier("keyboard.input")
+            AnyView(keyboardPreferencesCard)
+            AnyView(smartTypingCard).accessibilityIdentifier("keyboard.smart")
+            AnyView(personalWritingCard)
+            AnyView(keyboardThemesCard)
+            AnyView(keyboardShortcutsCard)
+            AnyView(snippetsCard)
+            AnyView(keyboardBackupCard)
+        }
+        .accessibilityIdentifier("keyboard.settings")
+    }
+
+    var keyboardBackupCard: some View {
             keyboardPanel("Sao lưu cài đặt", icon: "externaldrive.badge.checkmark") {
                 KeyboardBackupView {
                     typingMode = KeyboardSettings.typingMode
@@ -48,7 +54,6 @@ extension ContentView {
                     translationLanguage = KeyboardSettings.translationLanguage
                 }
             }
-        }
     }
 
     var keyboardThemesCard: some View {

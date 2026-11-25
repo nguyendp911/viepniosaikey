@@ -58,9 +58,8 @@ extension ContentView {
     func tabItem(_ title: String, symbol: String, page: String) -> some View {
         let active = selectedPage == page
         return Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                selectedPage = page
-            }
+            // Avoid animating construction/teardown of a large settings tree.
+            selectedPage = page
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol)
@@ -78,5 +77,6 @@ extension ContentView {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? [.isSelected] : [])
+        .accessibilityIdentifier("tab." + page)
     }
 }

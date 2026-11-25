@@ -13,7 +13,14 @@ import Foundation
         precondition(!PersonalPhraseModel.safe(["mật","khẩu","abc"]))
         let restored=try JSONDecoder().decode(PersonalPhraseModel.self,from:JSONEncoder().encode(model))
         precondition(restored.suggestions(context:["em","ăn"],day:100).first=="gì chưa nè")
-        print("PASS personal phrase learning: repeated prefix, partial, recency, privacy and persistence")
+        // A malformed counter/day from a previous file must never trap on load.
+        let invalid = """
+        {"entries":{"em ăn":{"count":9223372036854775807,"day":100},"gì chưa":{"count":2,"day":-9223372036854775808},"chưa nè":{"count":2,"day":100}}}
+        """
+        var repaired = try JSONDecoder().decode(PersonalPhraseModel.self, from: Data(invalid.utf8))
+        repaired.prune(day:100)
+        precondition(repaired.entries.count==1 && repaired.entries["chưa nè"]?.count==2)
+        print("PASS personal phrase learning: repeated prefix, partial, recency, privacy, persistence and malformed store")
         var crowded=model
         let samples=["xin","chào","ngày","mai","vui","khỏe","mình","bạn","tôi","đi","làm","học","nhà","trường"]
         for i in samples.indices {for j in samples.indices {for z in 0..<6 {

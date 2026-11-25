@@ -236,6 +236,32 @@ jobs:
           name: ViePN-AI-Keyboard-Unsigned-IPA
           path: artifacts/ViePN-AI-Keyboard-unsigned.ipa
           if-no-files-found: error
+  keyboard-ui-smoke:
+    name: Open Keyboard tab on iOS simulator
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen librsvg
+      - run: sh scripts/prepare-app-icon.sh
+      - run: xcodegen generate
+      - name: Run Keyboard tab smoke test
+        run: |
+          set -euo pipefail
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for devices in reversed(list(d.values())) for x in devices if x["name"].startswith("iPhone")))')
+          xcodebuild -project ViePNAIKeyboard.xcodeproj \
+            -scheme ViePNKeyboardSmoke -configuration Release \
+            -destination "platform=iOS Simulator,id=$DEVICE" \
+            -derivedDataPath "$RUNNER_TEMP/KeyboardUITestBuild" \
+            -resultBundlePath "$RUNNER_TEMP/KeyboardTab.xcresult" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Keyboard-tab-smoke-result
+          path: ${{ runner.temp }}/KeyboardTab.xcresult
+          if-no-files-found: ignore
   ipa:
     name: Signed ad-hoc IPA
     if: github.event_name == 'workflow_dispatch'

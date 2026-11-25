@@ -35,7 +35,11 @@ struct PersonalPhraseModel: Codable {
         if entries.count>Self.maximum+20 { prune(day:day) }
     }
     mutating func prune(day:Int=Self.day()) {
-        entries=Dictionary(uniqueKeysWithValues:entries.filter{day-$0.value.day<=90 && $0.value.count>0}.sorted {
+        let oldest = day > Int.min + 90 ? day - 90 : Int.min
+        entries=Dictionary(uniqueKeysWithValues:entries.filter {
+            (1...999).contains($0.value.count) && $0.value.day >= oldest && $0.value.day <= day &&
+            $0.key.count <= 224 && (2...9).contains($0.key.split(separator:" ").count)
+        }.sorted {
             let a=$0.value.count*10-max(0,day-$0.value.day), b=$1.value.count*10-max(0,day-$1.value.day)
             return a==b ? $0.key<$1.key : a>b
         }.prefix(Self.maximum).map{($0.key,$0.value)})

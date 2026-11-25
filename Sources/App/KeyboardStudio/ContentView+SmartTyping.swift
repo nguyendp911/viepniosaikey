@@ -7,6 +7,17 @@ extension ContentView {
     var smartTypingCard: some View {
         keyboardPanel("Gõ thông minh & Hiệu năng", icon: "brain") {
             VStack(spacing: 9) {
+                AnyView(smartPredictionSettings)
+                AnyView(smartGlideSettings)
+                AnyView(smartTouchPrivacySettings)
+                AnyView(smartLearningSettings)
+                AnyView(smartGeometrySettings)
+            }
+        }
+    }
+
+    var smartPredictionSettings: some View {
+        VStack(spacing: 9) {
                 keyboardToggleRow("Chế độ siêu nhẹ · Ưu tiên gõ mượt",
                                   symbol: "bolt.fill", isOn: $performanceMode)
                     .onChange(of: performanceMode) {
@@ -44,6 +55,11 @@ extension ContentView {
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
+        }
+    }
+
+    var smartGlideSettings: some View {
+        VStack(spacing: 9) {
                 keyboardToggleRow("Vuốt chữ để nhập từ",
                                   symbol: "hand.draw", isOn: $glideEnabled)
                     .onChange(of: glideEnabled) { KeyboardSettings.glideEnabled = $0 }
@@ -79,6 +95,11 @@ extension ContentView {
                     .font(.system(size: 11)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
                 keyboardDivider()
+        }
+    }
+
+    var smartTouchPrivacySettings: some View {
+        VStack(spacing: 9) {
                 keyboardToggleRow("Vùng chạm phím rộng hơn",
                                   symbol: "hand.point.up.left.fill",
                                   isOn: $adaptiveTouchEnabled)
@@ -95,21 +116,22 @@ extension ContentView {
                         cloudEnabled = KeyboardSettings.allowCloudAI
                     }
                 keyboardDivider()
+        }
+    }
+
+    var smartLearningSettings: some View {
+        VStack(spacing: 9) {
                 keyboardToggleRow("Học từ và cụm từ đã gõ (trên máy)",
                                   symbol: "book.closed", isOn: $autoLearnWords)
                     .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
                 Text("Học cụm từ 2–9 tiếng từ nội dung bạn tự gõ; sau ít nhất hai lần lặp, ưu tiên gợi ý phần còn thiếu. Không gửi mạng. Chế độ riêng tư dừng học và gợi ý cá nhân. Không học mã số; bộ lọc không thể nhận diện mọi bí mật.")
                     .font(.system(size: 11)).foregroundStyle(muted)
                 if autoLearnWords {
-                    HStack {
-                        Image(systemName:"chart.bar.xaxis").foregroundStyle(.cyan)
-                        Text("Cụm từ đã học").font(.system(size:12))
-                        Spacer()
-                        Text("\(PersonalPhraseStore.load().entries.count)").font(.system(size:14,weight:.semibold,design:.monospaced))
-                    }.padding(8)
+                    PersonalPhraseCountView(refreshID: phraseCountRefresh, privateMode: privateTypingMode)
                     Button(role: .destructive) {
                         KeyboardSettings.learnedWords = [:]
                         PersonalPhraseStore.clear()
+                        phraseCountRefresh = UUID()
                     } label: {
                         Label("Xóa từ và cụm từ đã học", systemImage: "trash")
                             .font(.system(size: 11))
@@ -117,6 +139,11 @@ extension ContentView {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 keyboardDivider()
+        }
+    }
+
+    var smartGeometrySettings: some View {
+        VStack(spacing: 9) {
                 keyboardMenuRow("Chế độ một tay", symbol: "hand.point.up.left",
                                 value: $oneHandMode,
                                 options: [("off", "Tắt"), ("left", "Tay trái"),
@@ -140,7 +167,6 @@ extension ContentView {
                     .font(.system(size: 11))
                     .foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 }
