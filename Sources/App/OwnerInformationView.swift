@@ -76,7 +76,6 @@ struct OwnerInformationView: View {
                     Text(build).font(.system(size:22,weight:.semibold,design:.monospaced)).foregroundStyle(.white)
                 }
             }.padding(12).background(.white.opacity(0.045),in:RoundedRectangle(cornerRadius:12))
-            contactLink("Mã nguồn GitHub",detail:"nguyendp911/viepniosaikey",symbol:"chevron.left.forwardslash.chevron.right",destination:"https://github.com/nguyendp911/viepniosaikey")
         }.padding(17).background(ink,in:RoundedRectangle(cornerRadius:20))
             .overlay {RoundedRectangle(cornerRadius:20).strokeBorder(.white.opacity(0.09))}
     }
