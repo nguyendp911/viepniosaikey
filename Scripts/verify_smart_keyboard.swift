@@ -3,8 +3,13 @@ import Foundation
 @main
 struct VerifySmartKeyboard {
     static func main() {
+        var failures = [String]()
         func assert(_ condition: @autoclosure () -> Bool, _ message: String) {
-            guard condition() else { fatalError("Smart keyboard test failed: " + message) }
+            guard condition() else {
+                failures.append(message)
+                print("FAIL [Smart] " + message)
+                return
+            }
             print("PASS [Smart] " + message)
         }
         assert(SmartTyping.shouldKeepLiteral("st", adding: "o"), "English prefix protection")
@@ -22,7 +27,7 @@ struct VerifySmartKeyboard {
         assert(!SmartTyping.shouldKeepLiteral("thuong", adding: "w"), "Vietnamese end W is not blocked")
         assert(SmartTyping.predictions(prefix: "sto").contains("store"), "offline English suggestions")
         assert(SmartTyping.predictions(prefix: "thư").contains("thương"), "offline Vietnamese suggestions")
-        assert(SmartTyping.predictions(prefix: "thư", learned: ["thừa": 10]).first == "thừa", "personal frequency outranks built-in priority")
+        assert(SmartTyping.predictions(prefix: "thư", learned: ["thưa": 10]).first == "thưa", "personal frequency outranks built-in priority")
         assert(SmartTyping.predictions(prefix: "nguyệ").contains("nguyện"), "extended Vietnamese lexicon remains searchable")
         assert(SmartTyping.predictions(prefix: "xyzz").isEmpty, "unknown prefixes return nothing")
         // Compare indexed predictions with the reference full scan for
@@ -411,5 +416,6 @@ struct VerifySmartKeyboard {
         assert(KeyboardSettings.personalStylePrompt.isEmpty,
                "deleted style examples no longer enter AI context")
         KeyboardSettings.textSnippets = [";date":"{date}", ";time":"{time}"]
+        if !failures.isEmpty { fatalError("Smart keyboard tests failed: " + failures.joined(separator: "; ")) }
     }
 }
