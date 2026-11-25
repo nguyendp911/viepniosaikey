@@ -50,7 +50,7 @@ extension KeyboardViewController {
         return nil
     }
     func recordPro6Feedback(source:String,target:String,accepted:Bool) {
-        guard typingPro6.corrections,learnWordsEnabled,!proPrivate,!KeyboardSettings.privateTypingMode else{return}
+        guard (typingPro6.corrections || vietnameseAutoCorrect.mode != "off"),learnWordsEnabled,!proPrivate,!KeyboardSettings.privateTypingMode else{return}
         if pro6FeedbackRevision != TypingProFeedback.revision {pro6Feedback=TypingProFeedback.current;pro6FeedbackRevision=TypingProFeedback.revision}
         pro6Feedback.record(source:source,target:target,accept:accepted)
         TypingProFeedback.current=pro6Feedback

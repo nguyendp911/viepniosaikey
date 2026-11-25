@@ -31,6 +31,30 @@ enum VietnameseAutoCorrect {
     // A smaller set is safe even at sentence start; ambiguous forms remain
     // suggestions unless supported by a phrase or the explicit advanced mode.
     static let strong:Set<String>=["khong","nhieu","duoc","nguoi","thuong","tieng","muon","khoe","thich","biet","truoc","luon","chuc","met","nhe"]
+    // Two-word patterns disambiguate a word that could not be corrected
+    // on its first space, e.g. hom + nay. Only called on a verified owned pair.
+    static let pairPatterns:[String:String] = [
+        "hom nay":"hôm nay","hom qua":"hôm qua","cam on":"cảm ơn","xin chao":"xin chào",
+        "xin loi":"xin lỗi","toi muon":"tôi muốn","toi dang":"tôi đang","minh muon":"mình muốn",
+        "minh dang":"mình đang","ngay mai":"ngày mai","bay gio":"bây giờ","bao gio":"bao giờ",
+        "bao nhieu":"bao nhiêu","chuc mung":"chúc mừng","sinh nhat":"sinh nhật","tieng viet":"tiếng việt",
+        "hanh phuc":"hạnh phúc","suc khoe":"sức khỏe","cong viec":"công việc","gia dinh":"gia đình",
+        "mot ngay":"một ngày","mot chut":"một chút","moi nguoi":"mọi người","rat vui":"rất vui",
+        "rat nhieu":"rất nhiều","gap lai":"gặp lại","hen gap":"hẹn gặp","ngu ngon":"ngủ ngon",
+        "di lam":"đi làm","di hoc":"đi học","di choi":"đi chơi","ve nha":"về nhà"
+    ]
+    static func pairRecovery(previous:String,current:String,settings:VietnameseAutoCorrectSettings,protected:Set<String>=[],feedback:TypingProFeedback=TypingProFeedback())->String? {
+        guard settings.restoreAccents,["careful","advanced"].contains(settings.mode),previous.allSatisfy(\.isASCII),
+              previous.allSatisfy(\.isLetter),current.allSatisfy(\.isLetter),
+              previous.count<=24,current.count<=24,previous != previous.uppercased(),
+              !protected.contains(previous.lowercased()),!protected.contains(current.lowercased()),
+              let target=pairPatterns[TypingProText.fold(previous)+" "+TypingProText.fold(current)] else{return nil}
+        let parts=target.split(separator:" ").map(String.init)
+        guard parts.count==2,parts[0] != previous.lowercased(),
+              current.allSatisfy(\.isASCII) || parts[1]==current.lowercased(),
+              !feedback.rejects(previous,parts[0]),!feedback.rejects(current,parts[1]) else{return nil}
+        return preserveCase(parts[0],source:previous)+" "+preserveCase(parts[1],source:current)
+    }
     static let fixed:[String:String]=["giử":"giữ","sữ":"sửa","xắp":"sắp","chuyễn":"chuyển","nhiểu":"nhiều","ngĩ":"nghĩ","iêu":"yêu","buồngg":"buồn"]
     static let phrases=TypingProText.examples+[
         "em ăn gì chưa nè","em ăn cơm chưa","em ăn gì chưa","em ăn","anh ăn cơm chưa","em chưa ăn cơm",
@@ -77,7 +101,7 @@ enum VietnameseAutoCorrect {
         if source.first?.isUppercase==true{return target.prefix(1).uppercased()+target.dropFirst()}
         return target
     }
-    static func choices(word:String,context prior:[String],settings:VietnameseAutoCorrectSettings,explicitVietnamese:Bool,english:Set<String>,known:Set<String>,protected:Set<String>=[],feedback:TypingProFeedback=TypingProFeedback(),includeTypos:Bool=false)->[Choice] {
+    static func choices(word:String,context prior:[String],settings:VietnameseAutoCorrectSettings,explicitVietnamese:Bool,english:Set<String>,known:Set<String>,protected:Set<String>=[],feedback:TypingProFeedback=TypingProFeedback(),learned:PersonalPhraseModel?=nil,includeTypos:Bool=false)->[Choice] {
         guard settings.mode != "off",(2...24).contains(word.count),word.allSatisfy(\.isLetter),
               word != word.uppercased() || word.count<2 else{return []}
         let w=word.lowercased(), ascii=w.allSatisfy(\.isASCII)
@@ -101,6 +125,17 @@ enum VietnameseAutoCorrect {
         if viContext || !english.contains(w) {
             for target in feedback.preferred(w,minimum:3) where !target.contains(" ") && (!ascii || settings.restoreAccents) {
                 ranked[target]=max(ranked[target] ?? 0,105)
+            }
+        }
+        if ascii,settings.restoreAccents,viContext,let learned,!preceding.isEmpty {
+            // Exact previous context, then accent-insensitive match of the
+            // next word. No learned rewrite from a single observation.
+            for (phrase,entry) in learned.entries where entry.count>=3 {
+                let words=phrase.split(separator:" ").map(String.init)
+                guard words.count>=2,let target=words.last,target != w,TypingProText.fold(target)==w else{continue}
+                let prefix=Array(words.dropLast().suffix(4))
+                guard preceding.count>=prefix.count,Array(preceding.suffix(prefix.count))==prefix else{continue}
+                ranked[target]=max(ranked[target] ?? 0,92+min(15,entry.count)+prefix.count*5)
             }
         }
         if includeTypos {

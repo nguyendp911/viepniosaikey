@@ -99,7 +99,7 @@ extension KeyboardViewController {
                     results=[word]+local+results.filter{$0 != word && !local.contains($0)}
                 }
                 if autoLanguageAllowed && wordSuggestionsEnabled && autoSettings.mode != "off" {
-                    let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(prefixContext),settings:autoSettings,explicitVietnamese:autoVietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,protected:autoProtected,feedback:autoFeedback,includeTypos:true).map(\.text)
+                    let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(prefixContext),settings:autoSettings,explicitVietnamese:autoVietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,protected:autoProtected,feedback:autoFeedback,learned:phraseSnapshot,includeTypos:true).map(\.text)
                     results=[word]+choices+results.filter{$0 != word && !choices.contains($0)}
                 }
                 let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []
@@ -220,7 +220,7 @@ extension KeyboardViewController {
     @objc func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
-        resetAutoWord();autoCorrectionUndo=nil
+        resetAutoWord();autoPreviousWord=nil;autoCorrectionUndo=nil
         if typingPro6.contextualEmoji, TypingProText.emoji(recentWord).contains(chosen),
            !recentWord.isEmpty, (textDocumentProxy.selectedText?.isEmpty ?? true),
            textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,

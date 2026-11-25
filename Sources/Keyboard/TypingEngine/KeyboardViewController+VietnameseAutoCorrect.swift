@@ -1,5 +1,11 @@
 import UIKit
 
+struct AutoPreviousWord {
+    let document:UUID
+    let prefix:String
+    let word:String
+    let after:String
+}
 struct AutoCorrectionUndo {
     let document:UUID
     let prefix:String
@@ -7,6 +13,7 @@ struct AutoCorrectionUndo {
     let corrected:String
     let after:String
     var boundary=""
+    var expectedBefore:String?
 }
 extension KeyboardViewController {
     func resetAutoWord(){autoWordDocument=nil;autoWordPrefix=nil;autoWordExpected=nil;autoWordAfter=nil}
@@ -34,6 +41,8 @@ extension KeyboardViewController {
     }
     func applyVietnameseCorrection(boundary:String)->AutoCorrectionUndo? {
         defer{resetAutoWord()}
+        let previousOwned=autoPreviousWord
+        autoPreviousWord=nil
         guard canVietnameseCorrect,[" ","\n",".",",","!","?",";",":"].contains(boundary),
               let prefix=autoWordPrefix,let before=textDocumentProxy.documentContextBeforeInput,
               autoWordExpected==before,autoWordDocument==textDocumentProxy.documentIdentifier,
@@ -48,40 +57,74 @@ extension KeyboardViewController {
         let token=before.split(whereSeparator:{$0.isWhitespace}).last ?? ""
         guard token.allSatisfy(\.isLetter) else{return nil}
         let feedback=learnWordsEnabled && !proPrivate && pro6FeedbackRevision==TypingProFeedback.revision ? pro6Feedback : TypingProFeedback()
+        let protected=Set(customWords.keys)
+        // Correct the preceding word only when it was also typed in this
+        // keyboard session, the exact host context matches and the bigram
+        // is one of our explicit patterns.
+        if let owned=previousOwned,owned.document==textDocumentProxy.documentIdentifier,
+           owned.after==autoWordAfter,previous.hasSuffix(owned.prefix+owned.word+" "),
+           let recovered=VietnameseAutoCorrect.pairRecovery(previous:owned.word,current:word,settings:vietnameseAutoCorrect,protected:protected,feedback:feedback),
+           let edit=FastTyping.edit(from:owned.word+" "+word,to:recovered) {
+            for _ in 0..<edit.deleteCount{textDocumentProxy.deleteBackward()}
+            if !edit.insertion.isEmpty{textDocumentProxy.insertText(edit.insertion)}
+            let parts=recovered.split(separator:" ").map(String.init)
+            recentWord=parts.last ?? word
+            // Align existing learning with the actual corrected previous word.
+            if phraseChain.last==owned.word.lowercased(),parts.count==2 {
+                phraseChain[phraseChain.count-1]=parts[0].lowercased()
+                phraseStart=String((owned.prefix+parts[0]+" ").suffix(40))
+            }
+            if boundary==" ",let current=textDocumentProxy.documentContextBeforeInput {
+                autoPreviousWord=AutoPreviousWord(document:owned.document,prefix:String(current.dropLast(recentWord.count).suffix(40)),word:recentWord,after:owned.after)
+            }
+            return AutoCorrectionUndo(document:owned.document,prefix:owned.prefix,original:owned.word+" "+word,corrected:recovered,after:owned.after)
+        }
+        let learned=learnWordsEnabled && !proPrivate && phraseRevision==PersonalPhraseStore.revision ? phraseModel : nil
         let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(previous),settings:vietnameseAutoCorrect,
               explicitVietnamese:useSmartBilingual && bilingualPreference == .vietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,
-              protected:Set(customWords.keys),feedback:feedback)
-        guard let choice=choices.first,choice.automatic else{return nil}
+              protected:protected,feedback:feedback,learned:learned)
+        guard let choice=choices.first,choice.automatic else{
+            if boundary==" " {autoPreviousWord=AutoPreviousWord(document:textDocumentProxy.documentIdentifier,prefix:prefix,word:word,after:autoWordAfter ?? "")}
+            return nil
+        }
         let corrected=EverydayLanguage.accent(choice.text,style:everyday7.accentStyle)
         guard let edit=FastTyping.edit(from:word,to:corrected) else{return nil}
         for _ in 0..<edit.deleteCount{textDocumentProxy.deleteBackward()}
         if !edit.insertion.isEmpty{textDocumentProxy.insertText(edit.insertion)}
         recentWord=corrected
+        if boundary==" " {autoPreviousWord=AutoPreviousWord(document:textDocumentProxy.documentIdentifier,prefix:prefix,word:corrected,after:autoWordAfter ?? "")}
         return AutoCorrectionUndo(document:textDocumentProxy.documentIdentifier,prefix:prefix,original:word,corrected:corrected,after:autoWordAfter ?? "")
     }
     func finishVietnameseCorrection(_ edit:AutoCorrectionUndo?,boundary:String) {
         guard var edit,textDocumentProxy.documentIdentifier==edit.document,
               (textDocumentProxy.documentContextBeforeInput ?? "").hasSuffix(edit.prefix+edit.corrected+boundary),
               (textDocumentProxy.documentContextAfterInput ?? "")==edit.after else{return}
-        edit.boundary=boundary;autoCorrectionUndo=edit
+        edit.boundary=boundary;edit.expectedBefore=textDocumentProxy.documentContextBeforeInput;autoCorrectionUndo=edit
     }
     @discardableResult func undoVietnameseCorrection()->Bool {
         guard let edit=autoCorrectionUndo else{return false}
         autoCorrectionUndo=nil
         let proxy=textDocumentProxy
         guard proxy.documentIdentifier==edit.document,(proxy.selectedText?.isEmpty ?? true),
+              proxy.documentContextBeforeInput==edit.expectedBefore,
               (proxy.documentContextBeforeInput ?? "").hasSuffix(edit.prefix+edit.corrected+edit.boundary),
               (proxy.documentContextAfterInput ?? "")==edit.after else{return false}
         let snapshot=proSnapshot();defer{recordProEdit(snapshot)}
-        resetAutoWord();resetPhraseContext();resetBilingualComposition()
+        resetAutoWord();autoPreviousWord=nil;resetPhraseContext();resetBilingualComposition()
         for _ in edit.corrected+edit.boundary{proxy.deleteBackward()}
         proxy.insertText(edit.original)
         if learnWordsEnabled,!proPrivate,!KeyboardSettings.privateTypingMode {
             if pro6FeedbackRevision != TypingProFeedback.revision{pro6Feedback=TypingProFeedback.current;pro6FeedbackRevision=TypingProFeedback.revision}
-            pro6Feedback.record(source:edit.original,target:edit.corrected,accept:false)
+            let original=edit.original.split(separator:" ").map(String.init)
+            let corrected=edit.corrected.split(separator:" ").map(String.init)
+            if original.count==corrected.count {
+                for (source,target) in zip(original,corrected) where source != target {
+                    pro6Feedback.record(source:source,target:target,accept:false)
+                }
+            }
             TypingProFeedback.current=pro6Feedback
         }
-        recentWord=edit.original;knownWordBoundary=false;updateCandidates();tactileFeedback()
+        recentWord=edit.original.split(separator:" ").last.map(String.init) ?? "";knownWordBoundary=false;updateCandidates();tactileFeedback()
         return true
     }
 }
