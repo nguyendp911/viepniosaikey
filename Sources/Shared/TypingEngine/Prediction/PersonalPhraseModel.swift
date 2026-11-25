@@ -147,7 +147,7 @@ enum PersonalPhraseStore {
         let path=url.appendingPathExtension("lock").path
         let fd=Darwin.open(path,O_CREAT | O_RDWR,mode_t(0o600))
         guard fd>=0 else{return false};defer{Darwin.close(fd)}
-        guard flock(fd,LOCK_EX)==0 else{return false};defer{flock(fd,LOCK_UN)}
+        guard flock(fd,LOCK_EX | LOCK_NB)==0 else{return false};defer{flock(fd,LOCK_UN)}
         return action()
         #else
         return action()

@@ -77,6 +77,19 @@ struct TypingProFeedback: Codable, Equatable {
         pairs.filter{$0.source==source.lowercased() && Self.validTarget($0.target,source:$0.source) && $0.accepted >= minimum && $0.accepted > $0.rejected}
             .sorted{(min(1000,max(0,$0.accepted))-min(1000,max(0,$0.rejected)))>(min(1000,max(0,$1.accepted))-min(1000,max(0,$1.rejected)))}.map(\.target)
     }
+    mutating func mergeBackup(_ other:Self) {
+        for item in other.pairs.prefix(240) where Self.valid(item.source) && Self.validTarget(item.target,source:item.source) {
+            let existing=pairs.firstIndex{$0.source==item.source && $0.target==item.target}.map{pairs.remove(at:$0)}
+            var pair=item
+            pair.accepted=max(min(1000,max(0,item.accepted)),min(1000,max(0,existing?.accepted ?? 0)))
+            pair.rejected=max(min(1000,max(0,item.rejected)),min(1000,max(0,existing?.rejected ?? 0)))
+            pairs.append(pair)
+        }
+        pairs=Array(pairs.sorted{(min(1000,max(0,$0.accepted))+min(1000,max(0,$0.rejected)))>(min(1000,max(0,$1.accepted))+min(1000,max(0,$1.rejected)))}.prefix(240))
+        accepted=max(min(1_000_000,max(0,accepted)),min(1_000_000,max(0,other.accepted)))
+        rejected=max(min(1_000_000,max(0,rejected)),min(1_000_000,max(0,other.rejected)))
+        savedKeys=max(min(1_000_000,max(0,savedKeys)),min(1_000_000,max(0,other.savedKeys)))
+    }
     func rejects(_ source:String,_ target:String)->Bool {
         pairs.contains{$0.source==source.lowercased() && $0.target==target.lowercased() && $0.rejected>0 && $0.rejected >= $0.accepted}
     }

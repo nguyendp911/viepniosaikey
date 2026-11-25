@@ -4,7 +4,7 @@ import SwiftUI
 struct ViePNAIKeyboardApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView().onAppear { EverydayCrashMonitor.shared.start() }
         }
     }
 }

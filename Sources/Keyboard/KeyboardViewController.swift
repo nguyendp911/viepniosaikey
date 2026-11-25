@@ -71,6 +71,7 @@ final class KeyboardViewController: UIInputViewController {
     var everydayLandscape=false
     weak var everydayExpandGesture:UISwipeGestureRecognizer?
     var everydayCompletionLabel:String?
+    var everydayExpandedChoices:[String]=[]
     var everydayHeatmapRevision=""
     var pro6Feedback = TypingProFeedback()
     var pro6LastCorrectionDocument: UUID?

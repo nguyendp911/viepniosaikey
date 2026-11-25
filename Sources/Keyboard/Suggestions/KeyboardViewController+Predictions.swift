@@ -5,6 +5,7 @@ import Vision
 extension KeyboardViewController {
     func updateCandidates(_ override: [String]? = nil) {
         learnedPhraseChoices=[:];learnedPhraseAnchor=nil;learnedPhraseDocument=nil
+        everydayExpandedChoices=[]
         if override == nil {everydayCompletionLabel=nil}
         if override == nil {
             nextWordAnchor = nil
@@ -92,6 +93,7 @@ extension KeyboardViewController {
                     let local=EverydayLanguage.candidates(word:word,preferences:pro7,known:SmartTyping.vietnameseSet)
                     results=[word]+local+results.filter{$0 != word && !local.contains($0)}
                 }
+                let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []
                 let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2,minimum:max(2,min(5,pro6.confidence)))
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
@@ -113,6 +115,7 @@ extension KeyboardViewController {
                         let rest=results.filter{!labels.contains($0) && $0 != word}
                         results=[word]+labels+rest
                     }
+                    self.everydayExpandedChoices=extra.filter{!results.contains($0)}
                     self.renderCandidates(results)
                 }
             }

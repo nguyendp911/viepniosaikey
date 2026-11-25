@@ -8,7 +8,6 @@ struct EverydayPreferences: Codable, Equatable {
     var abbreviations=false
     var accentStyle="existing"
     var preventSpaces=false
-    var smartPaste=false
     var geometry=false
     var portraitWidth=85
     var landscapeWidth=85

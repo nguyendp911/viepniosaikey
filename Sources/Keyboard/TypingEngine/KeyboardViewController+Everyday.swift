@@ -23,7 +23,7 @@ extension KeyboardViewController {
         let button=UIButton();button.tag=index;candidateTapped(button)
     }
     @objc func everydayExpandTapped() {
-        guard everyday7.expandedBar,!candidateWords.isEmpty else{return}
+        guard !candidateWords.isEmpty else{showStatus("Chưa có gợi ý phù hợp");return}
         let generation=candidateGeneration,document=textDocumentProxy.documentIdentifier
         let before=textDocumentProxy.documentContextBeforeInput,after=textDocumentProxy.documentContextAfterInput
         let (stack,palette)=premiumPanel(title:"Gợi ý mở rộng")
@@ -31,13 +31,16 @@ extension KeyboardViewController {
         scroll.addSubview(list);stack.addArrangedSubview(scroll)
         NSLayoutConstraint.activate([list.leadingAnchor.constraint(equalTo:scroll.contentLayoutGuide.leadingAnchor),list.trailingAnchor.constraint(equalTo:scroll.contentLayoutGuide.trailingAnchor),list.topAnchor.constraint(equalTo:scroll.contentLayoutGuide.topAnchor),list.bottomAnchor.constraint(equalTo:scroll.contentLayoutGuide.bottomAnchor),list.widthAnchor.constraint(equalTo:scroll.frameLayoutGuide.widthAnchor)])
         // Preserve all original options; an expanded glide choice can use the existing handler.
-        let options=pendingGlideWord == nil ? candidateWords : fullGlideOptions
+        let options=pendingGlideWord == nil ? candidateWords+everydayExpandedChoices : fullGlideOptions
         for option in options.prefix(24) {
             let key=premiumKey(option,palette:palette){[weak self] in
                 guard let self else{return};self.closeIntelligenceHub()
                 guard self.candidateGeneration==generation,self.textDocumentProxy.documentIdentifier==document,
                       self.textDocumentProxy.documentContextBeforeInput==before,self.textDocumentProxy.documentContextAfterInput==after else{self.showStatus("Ngữ cảnh đã thay đổi");return}
-                if !self.candidateWords.contains(option),self.pendingGlideWord != nil{self.renderCandidates(self.fullGlideOptions)}
+                if !self.candidateWords.contains(option){
+                    if self.pendingGlideWord != nil{self.renderCandidates(self.fullGlideOptions)}
+                    else if self.everydayExpandedChoices.contains(option){self.renderCandidates(self.candidateWords+[option])}
+                }
                 guard let index=self.candidateWords.firstIndex(of:option)else{return}
                 let button=UIButton();button.tag=index;self.candidateTapped(button)
             };key.heightAnchor.constraint(greaterThanOrEqualToConstant:38).isActive=true;list.addArrangedSubview(key)

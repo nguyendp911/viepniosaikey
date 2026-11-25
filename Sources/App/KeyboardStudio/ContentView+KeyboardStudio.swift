@@ -20,6 +20,7 @@ extension ContentView {
         LazyVStack(spacing: 12) {
             AnyView(keyboardInputCard).accessibilityIdentifier("keyboard.input")
             AnyView(TypingProEntryView())
+            AnyView(EverydayEntryView())
             AnyView(keyboardPreferencesCard)
             AnyView(smartTypingCard).accessibilityIdentifier("keyboard.smart")
             AnyView(personalWritingCard)
