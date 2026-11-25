@@ -60,8 +60,7 @@ extension KeyboardViewController {
         ])
         stack.addArrangedSubview(scroll)
         let groups: [(String, String, UIMenu?, (() -> Void)?)] = [
-            ("Typing Pro", "keyboard", pro6ToolsMenu(), nil),
-            ("Everyday", "text.cursor", everydayToolsMenu(), nil),
+            ("Typing Premium", "keyboard", UIMenu(title:"Typing Premium",children:[pro6ToolsMenu(),everydayToolsMenu()]), nil),
             ("Keyboard Pro", "keyboard", proKeyboardMenu(), nil),
             ("Time Machine", "clock.arrow.circlepath", proHistoryMenu(), nil),
             ("Text Studio", "textformat", proTextMenu(), nil),
@@ -120,8 +119,7 @@ extension KeyboardViewController {
             })
         ]
         let sections: [(String, [String])] = [
-            ("EVERYDAY 7.0", ["Everyday"]),
-            ("TYPING PREMIUM 6.0", ["Typing Pro"]),
+            ("TYPING PREMIUM", ["Typing Premium"]),
             ("OFFLINE EDITION 4.0", ["Keyboard Pro", "Time Machine", "Text Studio", "Profiles", "Ký tự Pro"]),
             ("PERSONAL INTELLIGENCE 3.0", ["Personal AI", "Tone Mixer", "Arena", "Second Brain", "Mini Apps"]),
             ("PREMIUM 2.0", ["Command", "AI Premium", "Workflow", "Macro", "Biến mẫu", "Kho nháp", "Bộ sưu tập", "Máy tính", "Định dạng", "Văn bản"]),

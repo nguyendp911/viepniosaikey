@@ -135,6 +135,6 @@ extension KeyboardViewController {
             self.showStatus(change.original+" → "+change.corrected+" · gợi ý đã chọn")
         }
         let undo=UIAction(title:"Hoàn tác sửa từ"){[weak self] _ in self?.closeIntelligenceHub();self?.undoWordCorrection()}
-        return UIMenu(title:"Typing Premium 6.0",children:[recovery,punctuation,number,inspector,undo])
+        return UIMenu(title:"Ngôn ngữ & sửa lỗi",children:[recovery,punctuation,number,inspector,undo])
     }
 }

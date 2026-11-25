@@ -1,44 +1,59 @@
 import XCTest
 
 final class KeyboardTabTests: XCTestCase {
-    func testEverydaySettingsOpens() {
+    func testUnifiedTypingPremiumOpens() {
         continueAfterFailure=false
         let app=XCUIApplication();app.launch()
         let tab=app.buttons["tab.keyboard"]
         XCTAssertTrue(tab.waitForExistence(timeout:15));tab.tap()
-        let entry=app.buttons["everyday7.open"]
+        let entry=app.buttons["typingPremium.open"]
         for _ in 0..<8 {
             if entry.exists && entry.isHittable{break}
             app.swipeUp()
         }
-        XCTAssertTrue(entry.exists && entry.isHittable);entry.tap()
-        XCTAssertTrue(app.buttons["everyday7.close"].waitForExistence(timeout:10))
-        let phrases=app.buttons["Cụm từ đã học"]
-        XCTAssertTrue(phrases.waitForExistence(timeout:10));phrases.tap()
+        XCTAssertTrue(entry.exists && entry.isHittable)
+        XCTAssertFalse(app.buttons["typingPro6.open"].exists)
+        XCTAssertFalse(app.buttons["everyday7.open"].exists)
+        entry.tap()
+        XCTAssertTrue(app.buttons["typingPremium.close"].waitForExistence(timeout:10))
+        // Both formerly separate modules are reachable from one root.
+        let language=app.buttons["typingPremium.language"]
+        XCTAssertTrue(language.waitForExistence(timeout:10));language.tap()
+        XCTAssertTrue(app.navigationBars["Gợi ý & chính tả"].waitForExistence(timeout:10))
+        XCTAssertTrue(app.switches["Tự thêm dấu tiếng Việt"].exists)
+        app.navigationBars.buttons["Typing Premium"].tap()
+        let gestures=app.buttons["typingPremium.gestures"]
+        XCTAssertTrue(gestures.waitForExistence(timeout:10));gestures.tap()
+        XCTAssertTrue(app.navigationBars["Thao tác gõ & cử chỉ"].waitForExistence(timeout:10))
+        app.navigationBars.buttons["Typing Premium"].tap()
+        let phrases=app.buttons["typingPremium.phrases"]
+        for _ in 0..<8 {
+            if phrases.exists && phrases.isHittable{break}
+            app.swipeUp()
+        }
+        XCTAssertTrue(phrases.exists && phrases.isHittable);phrases.tap()
         XCTAssertTrue(app.navigationBars["Cụm từ cá nhân"].waitForExistence(timeout:10))
         XCTAssertEqual(app.state,.runningForeground)
     }
     func testKeyboardTabOpensAndReopens() {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
-        let tab = app.buttons["tab.keyboard"]
-        XCTAssertTrue(tab.waitForExistence(timeout: 15))
+        continueAfterFailure=false
+        let app=XCUIApplication();app.launch()
+        let tab=app.buttons["tab.keyboard"]
+        XCTAssertTrue(tab.waitForExistence(timeout:15))
         for _ in 0..<3 {
             tab.tap()
-            XCTAssertTrue(app.staticTexts["Nhập liệu nhanh"].waitForExistence(timeout: 10))
-            XCTAssertEqual(app.state, .runningForeground)
-            if app.buttons["typingPro6.open"].exists && app.buttons["typingPro6.open"].isHittable {
-                app.buttons["typingPro6.open"].tap()
-                XCTAssertTrue(app.buttons["typingPro6.close"].waitForExistence(timeout: 10))
-                app.buttons["typingPro6.close"].tap()
-                XCTAssertEqual(app.state, .runningForeground)
+            XCTAssertTrue(app.staticTexts["Nhập liệu nhanh"].waitForExistence(timeout:10))
+            XCTAssertEqual(app.state,.runningForeground)
+            if app.buttons["typingPremium.open"].exists && app.buttons["typingPremium.open"].isHittable {
+                app.buttons["typingPremium.open"].tap()
+                XCTAssertTrue(app.buttons["typingPremium.close"].waitForExistence(timeout:10))
+                app.buttons["typingPremium.close"].tap()
+                XCTAssertEqual(app.state,.runningForeground)
             }
-            // Materialize lower settings, including the asynchronously loaded count.
-            for _ in 0..<5 { app.swipeUp() }
-            XCTAssertEqual(app.state, .runningForeground)
+            for _ in 0..<5{app.swipeUp()}
+            XCTAssertEqual(app.state,.runningForeground)
             app.buttons["tab.owner"].tap()
-            XCTAssertEqual(app.state, .runningForeground)
+            XCTAssertEqual(app.state,.runningForeground)
         }
     }
 }

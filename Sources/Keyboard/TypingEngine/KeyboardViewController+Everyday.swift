@@ -119,7 +119,7 @@ extension KeyboardViewController {
         stack.addArrangedSubview(UIView())
     }
     func everydayToolsMenu()->UIMenu {
-        UIMenu(title:"Everyday 7.0",children:[
+        UIMenu(title:"Nhập liệu hằng ngày",children:[
             UIAction(title:"Gợi ý mở rộng"){[weak self] _ in self?.everydayExpandTapped()},
             UIAction(title:"Xem trước & dán"){[weak self] _ in self?.everydayPastePreview()},
             UIAction(title:"Phạm vi văn bản / con trỏ"){[weak self] _ in self?.everydaySelectionPanel()},

@@ -298,3 +298,6 @@ Shared: Settings, Typing, Conversation, Privacy, Diagnostics chia riêng logic; 
 
 ### Vietnamese AutoCorrect Pro
 New separate settings under Bàn phím → Typing Premium 7.0 → Gợi ý & chính tả. Default careful with accent recovery, off/suggest/advanced available. Contextual word corrections at keyboard-owned space/punctuation/return boundaries (not arbitrary host text or send buttons). Exact document/context checks, snippets and custom words protected; immediate backspace restores the original and removes the delimiter. Ambiguous words are suggestions; English/private modes bypass automatic rewriting. Local curated phrase rules plus feedback, not a comprehensive sentence language model. No changes to existing settings keys or app identifiers.
+
+### Unified Typing Premium center
+Bàn phím → Typing Premium now replaces the two 6.0 and 7.0 entry cards with one categorized navigation center: language/autocorrect, gestures, geometry, calibration, phrases, dictionary, encrypted learning backup, sentence accent recovery, analytics and diagnostics. Keyboard Hub → Typing Premium contains both existing tool menus. Existing settings keys, personal learning formats and feature implementations remain unchanged. UI smoke tests navigate the combined center and representative screens from both releases.
