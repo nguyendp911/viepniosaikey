@@ -14,7 +14,7 @@ import Foundation
         precondition(TypingProText.pair("(")==")")
         precondition(TypingProText.grouping("1234567")=="1.234.567")
         precondition(TypingProText.grouping("012345")==nil)
-        precondition(TypingProText.deletionCount("em ăn gì ",words:2)==7)
+        precondition(TypingProText.deletionCount("em ăn gì ",words:2)==6)
         precondition(TypingProText.dictionary("Xin\nchào\nxin",format:"txt")==["xin","chào"])
         precondition(TypingProText.dictionary("[\"xin\",\"chào\"]",format:"json")==["xin","chào"])
         precondition(TypingProText.emoji("yêu").contains("❤️"))

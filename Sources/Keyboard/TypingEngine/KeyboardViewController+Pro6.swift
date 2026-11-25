@@ -102,10 +102,18 @@ extension KeyboardViewController {
             guard let self else{return};self.closeIntelligenceHub()
             let source=self.premiumSource()
             let document=self.textDocumentProxy.documentIdentifier
-            let input=String(source.prefix(180)),learned=self.proPrivate ? [:] : self.learnedWords
+            let before=self.textDocumentProxy.documentContextBeforeInput
+            let after=self.textDocumentProxy.documentContextAfterInput
+            let selection=self.textDocumentProxy.selectedText
+            let generation=self.candidateGeneration
+            guard source.count<=180 else{self.showStatus("Chọn đoạn tối đa 180 ký tự.");return}
+            let input=source,learned=self.proPrivate || !self.learnWordsEnabled ? [:] : self.learnedWords
             self.predictionQueue.async{[weak self] in
                 let options=TypingProText.recover(input,vocabulary:SmartTyping.coreVietnameseWords+SmartTyping.vietnameseWords,learned:learned)
-                DispatchQueue.main.async{[weak self] in guard let self,self.textDocumentProxy.documentIdentifier==document else{return}
+                DispatchQueue.main.async{[weak self] in
+                    guard let self,self.textDocumentProxy.documentIdentifier==document,
+                        self.candidateGeneration==generation,self.textDocumentProxy.documentContextBeforeInput==before,
+                        self.textDocumentProxy.documentContextAfterInput==after,self.textDocumentProxy.selectedText==selection else{return}
                     if options.isEmpty{self.showStatus("Chọn văn bản không dấu trước.")}
                     else{self.show(options.map{ReplySuggestion(tone:"Khôi phục dấu",text:$0)})}
                 }

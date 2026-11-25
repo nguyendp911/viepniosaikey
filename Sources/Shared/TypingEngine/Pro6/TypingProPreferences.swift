@@ -7,8 +7,7 @@ struct TypingProPreferences: Codable, Equatable {
     var doubleSpace = false
     var smartShift = false
     var popup = false
-    var numericGrouping = false
-    var contextualEmoji = false
+     var contextualEmoji = false
     var backspacePan = false
     var touchCalibration = false
     var contextualLanguage = false
@@ -21,7 +20,10 @@ struct TypingProPreferences: Codable, Equatable {
         get {
             guard let data = KeyboardSettings.defaults.data(forKey:"viepnaikey.typingPro6"),
                   let value = try? JSONDecoder().decode(Self.self,from:data) else { return .init() }
-            return value
+            var normalized=value
+            normalized.confidence=max(2,min(5,normalized.confidence))
+            normalized.deleteRepeat=normalized.deleteRepeat.isFinite ? max(0.08,min(0.5,normalized.deleteRepeat)) : 0.12
+            return normalized
         }
         set { if let data = try? JSONEncoder().encode(newValue) { KeyboardSettings.defaults.set(data,forKey:"viepnaikey.typingPro6") } }
     }

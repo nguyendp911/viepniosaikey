@@ -37,7 +37,7 @@ enum TypingProText {
             for (prefix,score) in beam {
                 for (rank,word) in options.prefix(5).enumerated() {
                     let rendered=words[i].first?.isUppercase==true ? word.prefix(1).uppercased()+word.dropFirst() : word
-                    next.append((prefix+(prefix.isEmpty ? "" : " ")+rendered,score-rank+min(10,learned[word] ?? 0)))
+                    next.append((prefix+(prefix.isEmpty ? "" : " ")+rendered,score-rank+max(0,min(10,learned[word] ?? 0))))
                 }
             }
             beam=Array(next.sorted{$0.1==$1.1 ? $0.0<$1.0 : $0.1>$1.1}.prefix(6))

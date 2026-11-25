@@ -243,6 +243,8 @@ extension KeyboardViewController {
                         self.knownWordBoundary = true
                         self.resetBilingualComposition()
                         self.pendingGlideWord = display[0]
+                        self.pro6GlideDocument=self.textDocumentProxy.documentIdentifier
+                        self.pro6GlideAnchor=self.textDocumentProxy.documentContextBeforeInput
                         self.fullGlideOptions = complete+phraseOptions.filter{!complete.contains($0)}
                         self.recentWord = ""
                         self.updateCandidates(display+phraseOptions.filter{!display.contains($0)})

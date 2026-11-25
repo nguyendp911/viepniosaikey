@@ -66,6 +66,8 @@ final class KeyboardViewController: UIInputViewController {
     var typingPro6 = TypingProPreferences.current
     var pro6Feedback = TypingProFeedback()
     var pro6LastCorrectionDocument: UUID?
+    var pro6GlideDocument: UUID?
+    var pro6GlideAnchor: String?
     var pro6LastCorrectionAnchor: String?
     var pro6Popup: UILabel?
     var pro6PopupWork: DispatchWorkItem?

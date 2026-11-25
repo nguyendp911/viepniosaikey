@@ -194,6 +194,15 @@ extension KeyboardViewController {
     @objc func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
+        if typingPro6.contextualEmoji, TypingProText.emoji(recentWord).contains(chosen),
+           !recentWord.isEmpty, (textDocumentProxy.selectedText?.isEmpty ?? true),
+           textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
+           (textDocumentProxy.documentContextBeforeInput ?? "").hasSuffix(recentWord) {
+            commitPhraseWord(boundary:" ")
+            resetPhraseContext();resetBilingualComposition()
+            textDocumentProxy.insertText(" "+chosen+" ")
+            knownWordBoundary=true;recentWord="";showNextWords();tactileFeedback();return
+        }
         resetPhraseContext()
         if let completion=learnedPhraseChoices[chosen] {
             guard learnedPhraseDocument==textDocumentProxy.documentIdentifier,
@@ -234,12 +243,13 @@ extension KeyboardViewController {
             let current = textDocumentProxy.documentContextBeforeInput ?? ""
             if (textDocumentProxy.selectedText?.isEmpty ?? true),
                textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
-               current.hasSuffix(committed + " ") {
+               current.hasSuffix(committed + " "),
+               (!chosen.contains(" ") || (pro6GlideDocument==textDocumentProxy.documentIdentifier && pro6GlideAnchor==current)) {
                 for _ in 0..<(committed.count + 1) {
                     textDocumentProxy.deleteBackward()
                 }
                 textDocumentProxy.insertText(chosen + " ")
-                if glideLearningEnabled {
+                if glideLearningEnabled && !chosen.contains(" ") {
                     KeyboardSettings.recordGlideChoice(chosen)
                     glideUsageCounts = KeyboardSettings.glideUsageCounts
                 }
