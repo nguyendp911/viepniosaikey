@@ -51,6 +51,11 @@ extension KeyboardViewController {
         let phraseVersion = phraseRevision
         let pro6 = typingPro6
         let pro7=everyday7
+        let autoSettings=vietnameseAutoCorrect
+        let autoVietnamese = useSmartBilingual && bilingualPreference == .vietnamese
+        let autoLanguageAllowed = offlineConfig.layout.latin && (!useSmartBilingual || (bilingualPreference != .english && pro6Language != .english))
+        let autoProtected=Set(customWords.keys)
+        let autoFeedback=learnWordsEnabled && !proPrivate ? pro6Feedback : TypingProFeedback()
         let feedback = !proPrivate && pro6.corrections ? pro6Feedback : TypingProFeedback()
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
@@ -59,7 +64,7 @@ extension KeyboardViewController {
             guard let self, self.candidateGeneration == generation,
                   self.recentWord == word else { return }
             // Read host context only after the debounce, not on every key.
-            let phraseContext = phraseEnabled ? (self.textDocumentProxy.documentContextBeforeInput ?? "") : ""
+            let phraseContext = (phraseEnabled || (autoLanguageAllowed && autoSettings.mode != "off")) ? (self.textDocumentProxy.documentContextBeforeInput ?? "") : ""
             let phraseDocument = self.textDocumentProxy.documentIdentifier
             let prefixContext = phraseContext.hasSuffix(word) ? String(phraseContext.dropLast(word.count)) : ""
             self.predictionQueue.async { [weak self] in
@@ -92,6 +97,10 @@ extension KeyboardViewController {
                 if wordSuggestionsEnabled && (pro7.abbreviations || pro7.spellCheck || pro7.regional != "all") {
                     let local=EverydayLanguage.candidates(word:word,preferences:pro7,known:SmartTyping.vietnameseSet)
                     results=[word]+local+results.filter{$0 != word && !local.contains($0)}
+                }
+                if autoLanguageAllowed && wordSuggestionsEnabled && autoSettings.mode != "off" {
+                    let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(prefixContext),settings:autoSettings,explicitVietnamese:autoVietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,protected:autoProtected,feedback:autoFeedback,includeTypos:true).map(\.text)
+                    results=[word]+choices+results.filter{$0 != word && !choices.contains($0)}
                 }
                 let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []
                 let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:pro7.expandedBar ? 8 : 2,minimum:max(2,min(5,pro6.confidence)))
@@ -211,6 +220,7 @@ extension KeyboardViewController {
     @objc func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
+        resetAutoWord();autoCorrectionUndo=nil
         if typingPro6.contextualEmoji, TypingProText.emoji(recentWord).contains(chosen),
            !recentWord.isEmpty, (textDocumentProxy.selectedText?.isEmpty ?? true),
            textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
@@ -321,6 +331,7 @@ extension KeyboardViewController {
     }
 
     @objc func undoWordCorrection() {
+        if undoVietnameseCorrection(){return}
         guard let stored = lastWordReplacement else {
             showStatus("Chưa có sửa từ để hoàn tác")
             return

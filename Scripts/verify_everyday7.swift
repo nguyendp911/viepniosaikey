@@ -49,6 +49,28 @@ import CryptoKit
         var other=feedback;other.record(source:"sữ",target:"sửa",accept:true)
         feedback.mergeBackup(other)
         precondition(feedback.preferred("sữ",minimum:2)==["sửa"])
+        let config=VietnameseAutoCorrectSettings()
+        let english:Set<String>=["an","on","too","can","the","you","hello"]
+        let known:Set<String>=["ăn","gì","chưa","nè","cơm","nghĩ","giữ","không","dấu","store"]
+        func correction(_ word:String,_ previous:String)->String? {
+            VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(previous),settings:config,explicitVietnamese:false,english:english,known:known).first(where:{$0.automatic})?.text
+        }
+        precondition(correction("an","em ")=="ăn")
+        precondition(correction("gi","em ăn ")=="gì")
+        precondition(correction("chua","em ăn gì ")=="chưa")
+        precondition(correction("ne","em ăn gì chưa ")=="nè")
+        precondition(correction("khong","")=="không")
+        precondition(correction("dau","không ")=="dấu")
+        precondition(correction("nghỉ","anh đang suy ")=="nghĩ")
+        precondition(correction("cơn","em ăn ")=="cơm")
+        precondition(correction("giử","")=="giữ")
+        precondition(correction("an","I have ")==nil && correction("on","turn it ")==nil)
+        precondition(correction("ban","")==nil)
+        var noAccent=config;noAccent.restoreAccents=false
+        precondition(VietnameseAutoCorrect.choices(word:"an",context:["em"],settings:noAccent,explicitVietnamese:true,english:english,known:known).isEmpty)
+        precondition(VietnameseAutoCorrect.choices(word:"giử",context:[],settings:config,explicitVietnamese:true,english:english,known:known,protected:["giử"]).isEmpty)
+        precondition(VietnameseAutoCorrect.typoVariants("stroe",known:known).contains("store"))
+        print("PASS Vietnamese AutoCorrect: contextual accent restoration, spelling, English protection, dictionary and typo variants")
         let start=Date()
         for _ in 0..<10000{_ = EverydayLanguage.spell("giử",known:known)}
         print("PASS Everyday 7: migration, pinned persistence, edits, merge, region, spelling, tone, heatmap and authenticated encryption")

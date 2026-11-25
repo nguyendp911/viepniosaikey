@@ -9,6 +9,8 @@ extension KeyboardViewController {
         beginTyping()
         resetProHangul()
         guard let character = sender.title(for: .normal) else { return }
+        let automatic=applyVietnameseCorrection(boundary:character)
+        defer { finishVietnameseCorrection(automatic,boundary:character) }
         commitPhraseWord(boundary:character)
         tactileFeedback()
         resetBilingualComposition()
@@ -51,7 +53,8 @@ extension KeyboardViewController {
         recordPremiumTouch(sender)
         let key = isUppercase && !isNumbers ? title.uppercased() : title
         beginPhraseKey(key)
-        defer { stagePhraseWord() }
+        beginAutoWord(key)
+        defer { finishAutoWord(); stagePhraseWord() }
         if typingPro6.pairing, isNumbers, !(typingMode == "vni" && key.first?.isNumber == true), insertPro6Pair(key) {
             resetBilingualComposition();recentWord="";updateCandidates();tactileFeedback();return
         }
@@ -181,9 +184,10 @@ extension KeyboardViewController {
     }
 
     @objc func spaceTapped() {
-        commitPhraseWord(boundary:" ")
         let snapshot = proSnapshot()
-        defer { recordProEdit(snapshot) }
+        let automatic=applyVietnameseCorrection(boundary:" ")
+        commitPhraseWord(boundary:" ")
+        defer { recordProEdit(snapshot);finishVietnameseCorrection(automatic,boundary:" ") }
         resetProHangul()
         resetBilingualComposition()
         beginTyping()
@@ -248,9 +252,10 @@ extension KeyboardViewController {
         }
     }
     @objc func returnTapped() {
-        commitPhraseWord(boundary:"\n")
         let snapshot = proSnapshot()
-        defer { recordProEdit(snapshot) }
+        let automatic=applyVietnameseCorrection(boundary:"\n")
+        commitPhraseWord(boundary:"\n")
+        defer { recordProEdit(snapshot);finishVietnameseCorrection(automatic,boundary:"\n") }
         resetProHangul()
         resetBilingualComposition()
         beginTyping()
@@ -265,6 +270,8 @@ extension KeyboardViewController {
         }
     }
     @objc func deleteTapped() {
+        if undoVietnameseCorrection() {return}
+        resetAutoWord()
         cancelPhrasePending()
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
@@ -347,6 +354,7 @@ extension KeyboardViewController {
     }
 
     @objc func numbersTapped() {
+        resetAutoWord();autoCorrectionUndo=nil
         resetBilingualComposition()
         knownWordBoundary = false
         tactileFeedback()
@@ -366,7 +374,7 @@ extension KeyboardViewController {
     }
 
     @objc func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
-        if recognizer.state == .began { resetPhraseContext(); resetBilingualComposition(); resetProHangul(); proHistory.clear(); cancelAIRequest(); studioEdit = nil }
+        if recognizer.state == .began { resetAutoWord();autoCorrectionUndo=nil;resetPhraseContext(); resetBilingualComposition(); resetProHangul(); proHistory.clear(); cancelAIRequest(); studioEdit = nil }
         if premiumPreferences.spaceGesture != "cursor" {
             if recognizer.state == .ended {
                 let delta = recognizer.translation(in: recognizer.view)
@@ -417,6 +425,7 @@ extension KeyboardViewController {
     }
 
     func beginTyping() {
+        autoCorrectionUndo=nil
         studioEdit = nil
         if isRequestRunning { cancelAIRequest() }
         nextWordAnchor = nil

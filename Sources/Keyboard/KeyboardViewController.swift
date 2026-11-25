@@ -65,6 +65,12 @@ final class KeyboardViewController: UIInputViewController {
     var recentWord = ""
     var typingPro6 = TypingProPreferences.current
     var everyday7=EverydayPreferences.current
+    var vietnameseAutoCorrect=VietnameseAutoCorrectSettings.current
+    var autoWordDocument:UUID?
+    var autoWordPrefix:String?
+    var autoWordExpected:String?
+    var autoWordAfter:String?
+    var autoCorrectionUndo:AutoCorrectionUndo?
     var everydayHeatmap=EverydayTouchMap()
     var everydayHeatmapDirty=false
     var everydayGeometryWidth:CGFloat = -1
@@ -217,6 +223,8 @@ final class KeyboardViewController: UIInputViewController {
         proPrivate = KeyboardSettings.privateTypingMode
         typingPro6 = TypingProPreferences.current
         everyday7=EverydayPreferences.current
+        vietnameseAutoCorrect=VietnameseAutoCorrectSettings.current
+        resetAutoWord();autoCorrectionUndo=nil
         everydayHeatmapRevision=EverydayTouchMap.revision
         everydayHeatmap=everyday7.heatmap && !proPrivate ? EverydayTouchMap.current : EverydayTouchMap()
         everydayHeatmapDirty=false
@@ -314,6 +322,7 @@ final class KeyboardViewController: UIInputViewController {
         flushPhraseLearning()
         finishProSession()
         clearPro6Transient()
+        resetAutoWord();autoCorrectionUndo=nil
         flushEverydayHeatmap()
         everydayCompletionLabel=nil
         proHistory.clear(); proHangulLast = nil; proHangulDocument = nil

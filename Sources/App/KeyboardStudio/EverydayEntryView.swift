@@ -32,8 +32,16 @@ struct EverydayEntryView:View {
 }
 struct EverydayLanguageSettings:View {
     @State private var prefs=EverydayPreferences.current
+    @State private var correction=VietnameseAutoCorrectSettings.current
     var body:some View {
         Form{
+            Section("Vietnamese AutoCorrect Pro"){
+                Picker("Chế độ sửa",selection:$correction.mode){
+                    Text("Tắt").tag("off");Text("Chỉ gợi ý").tag("suggest");Text("Tự sửa thận trọng").tag("careful");Text("Tự sửa nâng cao").tag("advanced")
+                }
+                Toggle("Tự thêm dấu tiếng Việt",isOn:$correction.restoreAccents)
+                Text("Tự sửa khi chốt từ bằng dấu cách, dấu câu hoặc xuống dòng nếu đủ ngữ cảnh. Nhấn xóa ngay sau khi tự sửa để khôi phục từ gốc. Từ mơ hồ chỉ gợi ý. Không tự sửa trong chế độ English hoặc riêng tư. Mở lại bàn phím để áp dụng.").font(.caption)
+            }
             Section("Dự đoán"){
                 Toggle("Live Text Completion",isOn:$prefs.liveCompletion)
                 Toggle("Vuốt lên thanh gợi ý để mở rộng",isOn:$prefs.expandedBar)
@@ -52,6 +60,7 @@ struct EverydayLanguageSettings:View {
                 Text("Không sửa tự động các biến thể vùng miền. Ngăn lặp dấu cách không thay thế Double Space 6.0. Cách đặt dấu áp dụng cho oa/oe/uy mở.").font(.caption)
             }
         }.navigationTitle("Gợi ý & chính tả").onChange(of:prefs){EverydayPreferences.current=$0}
+            .onChange(of:correction){VietnameseAutoCorrectSettings.current=$0}
     }
 }
 struct EverydayGeometrySettings:View {
