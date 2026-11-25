@@ -7,6 +7,7 @@ extension KeyboardViewController {
     /// key layer. No overlays, Auto Layout changes, timers or image assets.
     @objc func keypressAnimationTapped(_ sender: UIButton) {
         animateKeypress(sender)
+        animateProKey(sender)
     }
 
     func animateKeypress(_ key: UIButton) {
@@ -58,7 +59,12 @@ extension KeyboardViewController {
 
     func tactileFeedback() {
         if !performanceMode {
-            if premiumPreferences.sound == "click" || customSound { AudioServicesPlaySystemSound(1104) }
+            if offlineConfig.sound == "custom" {
+                proSoundPlayer?.currentTime = 0
+                proSoundPlayer?.play()
+            } else if offlineConfig.sound == "click" { AudioServicesPlaySystemSound(1104) }
+            else if offlineConfig.sound == "soft" { AudioServicesPlaySystemSound(1123) }
+            else if premiumPreferences.sound == "click" || customSound { AudioServicesPlaySystemSound(1104) }
             else if premiumPreferences.sound == "soft" { AudioServicesPlaySystemSound(1123) }
         }
         guard hapticsEnabled else { return }
@@ -72,7 +78,7 @@ extension KeyboardViewController {
                 AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
             }
         } else {
-            haptic.impactOccurred(intensity: CGFloat(premiumPreferences.feedback))
+            haptic.impactOccurred(intensity: CGFloat(offlineConfig.feedback == 0.45 ? premiumPreferences.feedback : offlineConfig.feedback))
         }
     }
 }

@@ -4,7 +4,10 @@ import Vision
 
 extension KeyboardViewController {
     @objc func punctuationTapped(_ sender: UIButton) {
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
         beginTyping()
+        resetProHangul()
         guard let character = sender.title(for: .normal) else { return }
         tactileFeedback()
         resetBilingualComposition()
@@ -16,6 +19,15 @@ extension KeyboardViewController {
 
     @objc func letterTapped(_ sender: UIButton) {
         guard let title = sender.title(for: .normal) else { return }
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
+        if offlineConfig.analytics && !proPrivate { proSessionTaps += 1 }
+        if !isNumbers && !offlineConfig.layout.latin {
+            beginTyping()
+            insertProLanguage(title)
+            return
+        }
+        resetProHangul()
         // Sample every 50th touch without invoking a random-number generator
         // on the input latency-critical path.
         typingTouchCount &+= 1
@@ -155,6 +167,9 @@ extension KeyboardViewController {
     }
 
     @objc func spaceTapped() {
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
+        resetProHangul()
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
@@ -167,15 +182,18 @@ extension KeyboardViewController {
                 $0.isLetter || $0.isNumber || $0 == ";" || $0 == "_" || $0 == "/"
             }).reversed())
             let word = String(context.reversed().prefix(while: { $0.isLetter }).reversed())
-            if let snippet = cachedSnippets[token], !token.isEmpty {
+            if !proPrivate, let template = OfflineProStore.expansion(token: token, profile: offlineConfig.profile, items: offlineSnippets) {
+                for _ in token { textDocumentProxy.deleteBackward() }
+                textDocumentProxy.insertText(PremiumOffline.variables(template, name: PersonaStore.active?.name ?? "", custom: PremiumStore.variables))
+            } else if offlineConfig.layout.latin, let snippet = cachedSnippets[token], !token.isEmpty {
                 for _ in token { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(SmartTyping.expandSnippet(
                     snippet, recipient: PersonaStore.active?.name))
-            } else if let replacement = cachedReplacements[word.lowercased()],
+            } else if offlineConfig.layout.latin, let replacement = cachedReplacements[word.lowercased()],
                       !word.isEmpty, word.count <= 30 {
                 for _ in word { textDocumentProxy.deleteBackward() }
                 textDocumentProxy.insertText(replacement)
-            } else if learnWordsEnabled && word.count >= 3 && word.count <= 24 {
+            } else if offlineConfig.layout.latin && learnWordsEnabled && word.count >= 3 && word.count <= 24 {
                 let normalized = word.lowercased()
                 learnedWords[normalized, default: 0] += 1
                 if learnedWords.count > 360 {
@@ -195,7 +213,7 @@ extension KeyboardViewController {
         knownWordBoundary = true
         recentWord = ""
         showNextWords()
-        if autocapitalizeEnabled && !isShiftLocked {
+        if offlineConfig.layout.latin && autocapitalizeEnabled && !isShiftLocked {
             let before = textDocumentProxy.documentContextBeforeInput ?? ""
             let trimmed = before.trimmingCharacters(in: .whitespacesAndNewlines)
             let nextUppercase = trimmed.isEmpty || [".", "!", "?"].contains(String(trimmed.suffix(1)))
@@ -206,6 +224,9 @@ extension KeyboardViewController {
         }
     }
     @objc func returnTapped() {
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
+        resetProHangul()
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
@@ -219,6 +240,9 @@ extension KeyboardViewController {
         }
     }
     @objc func deleteTapped() {
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
+        resetProHangul()
         beginTyping()
         tactileFeedback()
         knownWordBoundary = false
@@ -260,6 +284,9 @@ extension KeyboardViewController {
 
     @objc func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
+        let snapshot = proSnapshot()
+        defer { recordProEdit(snapshot) }
+        resetProHangul()
         resetBilingualComposition()
         knownWordBoundary = false
         beginTyping()
@@ -299,7 +326,7 @@ extension KeyboardViewController {
     }
 
     @objc func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
-        if recognizer.state == .began { resetBilingualComposition(); cancelAIRequest(); studioEdit = nil }
+        if recognizer.state == .began { resetBilingualComposition(); resetProHangul(); proHistory.clear(); cancelAIRequest(); studioEdit = nil }
         if premiumPreferences.spaceGesture != "cursor" {
             if recognizer.state == .ended {
                 let delta = recognizer.translation(in: recognizer.view)
@@ -317,10 +344,14 @@ extension KeyboardViewController {
             cursorSteps = 0
         case .changed:
             let translation = recognizer.translation(in: space)
-            let steps = Int(translation.x / 13)
+            let steps = Int(translation.x / (offlineConfig.trackpad == "accelerated" && abs(translation.x) > 65 ? 8 : 13))
             let move = steps - cursorSteps
             if move != 0 {
-                textDocumentProxy.adjustTextPosition(byCharacterOffset: move)
+                if offlineConfig.trackpad == "word" {
+                    for _ in 0..<min(8,abs(move)) { moveProWord(forward: move > 0) }
+                } else {
+                    textDocumentProxy.adjustTextPosition(byCharacterOffset: move)
+                }
                 cursorSteps = steps
                 tactileFeedback()
             }

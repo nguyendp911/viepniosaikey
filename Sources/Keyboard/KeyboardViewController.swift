@@ -1,6 +1,7 @@
 import UIKit
 import AudioToolbox
 import Vision
+import AVFoundation
 
 /// ViePN keyboard: composing a suggested reply never writes the source message
 /// to the host chat field. All host-field modifications are explicit user taps.
@@ -160,6 +161,11 @@ final class KeyboardViewController: UIInputViewController {
     var cursorSteps = 0
 
     func refreshTypingPreferences() {
+        offlineConfig = OfflineKeyboardConfig.current
+        proPrivate = KeyboardSettings.privateTypingMode
+        offlineSnippets = proPrivate ? [] : OfflineProStore.snippets
+        proHangulLast = nil; proHangulDocument = nil
+        if proPrivate { proHistory.clear() }
         premiumPreferences = PremiumStore.preferences
         premiumTouchCounts = [:]
         typingMode = KeyboardSettings.typingMode
@@ -174,8 +180,9 @@ final class KeyboardViewController: UIInputViewController {
         resetBilingualComposition()
         knownWordBoundary = false
         useSentenceSuggestions = KeyboardSettings.sentenceSuggestionsEnabled && !performanceMode
-        useSuggestions = KeyboardSettings.predictionsEnabled && !performanceMode
-        useGlide = KeyboardSettings.glideEnabled && !performanceMode
+        useSuggestions = KeyboardSettings.predictionsEnabled && !performanceMode && offlineConfig.layout.latin
+        if !offlineConfig.layout.latin { useSentenceSuggestions = false }
+        useGlide = KeyboardSettings.glideEnabled && !performanceMode && offlineConfig.layout.latin && !offlineConfig.multiTap
         glideTrailEnabled = KeyboardSettings.glideTrailEnabled && !performanceMode
         adaptiveTouchEnabled = KeyboardSettings.adaptiveTouchEnabled
         let privateMode = KeyboardSettings.privateTypingMode
@@ -201,6 +208,20 @@ final class KeyboardViewController: UIInputViewController {
     var premiumPreferences = PremiumStore.preferences
     var premiumTouchCounts: [ObjectIdentifier: Int] = [:]
     var premiumTouchAllowed = false
+    var offlineConfig = OfflineKeyboardConfig.current
+    var offlineSnippets: [ProSnippet] = []
+    var proHistory = ProTextHistory()
+    var proHangulLast: Character?
+    var proHangulDocument: UUID?
+    var proPrivate = false
+    var proNumberRow: UIStackView?
+    var proNumberHeight: NSLayoutConstraint?
+    var proSpaceWidth: NSLayoutConstraint?
+    var proSoundPlayer: AVAudioPlayer?
+    var proSessionStart = Date()
+    var proSessionTaps = 0
+    var proParticleLayers: [CALayer] = []
+    var proWallpaperLayer: CAGradientLayer?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -222,6 +243,11 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
+        finishProSession()
+        proHistory.clear(); proHangulLast = nil; proHangulDocument = nil
+        proSoundPlayer?.stop(); proSoundPlayer = nil
+        clearProParticles()
+        proWallpaperLayer?.removeFromSuperlayer(); proWallpaperLayer = nil
         themeScheduleTimer?.invalidate(); themeScheduleTimer = nil
         cancelAIRequest()
         closeIntelligenceHub()
@@ -256,6 +282,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTypingPreferences()
+        startProSession()
+        updateProLayout()
         refreshScheduledTheme(force:true)
         themeScheduleTimer?.invalidate()
         themeScheduleTimer = Timer.scheduledTimer(withTimeInterval:60,repeats:true) { [weak self] _ in
@@ -278,6 +306,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         view.layer.sublayers?.first(where: { $0.name == "viepn.aurora" })?.frame = view.bounds
+        proWallpaperLayer?.frame = view.bounds
         refreshToolbarLayout()
         if let button = toolbarButtons[.ai] { aiGradient.frame = button.bounds }
         for layer in [glideGlowLayer, glideTrailLayer, glideTipLayer] {

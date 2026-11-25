@@ -106,6 +106,7 @@ extension KeyboardViewController {
         refreshIdleActions()
         updateContextVisibility()
 
+        installProNumberRow()
         let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
         for (rowIndex, letters) in rows.enumerated() {
             let row = UIStackView()
@@ -129,6 +130,7 @@ extension KeyboardViewController {
                 // text feedback when typing quickly.
                 key.removeTarget(self, action: #selector(letterTapped(_:)), for: .touchUpInside)
                 key.addTarget(self, action: #selector(letterTapped(_:)), for: .touchDown)
+                installProKeyGesture(key)
                 letterButtons.append(key)
                 row.addArrangedSubview(key)
             }
@@ -181,12 +183,15 @@ extension KeyboardViewController {
         let bottomHeight = bottom.heightAnchor.constraint(equalToConstant: CGFloat(KeyboardSettings.keyHeight))
         bottomHeight.isActive = true
         keyHeightConstraints.append(bottomHeight)
+        proSpaceWidth = space.widthAnchor.constraint(greaterThanOrEqualToConstant: 90)
+        proSpaceWidth?.priority = .defaultHigh
         secondaryRow = bottom
         container.addArrangedSubview(bottom)
         // Install once regardless of the setting's initial value. A user
         // enabling swipe later must not need a fresh keyboard controller.
         configureGlideRecognizer()
         installGlideTrailLayers()
+        updateProLayout()
         updateKeys()
         updateAdaptiveLayout()
         updateAdaptiveTouchTargets()
@@ -303,6 +308,7 @@ extension KeyboardViewController {
                 button.tintColor = primary
             }
         }
+        applyProVisuals()
         applyToolbarAppearance()
         refreshSuggestionAppearance()
         previewLabel.backgroundColor = keyColor
@@ -312,7 +318,7 @@ extension KeyboardViewController {
 
     func updateKeys() {
         let rows = isNumbers
-            ? ["1234567890", "@#$%&*()-", "/:;!?.,"] : ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+            ? ["1234567890", "@#$%&*()-", "/:;!?.,"] : offlineConfig.layout.rows(shift: isUppercase, custom: offlineConfig.customRows)
         for (rowIndex, row) in letterRows.enumerated() {
             let arranged = row.arrangedSubviews.compactMap { $0 as? UIButton }
             // Row 3 reserves first and last keys for Shift and Delete.
@@ -321,7 +327,7 @@ extension KeyboardViewController {
             for (index, button) in letterKeys.enumerated() {
                 if index < characters.count {
                     let ch = characters[index]
-                    button.setTitle(isNumbers ? ch : (isUppercase ? ch.uppercased() : ch), for: .normal)
+                    button.setTitle(isNumbers ? ch : (isUppercase && offlineConfig.layout.latin ? ch.uppercased() : ch), for: .normal)
                     button.isHidden = false
                 } else {
                     button.isHidden = true
@@ -342,6 +348,7 @@ extension KeyboardViewController {
         for row in letterRows { row.spacing = spacing }
         secondaryRow?.spacing = spacing
         for constraint in keyHeightConstraints { constraint.constant = height }
+        proNumberRow?.spacing = spacing
         let side = min(56, max(38, view.bounds.width * 0.12))
         switch KeyboardSettings.oneHandMode {
         case "left":
@@ -371,6 +378,7 @@ extension KeyboardViewController {
         // No permanently reserved blank AI area.
         let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
         heightConstraint?.constant = base + 61 + CGFloat(lastToolbarLayout?.height ?? 44) - 37 - 14 +
+            (offlineConfig.numberRow ? 38 : 0) +
             (statusLabel.isHidden ? 0 : 22) +
             (suggestionContainer == nil ? 0 : 127)
         view.setNeedsLayout()

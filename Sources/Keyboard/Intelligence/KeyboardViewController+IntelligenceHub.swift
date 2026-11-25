@@ -60,6 +60,11 @@ extension KeyboardViewController {
         ])
         stack.addArrangedSubview(scroll)
         let groups: [(String, String, UIMenu?, (() -> Void)?)] = [
+            ("Keyboard Pro", "keyboard", proKeyboardMenu(), nil),
+            ("Time Machine", "clock.arrow.circlepath", proHistoryMenu(), nil),
+            ("Text Studio", "textformat", proTextMenu(), nil),
+            ("Profiles", "person.crop.rectangle.stack", proProfilesMenu(), nil),
+            ("Ký tự Pro", "character", proSymbolsMenu(), nil),
             ("Personal AI", "brain.head.profile", personalAIToolsMenu(), nil),
             ("Tone Mixer", "slider.horizontal.3", personalToneMenu(), nil),
             ("Arena", "square.split.2x1", nil, { [weak self] in self?.personalArena() }),
@@ -113,6 +118,7 @@ extension KeyboardViewController {
             })
         ]
         let sections: [(String, [String])] = [
+            ("OFFLINE EDITION 4.0", ["Keyboard Pro", "Time Machine", "Text Studio", "Profiles", "Ký tự Pro"]),
             ("PERSONAL INTELLIGENCE 3.0", ["Personal AI", "Tone Mixer", "Arena", "Second Brain", "Mini Apps"]),
             ("PREMIUM 2.0", ["Command", "AI Premium", "Workflow", "Macro", "Biến mẫu", "Kho nháp", "Bộ sưu tập", "Máy tính", "Định dạng", "Văn bản"]),
             ("GIAO TIẾP THÔNG MINH", ["Hội thoại", "Tình cảm", "Bật/tắt Couple", "Công việc", "Dịch"]),
