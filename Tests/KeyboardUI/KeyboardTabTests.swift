@@ -1,6 +1,18 @@
 import XCTest
 
 final class KeyboardTabTests: XCTestCase {
+    func testCoupleStudioOpens() {
+        continueAfterFailure=false
+        let app=XCUIApplication();app.launch()
+        let tab=app.buttons["tab.couple"]
+        XCTAssertTrue(tab.waitForExistence(timeout:15));tab.tap()
+        let entry=app.buttons["couple.studio.conversation"]
+        XCTAssertTrue(entry.waitForExistence(timeout:10));entry.tap()
+        XCTAssertTrue(app.buttons["couple.studio.close"].waitForExistence(timeout:10))
+        XCTAssertTrue(app.textViews["couple.conversation.input"].exists)
+        app.buttons["couple.studio.close"].tap()
+        XCTAssertEqual(app.state,.runningForeground)
+    }
     func testUnifiedTypingPremiumOpens() {
         continueAfterFailure=false
         let app=XCUIApplication();app.launch()

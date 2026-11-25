@@ -182,7 +182,7 @@ enum CoupleLocalEngine {
     // uses the last nonempty line. Earlier context never overrides a clear target.
     static func incoming(_ conversation:String)->String {
         let lines=conversation.components(separatedBy:.newlines).map{$0.trimmingCharacters(in:.whitespacesAndNewlines)}.filter{!$0.isEmpty}
-        if let line=lines.reversed().first(where:{let n=normalize($0);return $0.contains(":") && (n.hasPrefix("doi phuong ") || n.hasPrefix("nguoi ay "))}),let colon=line.firstIndex(of:":"){return String(line[line.index(after:colon)...]).trimmingCharacters(in:.whitespaces)}
+        if let line=lines.reversed().first(where:{let n=normalize($0);return $0.contains(":") && (n.hasPrefix("doi phuong ") || n.hasPrefix("nguoi ay ") || n.hasPrefix("ban ay "))}),let colon=line.firstIndex(of:":"){return String(line[line.index(after:colon)...]).trimmingCharacters(in:.whitespaces)}
         return lines.last ?? ""
     }
     static let topics:[(String,[String])]=[
@@ -273,4 +273,28 @@ enum CoupleLocalEngine {
         switch style {case "hurt","sulky":prefix="{me} muốn nói thật cảm xúc của mình: ";case "firm","honest","cold":prefix="{me} muốn nói rõ: ";case "gentle","reconcile","mature":prefix="{me} muốn mình hiểu nhau hơn: ";default:prefix=""}
         return render(prefix,address:address)+clean
     }
+}
+
+struct CouplePersonalDNA:Codable {
+    var samples=0
+    var totalLength=0
+    var emojiSamples=0
+    var styles:[String:Int]=[:]
+    var meanLength:Int {samples>0 ? totalLength/max(1,samples):0}
+    var favoriteStyle:String? {styles.sorted{$0.value==$1.value ? $0.key<$1.key : $0.value>$1.value}.first?.key}
+    static var current:Self {
+        guard !KeyboardSettings.privateTypingMode,let data=KeyboardSettings.defaults.data(forKey:"viepnaikey.couple.dna"),
+              let value=try? JSONDecoder().decode(Self.self,from:data),(0...10000).contains(value.samples),
+              (0...5_000_000).contains(value.totalLength),(0...value.samples).contains(value.emojiSamples) else{return .init()}
+        return value
+    }
+    static func record(_ text:String,style:String){
+        guard !KeyboardSettings.privateTypingMode,CoupleStudioPreferences.current.learnFromSaved else{return}
+        var value=current;guard value.samples<10000 else{return}
+        value.samples+=1;value.totalLength+=min(500,text.count)
+        if text.unicodeScalars.contains(where:{$0.properties.isEmojiPresentation}){value.emojiSamples+=1}
+        if CoupleStyleCatalog.styles.contains(where:{$0.id==style}){value.styles[style]=min(10000,max(0,min(10000,value.styles[style] ?? 0))+1)}
+        if let data=try? JSONEncoder().encode(value){KeyboardSettings.defaults.set(data,forKey:"viepnaikey.couple.dna")}
+    }
+    static func clear(){KeyboardSettings.defaults.removeObject(forKey:"viepnaikey.couple.dna")}
 }

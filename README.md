@@ -301,3 +301,6 @@ New separate settings under Bàn phím → Typing Premium 7.0 → Gợi ý & ch�
 
 ### Unified Typing Premium center
 Bàn phím → Typing Premium now replaces the two 6.0 and 7.0 entry cards with one categorized navigation center: language/autocorrect, gestures, geometry, calibration, phrases, dictionary, encrypted learning backup, sentence accent recovery, analytics and diagnostics. Keyboard Hub → Typing Premium contains both existing tool menus. Existing settings keys, personal learning formats and feature implementations remain unchanged. UI smoke tests navigate the combined center and representative screens from both releases.
+
+### Couple Studio · Midnight Rose
+Unified host studio for conversation/OCR (speaker review), emotion presets, profile/DNA aggregate learning on explicit save, conflict/guardian, existing favorites, local writing templates, simulation, protected private journal and yearly local reminders. 32 styles; existing Couple settings, online providers and toolbar are preserved. Offline is a bounded keyword/template engine, not sentiment certainty or a general generative model. Cloud replies use existing consent and provider. No automatic sending. Journal and moments remain host-local, excluded from backups. UI smoke opens the new conversation screen.

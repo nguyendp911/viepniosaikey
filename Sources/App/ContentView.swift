@@ -124,7 +124,8 @@ struct ContentView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 12) {
                         if selectedPage == "couple" {
-                            coupleStudio
+                            AnyView(CoupleMidnightStudioView())
+                            DisclosureGroup("Thiết lập Couple hiện tại"){AnyView(coupleStudio)}.tint(.pink)
                             testArea
                             savedReplies
                         } else if selectedPage == "ai" {
