@@ -72,7 +72,7 @@ extension ContentView {
                                 .foregroundStyle(.white)
                         }
                         Spacer(minLength: 0)
-                        Text("18 style")
+                        Text("\(CoupleStyleCatalog.styles.count) style")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(muted)
                         Image(systemName: "chevron.up.chevron.down")

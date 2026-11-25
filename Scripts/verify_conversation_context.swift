@@ -45,6 +45,16 @@ struct VerifyVietnameseConversationRoles {
         check("Tí nữa về", expected: .friend)
         KeyboardSettings.recipientMode = ReplyRecipient.automatic.rawValue
         check("Tí nữa về", expected: .automatic)
+        precondition(CoupleStyleCatalog.styles.count==32)
+        precondition(Set(CoupleStyleCatalog.styles.map(\.id)).count==32)
+        precondition(CoupleLocalEngine.reading("Em bận hôm nay").topic=="Bận")
+        precondition(CoupleLocalEngine.reading("Bạn rủ đi chơi").topic=="Hẹn gặp")
+        precondition(CoupleLocalEngine.reading("Đối phương: em bận\nTôi: ừ\nĐối phương: em mệt").topic=="Mệt mỏi")
+        precondition(CoupleLocalEngine.reading("Em cần không gian").topic=="Ranh giới")
+        let local=CoupleLocalEngine.suggest("Em bận",style:"cold",address:"em/anh",preferences:CoupleStudioPreferences())
+        precondition(local.count==3 && local[2].text.contains("Anh"))
+        precondition(CoupleLocalEngine.guardian("Nếu yêu anh thì phải trả lời").count>0)
+        print("PASS Couple Studio local scene, address, styles and guardian")
         KeyboardSettings.coupleEnabled = false
 
         guard !uncle.accepts("Anh nhớ em, em về sớm nhé"),

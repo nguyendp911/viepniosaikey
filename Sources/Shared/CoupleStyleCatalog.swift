@@ -66,7 +66,21 @@ enum CoupleStyleCatalog {
               variantNames: ["Thơ mộng", "Lãng mạn", "Sâu lắng"]),
         .init(id: "boundaries", title: "Ranh giới", icon: "🛡️", summary: "Tôn trọng và an toàn",
               guidance: "Communicate personal boundaries and consent politely and clearly; never imply agreement to pressure.",
-              variantNames: ["Ranh giới", "Tôn trọng", "Rõ ràng"])
+              variantNames: ["Ranh giới", "Tôn trọng", "Rõ ràng"]),
+        .init(id: "cold", title: "Lạnh lùng", icon: "❄️", summary: "Ngắn, giữ khoảng cách", guidance: "Be concise and reserved; never punish with silence or contempt.", variantNames: ["Lạnh lùng", "Tự nhiên", "Tinh tế"]),
+        .init(id: "coldwarm", title: "Lạnh lùng nhưng còn thương", icon: "🤍", summary: "Kiềm chế nhưng vẫn quan tâm", guidance: "Use restrained warmth, acknowledge care without pressure.", variantNames: ["Lạnh lùng nhưng còn thương", "Tự nhiên", "Tinh tế"]),
+        .init(id: "sulky", title: "Hờn dỗi", icon: "🌧️", summary: "Không vui nhẹ nhàng", guidance: "Express mild disappointment directly, without guilt or testing love.", variantNames: ["Hờn dỗi", "Tự nhiên", "Tinh tế"]),
+        .init(id: "hurt", title: "Tổn thương", icon: "🌙", summary: "Nói ra cảm xúc thật", guidance: "Use first-person feelings and clear needs without blame.", variantNames: ["Tổn thương", "Tự nhiên", "Tinh tế"]),
+        .init(id: "disappointed", title: "Thất vọng", icon: "🍂", summary: "Bình tĩnh, rõ ràng", guidance: "Express disappointment grounded in stated facts; don't infer motives.", variantNames: ["Thất vọng", "Tự nhiên", "Tinh tế"]),
+        .init(id: "missing", title: "Nhớ nhung", icon: "💌", summary: "Nhớ thương tự nhiên", guidance: "Express missing someone without demands or invented memories.", variantNames: ["Nhớ nhung", "Tự nhiên", "Tinh tế"]),
+        .init(id: "healing", title: "An ủi", icon: "🌿", summary: "Lắng nghe, hỗ trợ", guidance: "Offer listening and practical support, not medical claims.", variantNames: ["An ủi", "Tự nhiên", "Tinh tế"]),
+        .init(id: "subtle", title: "Tinh tế", icon: "✧", summary: "Ít lời, đúng ý", guidance: "Use subtle, grounded natural wording.", variantNames: ["Tinh tế", "Tự nhiên", "Tinh tế"]),
+        .init(id: "firm", title: "Dứt khoát", icon: "🛡️", summary: "Rõ ràng và tôn trọng", guidance: "State boundaries clearly without threats.", variantNames: ["Dứt khoát", "Tự nhiên", "Tinh tế"]),
+        .init(id: "regret", title: "Tiếc nuối", icon: "🍁", summary: "Sâu lắng", guidance: "Express regret only about disclosed events.", variantNames: ["Tiếc nuối", "Tự nhiên", "Tinh tế"]),
+        .init(id: "peace", title: "Bình yên", icon: "☁️", summary: "Nhẹ nhàng", guidance: "Use calm and unhurried words.", variantNames: ["Bình yên", "Tự nhiên", "Tinh tế"]),
+        .init(id: "maturelove", title: "Yêu thương trưởng thành", icon: "🌷", summary: "Quan tâm có ranh giới", guidance: "Balance affection, independence and respect.", variantNames: ["Yêu thương trưởng thành", "Tự nhiên", "Tinh tế"]),
+        .init(id: "afterbreakup", title: "Sau chia tay", icon: "🕊️", summary: "Tôn trọng quyết định", guidance: "Respect a breakup, don't push for reconciliation.", variantNames: ["Sau chia tay", "Tự nhiên", "Tinh tế"]),
+        .init(id: "natural", title: "Không sến", icon: "💬", summary: "Đời thường", guidance: "Natural conversational Vietnamese, no cliches.", variantNames: ["Không sến", "Tự nhiên", "Tinh tế"])
     ]
 
     static func selected(_ id: String) -> CoupleStyle {
