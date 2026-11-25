@@ -196,6 +196,7 @@ extension KeyboardViewController {
             let currentToken=String(swipeBefore.reversed().prefix(while:{$0.isLetter}).reversed())
             let context=String(swipeBefore.dropLast(currentToken.count))
             let phraseSnapshot=learnWordsEnabled && !proPrivate ? phraseModel : PersonalPhraseModel()
+            let allowPhraseGlide=typingPro6.sentenceGlide && language != "en"
             let generation = glideResultGeneration
             let touchCount = typingTouchCount
             // Edit-distance scoring runs off the touch-critical main thread.
@@ -209,6 +210,9 @@ extension KeyboardViewController {
                     suggestions, language: language, usage: usageCounts, showAll: true)
                 let display = SmartTyping.glideOptions(
                     suggestions, language: language, usage: usageCounts)
+                // Explicit phrase candidates only; keep single-word recognizer
+                // and automatic commitment unchanged.
+                let phraseOptions=allowPhraseGlide ? TypingProGlide.phrases(trace:trace,model:phraseSnapshot) : []
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.glideResultGeneration == generation,
@@ -239,9 +243,9 @@ extension KeyboardViewController {
                         self.knownWordBoundary = true
                         self.resetBilingualComposition()
                         self.pendingGlideWord = display[0]
-                        self.fullGlideOptions = complete
+                        self.fullGlideOptions = complete+phraseOptions.filter{!complete.contains($0)}
                         self.recentWord = ""
-                        self.updateCandidates(display)
+                        self.updateCandidates(display+phraseOptions.filter{!display.contains($0)})
                     } else {
                         // Never overwrite an existing draft or a changed caret.
                         // Still show choices if the text was modified by

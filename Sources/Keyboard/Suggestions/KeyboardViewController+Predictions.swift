@@ -47,6 +47,8 @@ extension KeyboardViewController {
         let phraseEnabled = learnWordsEnabled && !proPrivate && sentenceSuggestionsEnabled
         let phraseSnapshot = phraseEnabled ? phraseModel : PersonalPhraseModel()
         let phraseVersion = phraseRevision
+        let pro6 = typingPro6
+        let feedback = !proPrivate && pro6.corrections ? pro6Feedback : TypingProFeedback()
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
         // causing contention after sustained fast typing.
@@ -71,7 +73,14 @@ extension KeyboardViewController {
                         results.insert(phrase, at: min(1, results.count))
                     }
                 }
-                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2)
+                if pro6.corrections {
+                    let preferred=feedback.preferred(word,minimum:max(1,min(5,pro6.confidence)))
+                    results=[word]+preferred+results.filter{$0 != word && !preferred.contains($0) && !feedback.rejects(word,$0)}
+                }
+                if pro6.contextualEmoji && wordSuggestionsEnabled {
+                    results += TypingProText.emoji(word).filter{!results.contains($0)}
+                }
+                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2,minimum:max(2,min(5,pro6.confidence)))
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
                           self.recentWord == word else { return }
@@ -239,8 +248,12 @@ extension KeyboardViewController {
             renderCandidates([])
             return
         }
+        let original=recentWord
         resetBilingualComposition()
         replaceCurrentWord(chosen)
+        if let stored=lastWordReplacement,stored.original==original,stored.corrected==chosen {
+            recordPro6Feedback(source:original,target:chosen,accepted:true)
+        }
         if chosen.contains(" ") {
             // A full phrase is a committed suggestion, not a single word
             // to re-enter the predictive keyboard pipeline.
@@ -267,6 +280,8 @@ extension KeyboardViewController {
         }
         if !current.isEmpty && current != replacement {
             lastWordReplacement = (original: current, corrected: replacement)
+            pro6LastCorrectionDocument=textDocumentProxy.documentIdentifier
+            pro6LastCorrectionAnchor=textDocumentProxy.documentContextBeforeInput
         }
         recentWord = replacement
         updateCandidates()
@@ -282,12 +297,15 @@ extension KeyboardViewController {
               textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
               let context = textDocumentProxy.documentContextBeforeInput,
               context.hasSuffix(stored.corrected),
+              pro6LastCorrectionDocument == textDocumentProxy.documentIdentifier,
+              pro6LastCorrectionAnchor == context,
               let edit = FastTyping.edit(from: stored.corrected, to: stored.original) else {
             showStatus("Văn bản đã thay đổi, không thể hoàn tác an toàn")
             return
         }
         for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
         if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
+        recordPro6Feedback(source:stored.original,target:stored.corrected,accepted:false)
         resetBilingualComposition()
         recentWord = stored.original
         updateCandidates()

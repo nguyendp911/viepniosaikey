@@ -108,6 +108,6 @@ extension KeyboardViewController {
     func personalPhraseSuggestions(context:String,partial:String="")->[String] {
         guard learnWordsEnabled,!proPrivate,KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,
               phraseRevision==PersonalPhraseStore.revision else{return []}
-        return phraseModel.suggestions(context:PersonalPhraseModel.context(context),partial:partial)
+        return phraseModel.suggestions(context:PersonalPhraseModel.context(context),partial:partial,minimum:max(2,min(5,typingPro6.confidence)))
     }
 }

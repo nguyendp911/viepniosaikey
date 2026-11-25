@@ -6,6 +6,8 @@ struct PersonalPhraseModel: Codable {
     struct Entry: Codable {
         var count:Int
         var day:Int
+        // Optional for backward-compatible decoding of the existing v1 file.
+        var periods:[Int]? = nil
     }
     private(set) var entries:[String:Entry] = [:]
     static let maximum = 1000
@@ -23,14 +25,18 @@ struct PersonalPhraseModel: Codable {
               !["mật khẩu","mã pin","mã xác","mã đăng","số thẻ","tài khoản","số điện thoại","căn cước","api key","secret key"].contains(where:{joined.contains($0)}) else{return false}
         return MessageSafety.warnings(in:joined).isEmpty
     }
-    mutating func observe(_ words:[String], day:Int=Self.day()) {
+    static func period(_ date:Date=Date())->Int { Calendar.current.component(.hour,from:date)/6 }
+    mutating func observe(_ words:[String], day:Int=Self.day(), period:Int=Self.period()) {
         let normalized=words.compactMap(Self.token)
         guard normalized.count==words.count,Self.safe(normalized),normalized.count>=2 else{return}
         // Each suffix is observed once per committed word.
         for n in 2...min(9,normalized.count) {
             let key=normalized.suffix(n).joined(separator:" ")
             let old=entries[key]
-            entries[key]=Entry(count:min(999,(old?.count ?? 0)+1),day:day)
+            var periods=old?.periods ?? [0,0,0,0]
+            if periods.count != 4 { periods=[0,0,0,0] }
+            if periods.indices.contains(period) { periods[period]=min(999,max(0,min(999,periods[period]))+1) }
+            entries[key]=Entry(count:min(999,(old?.count ?? 0)+1),day:day,periods:periods)
         }
         if entries.count>Self.maximum+20 { prune(day:day) }
     }
@@ -47,14 +53,14 @@ struct PersonalPhraseModel: Codable {
     /// Context is read only for ranking, never stored by this method.
     /// With a partial word, return a replacement for that word + continuation;
     /// at a space boundary return just the missing suffix.
-    func suggestions(context:[String], partial:String="", day:Int=Self.day(),limit:Int=3)->[String] {
+    func suggestions(context:[String], partial:String="", day:Int=Self.day(),limit:Int=3,minimum:Int=2,period:Int=Self.period())->[String] {
         let prior=context.suffix(8).compactMap(Self.token)
         guard !prior.isEmpty,prior.count==min(8,context.count),limit>0 else{return []}
         let typed=partial.isEmpty ? "" : (Self.token(partial) ?? "")
         guard partial.isEmpty || !typed.isEmpty else{return []}
         let prefixes=(1...prior.count).reversed().map { (length:$0,text:prior.suffix($0).joined(separator:" ")+" ") }
         var ranked:[String:Int]=[:]
-        for (phrase,entry) in entries where entry.count>=2 && day-entry.day<=90 {
+        for (phrase,entry) in entries where entry.count>=max(2,min(5,minimum)) && entry.day<=day && entry.day >= (day > Int.min+90 ? day-90 : Int.min) {
             for prefix in prefixes {
                 guard phrase.hasPrefix(prefix.text) else{continue}
                 let n=prefix.length
@@ -64,7 +70,8 @@ struct PersonalPhraseModel: Codable {
                 let result=rest.joined(separator:" ")
                 // Prefer longer exact context, then repeated use and recency;
                 // length is only a small tie-breaker.
-                let score=n*1000+min(entry.count,30)*35-min(90,max(0,day-entry.day))*3+rest.count*5
+                let timeWeight=entry.periods.flatMap{$0.indices.contains(period) ? max(0,min(8,$0[period])) : nil} ?? 0
+                let score=n*1000+min(entry.count,30)*35-min(90,max(0,day-entry.day))*3+rest.count*5+timeWeight*4
                 ranked[result]=max(ranked[result] ?? 0,score)
                 break
             }

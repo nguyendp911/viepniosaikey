@@ -8,6 +8,7 @@ extension KeyboardViewController {
     @objc func keypressAnimationTapped(_ sender: UIButton) {
         animateKeypress(sender)
         animateProKey(sender)
+        showPro6Popup(sender)
     }
 
     func animateKeypress(_ key: UIButton) {

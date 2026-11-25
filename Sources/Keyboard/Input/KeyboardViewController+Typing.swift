@@ -12,6 +12,9 @@ extension KeyboardViewController {
         commitPhraseWord(boundary:character)
         tactileFeedback()
         resetBilingualComposition()
+        if typingPro6.pairing, insertPro6Pair(character) {
+            knownWordBoundary = true; recentWord = ""; updateCandidates(); return
+        }
         textDocumentProxy.insertText(character)
         knownWordBoundary = true
         recentWord = ""
@@ -49,6 +52,12 @@ extension KeyboardViewController {
         let key = isUppercase && !isNumbers ? title.uppercased() : title
         beginPhraseKey(key)
         defer { stagePhraseWord() }
+        if typingPro6.pairing, isNumbers, !(typingMode == "vni" && key.first?.isNumber == true), insertPro6Pair(key) {
+            resetBilingualComposition();recentWord="";updateCandidates();tactileFeedback();return
+        }
+        if typingPro6.contextualLanguage && rawComposingWord.isEmpty {
+            pro6Language = contextualPro6Language()
+        }
 
         if !isNumbers && typingMode == "telex" && telexEnabled,
            key.count == 1, key.first?.isLetter == true {
@@ -73,7 +82,7 @@ extension KeyboardViewController {
             let rawNext = rawComposingWord + key
             if rawNext.count <= 40 {
                 let preference: BilingualComposer.Preference =
-                    useSmartBilingual ? bilingualPreference : .vietnamese
+                    useSmartBilingual ? (pro6Language ?? bilingualPreference) : .vietnamese
                 // One transformation step, not O(word length²) replay.
                 let nextTelex = BilingualComposer.appendCandidate(
                     telexCandidateWord, key: key)
@@ -177,6 +186,7 @@ extension KeyboardViewController {
         resetBilingualComposition()
         beginTyping()
         tactileFeedback()
+        if typingPro6.doubleSpace, applyPro6DoubleSpace() { return }
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
@@ -214,6 +224,9 @@ extension KeyboardViewController {
             }
         }
         textDocumentProxy.insertText(" ")
+        if typingPro6.doubleSpace, let before = textDocumentProxy.documentContextBeforeInput {
+            pro6LastSpace = (textDocumentProxy.documentIdentifier,before,Date())
+        }
         knownWordBoundary = true
         recentWord = ""
         showNextWords()
@@ -254,7 +267,7 @@ extension KeyboardViewController {
         knownWordBoundary = false
         if !rawComposingWord.isEmpty {
             let preference: BilingualComposer.Preference =
-                useSmartBilingual ? bilingualPreference : .vietnamese
+                useSmartBilingual ? (pro6Language ?? bilingualPreference) : .vietnamese
             let priorRaw = String(rawComposingWord.dropLast())
             let prior = BilingualComposer.removingLastKey(
                 from: rawComposingWord, preference: preference).rendered
@@ -289,7 +302,11 @@ extension KeyboardViewController {
     }
 
     @objc func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began else { return }
+        if gesture.state != .began {
+            pro6RepeatWork?.cancel();pro6RepeatWork=nil
+            return
+        }
+        defer { if typingPro6.repeatEnabled { schedulePro6Repeat(gesture) } }
         resetPhraseContext()
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
@@ -312,7 +329,11 @@ extension KeyboardViewController {
 
     @objc func shiftTapped() {
         tactileFeedback()
-        if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
+        if typingPro6.smartShift {
+            let now=Date()
+            if let last=pro6LastShift,now.timeIntervalSince(last)<0.35 { isUppercase=true;isShiftLocked=true;pro6LastShift=nil }
+            else { isUppercase = !isUppercase; isShiftLocked=false;pro6LastShift=now }
+        } else if isUppercase { isShiftLocked.toggle() } else { isUppercase = true }
         if !isUppercase { isShiftLocked = false }
         updateKeys()
     }
@@ -350,6 +371,13 @@ extension KeyboardViewController {
             return
         }
         let space = recognizer.view
+        if typingPro6.spaceUp {
+            let delta=recognizer.translation(in:space)
+            if abs(delta.y)>abs(delta.x),delta.y < -30 {
+                if recognizer.state == .ended { recentWord=""; openPro6Continuation() }
+                return
+            }
+        }
         switch recognizer.state {
         case .began:
             cursorSteps = 0
@@ -394,6 +422,7 @@ extension KeyboardViewController {
             fullGlideOptions = []
         }
         lastWordReplacement = nil
+        pro6LastCorrectionDocument=nil;pro6LastCorrectionAnchor=nil
         // Once the user starts composing, do not analyze stale clipboard text.
         selectedText = ""
         if suggestionContainer != nil { clearSuggestions() }

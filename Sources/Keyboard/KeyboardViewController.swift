@@ -63,6 +63,24 @@ final class KeyboardViewController: UIInputViewController {
     var learnedWordFlushWork: DispatchWorkItem?
     var learnedWordDirty = false
     var recentWord = ""
+    var typingPro6 = TypingProPreferences.current
+    var pro6Feedback = TypingProFeedback()
+    var pro6LastCorrectionDocument: UUID?
+    var pro6LastCorrectionAnchor: String?
+    var pro6Popup: UILabel?
+    var pro6PopupWork: DispatchWorkItem?
+    var pro6RepeatWork: DispatchWorkItem?
+    var pro6DeleteAnchor: String?
+    var pro6DeleteAfter: String?
+    var pro6DeleteDocument: UUID?
+    var pro6DeleteCount = 0
+    weak var pro6DeletePanRecognizer: UIPanGestureRecognizer?
+    var pro6LastSpace: (document: UUID, before: String, time: Date)?
+    var pro6LastShift: Date?
+    var pro6TouchOffsets: [String: Double] = [:]
+    var pro6CustomActions: [String: String] = [:]
+    var pro6Language: BilingualComposer.Preference?
+    var pro6FeedbackRevision = ""
     var phraseModel=PersonalPhraseModel()
     var phraseRevision=""
     var phraseDocument:UUID?
@@ -94,6 +112,10 @@ final class KeyboardViewController: UIInputViewController {
             words.insert(suffix, at: 0)
         }
         let personalized=personalPhraseSuggestions(context:anchor).filter{useSentenceSuggestions || !$0.contains(" ")}
+        if typingPro6.contextualEmoji {
+            let last = PersonalPhraseModel.context(anchor).last ?? ""
+            words += TypingProText.emoji(last).filter { !words.contains($0) }
+        }
         words=personalized+words.filter{!personalized.contains($0)}
         guard !words.isEmpty else { updateCandidates(); return }
         nextWordAnchor = anchor
@@ -179,6 +201,13 @@ final class KeyboardViewController: UIInputViewController {
     func refreshTypingPreferences() {
         offlineConfig = OfflineKeyboardConfig.current
         proPrivate = KeyboardSettings.privateTypingMode
+        typingPro6 = TypingProPreferences.current
+        pro6DeletePanRecognizer?.isEnabled=typingPro6.backspacePan
+        pro6FeedbackRevision = TypingProFeedback.revision
+        pro6Feedback = proPrivate ? TypingProFeedback() : TypingProFeedback.current
+        pro6TouchOffsets = proPrivate ? [:] : TypingProCustomization.offsets
+        pro6CustomActions = TypingProCustomization.actions
+        pro6LastSpace = nil; pro6LastShift = nil; pro6Language = nil
         offlineSnippets = proPrivate ? [] : OfflineProStore.snippets
         proHangulLast = nil; proHangulDocument = nil
         if proPrivate { proHistory.clear() }
@@ -264,6 +293,7 @@ final class KeyboardViewController: UIInputViewController {
         commitPhraseWord(boundary:"\n")
         flushPhraseLearning()
         finishProSession()
+        clearPro6Transient()
         proHistory.clear(); proHangulLast = nil; proHangulDocument = nil
         proSoundPlayer?.stop(); proSoundPlayer = nil
         clearProParticles()

@@ -7,10 +7,15 @@ import UIKit
 /// or silently replace the user's intended character.
 final class AdaptiveKeyButton: UIButton {
     var horizontalHitExpansion: CGFloat = 0
+    var calibrationOffset: CGFloat = 0
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         guard !isHidden, isEnabled, alpha > 0.01 else { return false }
         let expansion = max(0, min(4, horizontalHitExpansion))
-        return bounds.insetBy(dx: -expansion, dy: 0).contains(point)
+        // Never shrink the visible key or reach into its neighbor.
+        let shift=max(-expansion,min(expansion,calibrationOffset))
+        let left=max(0,expansion+min(0,shift))
+        let right=max(0,expansion-max(0,shift))
+        return CGRect(x:bounds.minX-left,y:bounds.minY,width:bounds.width+left+right,height:bounds.height).contains(point)
     }
 }

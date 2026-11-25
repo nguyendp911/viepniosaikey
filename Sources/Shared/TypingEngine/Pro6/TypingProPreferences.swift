@@ -38,6 +38,7 @@ struct TypingProFeedback: Codable, Equatable {
     private(set) var rejected = 0
     private(set) var savedKeys = 0
     static let key = "viepnaikey.typingPro6.feedback"
+    static var revision:String { KeyboardSettings.defaults.string(forKey:key+".revision") ?? "initial" }
     static var current: Self {
         get {
             guard !KeyboardSettings.privateTypingMode, let data = KeyboardSettings.defaults.data(forKey:key),
@@ -46,7 +47,7 @@ struct TypingProFeedback: Codable, Equatable {
         }
         set { if !KeyboardSettings.privateTypingMode, let data = try? JSONEncoder().encode(newValue) { KeyboardSettings.defaults.set(data,forKey:key) } }
     }
-    static func clear() { KeyboardSettings.defaults.removeObject(forKey:key) }
+    static func clear() { KeyboardSettings.defaults.set(UUID().uuidString,forKey:key+".revision");KeyboardSettings.defaults.removeObject(forKey:key) }
     static func valid(_ word:String) -> Bool {
         (1...24).contains(word.count) && word.allSatisfy(\.isLetter) && PersonalPhraseModel.token(word) != nil
     }
@@ -56,18 +57,18 @@ struct TypingProFeedback: Codable, Equatable {
         let index=pairs.firstIndex{$0.source==a && $0.target==b}
         var pair=index.map{pairs.remove(at:$0)} ?? Pair(source:a,target:b)
         if accept {
-            pair.accepted=min(1000,max(0,pair.accepted)+1)
-            accepted=min(1_000_000,max(0,accepted)+1)
-            savedKeys=min(1_000_000,max(0,savedKeys)+max(0,b.count-a.count))
+            pair.accepted=min(1000,max(0,min(1000,pair.accepted))+1)
+            accepted=min(1_000_000,max(0,min(1_000_000,accepted))+1)
+            savedKeys=min(1_000_000,max(0,min(1_000_000,savedKeys))+max(0,b.count-a.count))
         } else {
-            pair.rejected=min(1000,max(0,pair.rejected)+1)
-            rejected=min(1_000_000,max(0,rejected)+1)
+            pair.rejected=min(1000,max(0,min(1000,pair.rejected))+1)
+            rejected=min(1_000_000,max(0,min(1_000_000,rejected))+1)
         }
         pairs.insert(pair,at:0);pairs=Array(pairs.prefix(240))
     }
     func preferred(_ source:String,minimum:Int)->[String] {
         pairs.filter{$0.source==source.lowercased() && Self.valid($0.target) && $0.accepted >= minimum && $0.accepted > $0.rejected}
-            .sorted{($0.accepted-$0.rejected)>($1.accepted-$1.rejected)}.map(\.target)
+            .sorted{(min(1000,max(0,$0.accepted))-min(1000,max(0,$0.rejected)))>(min(1000,max(0,$1.accepted))-min(1000,max(0,$1.rejected)))}.map(\.target)
     }
     func rejects(_ source:String,_ target:String)->Bool {
         pairs.contains{$0.source==source.lowercased() && $0.target==target.lowercased() && $0.rejected>0 && $0.rejected >= $0.accepted}

@@ -141,6 +141,11 @@ extension KeyboardViewController {
                 let gesture = UILongPressGestureRecognizer(target: self, action: #selector(deleteWordGesture(_:)))
                 gesture.minimumPressDuration = 0.45
                 delete.addGestureRecognizer(gesture)
+                let deletePan=UIPanGestureRecognizer(target:self,action:#selector(pro6DeletePanned(_:)))
+                deletePan.isEnabled=typingPro6.backspacePan
+                deletePan.maximumNumberOfTouches=1
+                delete.addGestureRecognizer(deletePan)
+                pro6DeletePanRecognizer=deletePan
                 delete.accessibilityHint = "Nhấn giữ để xóa từ"
                 row.addArrangedSubview(delete)
             }
@@ -371,6 +376,10 @@ extension KeyboardViewController {
             ? CGFloat(min(4, KeyboardSettings.keySpacing / 2)) : 0
         for button in letterButtons {
             (button as? AdaptiveKeyButton)?.horizontalHitExpansion = premiumPreferences.dynamicTouch ? min(width, 1) : width
+            if let adaptive=button as? AdaptiveKeyButton {
+                let title=button.title(for:.normal)?.lowercased() ?? ""
+                adaptive.calibrationOffset = typingPro6.touchCalibration && adaptiveTouchEnabled && !proPrivate ? CGFloat(pro6TouchOffsets[title] ?? 0) : 0
+            }
         }
     }
 

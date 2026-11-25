@@ -101,7 +101,8 @@ extension KeyboardViewController {
     }
     @objc func proAlternateHeld(_ gesture:UILongPressGestureRecognizer) {
         guard gesture.state == .began,let button=gesture.view as? UIButton,let text=button.title(for:.normal)else{return}
-        let values=[text,proAlternate(text,direction:.up),proAlternate(text,direction:.down),proAlternate(text,direction:.left),proAlternate(text,direction:.right)]
+        var values=[text,proAlternate(text,direction:.up),proAlternate(text,direction:.down),proAlternate(text,direction:.left),proAlternate(text,direction:.right)]
+        if let custom=pro6CustomActions[text.lowercased()],!custom.isEmpty { values.append(custom) }
         let (stack,palette)=premiumPanel(title:"Ký tự thay thế")
         for value in Array(Set(values)).sorted() {
             stack.addArrangedSubview(premiumKey(value,palette:palette){[weak self] in self?.closeIntelligenceHub();self?.insertProExplicit(value)})
