@@ -79,7 +79,7 @@ extension KeyboardViewController {
             self.phrasePendingDocument=self.phraseDocument
         }
         phraseIdleWork=job
-        DispatchQueue.main.asyncAfter(deadline:.now()+.milliseconds(180),execute:job)
+        DispatchQueue.main.asyncAfter(deadline:.now() + .milliseconds(180),execute:job)
     }
     func learnPhraseAfterHostClear() {
         guard let words=phrasePendingWords else{return}
@@ -98,7 +98,7 @@ extension KeyboardViewController {
         phraseSaveWork?.cancel()
         let job=DispatchWorkItem{[weak self] in self?.flushPhraseLearning()}
         phraseSaveWork=job
-        DispatchQueue.main.asyncAfter(deadline:.now()+.seconds(3),execute:job)
+        DispatchQueue.main.asyncAfter(deadline:.now() + .seconds(3),execute:job)
     }
     func flushPhraseLearning() {
         phraseSaveWork?.cancel();phraseSaveWork=nil
