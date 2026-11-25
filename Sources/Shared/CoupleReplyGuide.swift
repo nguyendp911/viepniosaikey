@@ -176,7 +176,21 @@ enum CoupleLocalEngine {
             .components(separatedBy:CharacterSet.letters.inverted).filter{!$0.isEmpty}.joined(separator:" ")
     }
     static func hasPhrase(_ text:String,_ phrase:String)->Bool {
-        (" "+normalize(text)+" ").contains(" "+normalize(phrase)+" ")
+        func tokens(_ value:String)->[String] {
+            value.lowercased().precomposedStringWithCanonicalMapping.components(separatedBy:CharacterSet.letters.inverted).filter{!$0.isEmpty}
+        }
+        let source=tokens(text),pattern=tokens(phrase)
+        guard !pattern.isEmpty,source.count>=pattern.count else{return false}
+        for start in 0...(source.count-pattern.count) {
+            let matched=zip(source[start..<(start+pattern.count)],pattern).allSatisfy { actual, expected in
+                if actual==expected{return true}
+                // Accept missing marks, never confuse explicitly marked words
+                // such as bạn/bận, nghỉ/nghĩ, or yêu/yếu.
+                return (actual.unicodeScalars.allSatisfy{$0.value<128} || expected.unicodeScalars.allSatisfy{$0.value<128}) && normalize(actual)==normalize(expected)
+            }
+            if matched{return true}
+        }
+        return false
     }
     // Last explicitly labeled incoming message is the target. Unlabeled text
     // uses the last nonempty line. Earlier context never overrides a clear target.

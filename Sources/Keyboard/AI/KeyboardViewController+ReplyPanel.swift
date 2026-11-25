@@ -209,6 +209,9 @@ extension KeyboardViewController {
         if !items.contains(answer) {
             items.insert(answer, at: 0)
             KeyboardSettings.favoriteReplies = items
+            if CoupleReplyGuide.isEnabled {
+                CouplePersonalDNA.record(answer,style:KeyboardSettings.coupleStyle)
+            }
         }
         showStatus("✓ Đã lưu vào thư viện câu trả lời")
     }
