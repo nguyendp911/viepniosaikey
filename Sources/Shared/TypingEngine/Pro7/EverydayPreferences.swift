@@ -38,7 +38,7 @@ struct EverydayPreferences: Codable, Equatable {
 enum EverydayLanguage {
     static let abbreviations:[String:String]=["ko":"không","k":"không","hk":"không","dc":"được","đc":"được","iu":"yêu","nt":"nhắn tin","rep":"trả lời","vs":"với","mn":"mọi người","mk":"mình","bn":"bạn"]
     static let regionWords:[String:[String]]=["north":["vâng","nhỉ","thế","chả","bảo","bát","ngõ"],"central":["răng","rứa","mô","tê","ri","chi","nỏ"],"south":["nè","hen","hén","hông","bển","tui","nghen","quẹo","chén"]]
-    static let mistakes:[String:[String]]=["sữ":["sửa"],"xữa":["sữa","sửa"],"chãi":["trải"],"trãi":["trải"],"giử":["giữ"],"nghĩa":["nghĩa"],"xắp":["sắp"],"chắc":["chắc"],"dỡ":["dỡ","giỡ"],"lẩn":["lẫn"],"nghỉ":["nghĩ","nghỉ"],"ngĩ":["nghĩ"],"chuyễn":["chuyển"],"chuyễn":["chuyển"],"nhiểu":["nhiều"],"khoẻ":["khỏe"]]
+    static let mistakes:[String:[String]]=["sữ":["sửa"],"xữa":["sữa","sửa"],"chãi":["trải"],"trãi":["trải"],"giử":["giữ"],"nghĩa":["nghĩa"],"xắp":["sắp"],"chắc":["chắc"],"dỡ":["dỡ","giỡ"],"lẩn":["lẫn"],"nghỉ":["nghĩ","nghỉ"],"ngĩ":["nghĩ"],"chuyễn":["chuyển"],"nhiểu":["nhiều"],"khoẻ":["khỏe"]]
     static func spell(_ word:String,known:Set<String>)->[String] {
         let w=word.lowercased();guard (2...24).contains(w.count),w.allSatisfy(\.isLetter) else{return []}
         var options=mistakes[w] ?? []
@@ -97,5 +97,6 @@ struct EverydayTouchMap:Codable {
         }
         set {if !KeyboardSettings.privateTypingMode,let data=try? JSONEncoder().encode(newValue){KeyboardSettings.defaults.set(data,forKey:"viepnaikey.everyday7.heatmap")}}
     }
-    static func clear(){KeyboardSettings.defaults.removeObject(forKey:"viepnaikey.everyday7.heatmap")}
+    static var revision:String {KeyboardSettings.defaults.string(forKey:"viepnaikey.everyday7.heatmap.revision") ?? "initial"}
+    static func clear(){KeyboardSettings.defaults.set(UUID().uuidString,forKey:"viepnaikey.everyday7.heatmap.revision");KeyboardSettings.defaults.removeObject(forKey:"viepnaikey.everyday7.heatmap")}
 }

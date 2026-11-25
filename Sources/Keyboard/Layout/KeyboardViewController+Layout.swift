@@ -61,6 +61,9 @@ extension KeyboardViewController {
         candidateScroll.isHidden = !useSuggestions
         candidateScroll.heightAnchor.constraint(equalToConstant: 35).isActive = true
         candidateScroll.addSubview(candidateBar)
+        let expand=UISwipeGestureRecognizer(target:self,action:#selector(everydayExpandTapped))
+        expand.direction = .up;expand.isEnabled=everyday7.expandedBar
+        candidateScroll.addGestureRecognizer(expand);everydayExpandGesture=expand
         candidateBar.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             candidateBar.leadingAnchor.constraint(equalTo: candidateScroll.contentLayoutGuide.leadingAnchor),
@@ -205,6 +208,10 @@ extension KeyboardViewController {
 
     func keyButton(_ title: String, action: Selector) -> UIButton {
         let button = AdaptiveKeyButton(type: .system)
+        button.everydayTouch = { [weak self,weak button] point in
+            guard let self,let button,self.everyday7.heatmap,!self.proPrivate,self.letterButtons.contains(button) else{return}
+            self.recordEverydayTouch(button.convert(point,to:self.view))
+        }
         button.setTitle(title, for: .normal)
         button.setTitleColor(.label, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
@@ -350,11 +357,17 @@ extension KeyboardViewController {
     func updateAdaptiveLayout() {
         let spacing = CGFloat(KeyboardSettings.keySpacing)
         let height = CGFloat(KeyboardSettings.keyHeight)
-        for row in letterRows { row.spacing = spacing }
-        secondaryRow?.spacing = spacing
-        for constraint in keyHeightConstraints { constraint.constant = height }
+        let config=everyday7.normalized
+        let landscape=config.geometry && isEverydayLandscape
+        for (index,row) in letterRows.enumerated() {
+            row.spacing=config.geometry && index<3 ? CGFloat(config.rowSpacing[index]) : spacing
+        }
+        secondaryRow?.spacing=config.geometry ? CGFloat(config.rowSpacing[3]) : spacing
+        for constraint in keyHeightConstraints { constraint.constant = landscape ? CGFloat(config.landscapeHeight) : height }
         proNumberRow?.spacing = spacing
-        let side = min(56, max(38, view.bounds.width * 0.12))
+        let defaultSide = min(56, max(38, view.bounds.width * 0.12))
+        let desired=CGFloat(landscape ? config.landscapeWidth : config.portraitWidth)/100
+        let side=config.geometry ? max(4,min(view.bounds.width-290,view.bounds.width*(1-desired))) : defaultSide
         switch KeyboardSettings.oneHandMode {
         case "left":
             keyboardLeadingConstraint?.constant = 4
@@ -363,8 +376,8 @@ extension KeyboardViewController {
             keyboardLeadingConstraint?.constant = side
             keyboardTrailingConstraint?.constant = -4
         default:
-            keyboardLeadingConstraint?.constant = 4
-            keyboardTrailingConstraint?.constant = -4
+            keyboardLeadingConstraint?.constant = landscape ? side/2+4 : 4
+            keyboardTrailingConstraint?.constant = landscape ? -side/2-4 : -4
         }
         updateKeyboardHeight()
     }
@@ -375,7 +388,8 @@ extension KeyboardViewController {
         let width = adaptiveTouchEnabled
             ? CGFloat(min(4, KeyboardSettings.keySpacing / 2)) : 0
         for button in letterButtons {
-            (button as? AdaptiveKeyButton)?.horizontalHitExpansion = premiumPreferences.dynamicTouch ? min(width, 1) : width
+            let gap=everyday7.geometry ? min(width,((button.superview as? UIStackView)?.spacing ?? 0)/2) : width
+            (button as? AdaptiveKeyButton)?.horizontalHitExpansion = premiumPreferences.dynamicTouch ? min(gap, 1) : gap
             if let adaptive=button as? AdaptiveKeyButton {
                 let title=button.title(for:.normal)?.lowercased() ?? ""
                 adaptive.calibrationOffset = typingPro6.touchCalibration && adaptiveTouchEnabled && !proPrivate ? CGFloat(pro6TouchOffsets[title] ?? 0) : 0
@@ -385,7 +399,8 @@ extension KeyboardViewController {
 
     func updateKeyboardHeight() {
         // No permanently reserved blank AI area.
-        let base: CGFloat = 240 + CGFloat(KeyboardSettings.keyHeight - 43) * 4
+        let effectiveHeight=everyday7.geometry && isEverydayLandscape ? everyday7.landscapeHeight : KeyboardSettings.keyHeight
+        let base: CGFloat = 240 + CGFloat(effectiveHeight - 43) * 4
         heightConstraint?.constant = base + 61 + CGFloat(lastToolbarLayout?.height ?? 44) - 37 - 14 +
             (offlineConfig.numberRow ? 38 : 0) +
             (statusLabel.isHidden ? 0 : 22) +

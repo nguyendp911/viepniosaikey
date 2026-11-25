@@ -8,6 +8,11 @@ import UIKit
 final class AdaptiveKeyButton: UIButton {
     var horizontalHitExpansion: CGFloat = 0
     var calibrationOffset: CGFloat = 0
+    var everydayTouch:((CGPoint)->Void)?
+    override func touchesBegan(_ touches:Set<UITouch>,with event:UIEvent?) {
+        if let point=touches.first?.location(in:self){everydayTouch?(point)}
+        super.touchesBegan(touches,with:event)
+    }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         guard !isHidden, isEnabled, alpha > 0.01 else { return false }

@@ -51,7 +51,7 @@ struct PersonalPhraseModel: Codable {
             $0.key.count <= 224 && (2...9).contains($0.key.split(separator:" ").count) && Self.safe($0.key.split(separator:" ").map(String.init))
         }.sorted {
             if ($0.value.pinned == true) != ($1.value.pinned == true) {return $0.value.pinned == true}
-            let a=Double($0.value.count*10)-Double(day)+Double($0.value.day), b=Double($1.value.count*10-Double(day)+Double($1.value.day)
+            let a=Double($0.value.count*10)-Double(day)+Double($0.value.day), b=Double($1.value.count*10)-Double(day)+Double($1.value.day)
             return a==b ? $0.key<$1.key : a>b
         }.prefix(Self.maximum).map{($0.key,$0.value)})
     }
@@ -166,7 +166,13 @@ enum PersonalPhraseStore {
     static func save(_ model:PersonalPhraseModel,revision expected:String) {
         _ = locked {
             guard expected==revision,!KeyboardSettings.privateTypingMode,KeyboardSettings.autoLearnWords else{return false}
-            if let data=readData(),let envelope=try? JSONDecoder().decode(Envelope.self,from:data),envelope.revision != expected{return false}
+            if let data=readData() {
+                guard let envelope=try? JSONDecoder().decode(Envelope.self,from:data),envelope.revision==expected else{return false}
+            } else {
+                #if os(iOS)
+                if let url,FileManager.default.fileExists(atPath:url.path){return false}
+                #endif
+            }
             return write(model,revision:expected)
         }
     }
@@ -174,7 +180,15 @@ enum PersonalPhraseStore {
     @discardableResult static func modify(_ change:(inout PersonalPhraseModel)->Bool)->Bool {
         locked {
             guard !KeyboardSettings.privateTypingMode else{return false}
-            var model=readForManagement()
+            var model=PersonalPhraseModel()
+            if let data=readData() {
+                guard let stored=try? JSONDecoder().decode(Envelope.self,from:data),stored.revision==revision else{return false}
+                model=stored.model;model.prune()
+            } else {
+                #if os(iOS)
+                if let url,FileManager.default.fileExists(atPath:url.path){return false}
+                #endif
+            }
             guard change(&model) else{return false}
             let next=UUID().uuidString
             guard write(model,revision:next) else{return false}

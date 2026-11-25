@@ -59,6 +59,8 @@ extension KeyboardViewController {
     }
 
     func tactileFeedback() {
+        // A separately selected silent profile never overwrites prior sound or haptic preferences.
+        guard !everyday7.silent else{return}
         if !performanceMode {
             if offlineConfig.sound == "custom" {
                 proSoundPlayer?.currentTime = 0

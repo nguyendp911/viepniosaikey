@@ -86,9 +86,10 @@ extension KeyboardViewController {
                 // One transformation step, not O(word length²) replay.
                 let nextTelex = BilingualComposer.appendCandidate(
                     telexCandidateWord, key: key)
-                let newWord = BilingualComposer.choose(
+                let decision = BilingualComposer.choose(
                     raw: rawNext, vietnameseCandidate: nextTelex,
-                    preference: preference).rendered
+                    preference: preference)
+                let newWord = decision.language == "vi" ? EverydayLanguage.accent(decision.rendered,style:everyday7.accentStyle) : decision.rendered
                 if let edit = FastTyping.edit(from: displayedComposingWord, to: newWord) {
                     if edit.deleteCount > 0 {
                         let current = textDocumentProxy.documentContextBeforeInput ?? ""
@@ -153,7 +154,8 @@ extension KeyboardViewController {
            let before = textDocumentProxy.documentContextBeforeInput {
             let word = String(before.reversed().prefix(while: { $0.isLetter }).reversed())
             if !word.isEmpty,
-               let converted = VietnameseVNI.transformed(word: word, key: key),
+               let canonical = VietnameseVNI.transformed(word: word, key: key),
+               case let converted = EverydayLanguage.accent(canonical,style:everyday7.accentStyle),
                let edit = FastTyping.edit(from: word, to: converted) {
                 for _ in 0..<edit.deleteCount { textDocumentProxy.deleteBackward() }
                 if !edit.insertion.isEmpty { textDocumentProxy.insertText(edit.insertion) }
@@ -187,6 +189,11 @@ extension KeyboardViewController {
         beginTyping()
         tactileFeedback()
         if typingPro6.doubleSpace, applyPro6DoubleSpace() { return }
+        if everyday7.preventSpaces && !typingPro6.doubleSpace,
+           (textDocumentProxy.selectedText?.isEmpty ?? true),
+           textDocumentProxy.documentContextBeforeInput?.last == " " {
+            recentWord="";showNextWords();return
+        }
         // Space-triggered text expansions must never rewrite text when a
         // selection is active or the insertion point lies inside another word.
         if (textDocumentProxy.selectedText?.isEmpty ?? true),
@@ -269,8 +276,9 @@ extension KeyboardViewController {
             let preference: BilingualComposer.Preference =
                 useSmartBilingual ? (pro6Language ?? bilingualPreference) : .vietnamese
             let priorRaw = String(rawComposingWord.dropLast())
-            let prior = BilingualComposer.removingLastKey(
-                from: rawComposingWord, preference: preference).rendered
+            let priorDecision = BilingualComposer.removingLastKey(
+                from: rawComposingWord, preference: preference)
+            let prior=priorDecision.language=="vi" ? EverydayLanguage.accent(priorDecision.rendered,style:everyday7.accentStyle) : priorDecision.rendered
             if let edit = FastTyping.edit(from: displayedComposingWord, to: prior) {
                 // A multi-character rewrite is only safe if the host still
                 // ends with the exact word this keyboard previously inserted.
@@ -371,6 +379,13 @@ extension KeyboardViewController {
             return
         }
         let space = recognizer.view
+        if everyday7.liveCompletion && !typingPro6.spaceUp {
+            let delta=recognizer.translation(in:space)
+            if abs(delta.y)>abs(delta.x),delta.y < -30 {
+                if recognizer.state == .ended { acceptEverydayCompletion() }
+                return
+            }
+        }
         if typingPro6.spaceUp {
             let delta=recognizer.translation(in:space)
             if abs(delta.y)>abs(delta.x),delta.y < -30 {

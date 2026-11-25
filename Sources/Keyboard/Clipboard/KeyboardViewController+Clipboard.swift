@@ -37,7 +37,7 @@ extension KeyboardViewController {
             self?.showStatus("Đã xóa clipboard được lưu trong ViePN")
         }
         paste.menu = UIMenu(title: "Clipboard cá nhân",
-                            children: [save, history, clear])
+                            children: [save, history, clear, UIAction(title:"Xem trước & dán",image:UIImage(systemName:"doc.on.clipboard")){[weak self] _ in self?.everydayPastePreview()}])
         paste.showsMenuAsPrimaryAction = false
         paste.accessibilityHint = "Chạm để Dán; nhấn giữ để lưu, chọn hoặc xóa clipboard."
     }

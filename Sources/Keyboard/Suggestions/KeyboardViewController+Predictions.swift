@@ -5,6 +5,7 @@ import Vision
 extension KeyboardViewController {
     func updateCandidates(_ override: [String]? = nil) {
         learnedPhraseChoices=[:];learnedPhraseAnchor=nil;learnedPhraseDocument=nil
+        if override == nil {everydayCompletionLabel=nil}
         if override == nil {
             nextWordAnchor = nil
             nextWordDocument = nil
@@ -48,6 +49,7 @@ extension KeyboardViewController {
         let phraseSnapshot = phraseEnabled ? phraseModel : PersonalPhraseModel()
         let phraseVersion = phraseRevision
         let pro6 = typingPro6
+        let pro7=everyday7
         let feedback = !proPrivate && pro6.corrections ? pro6Feedback : TypingProFeedback()
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
@@ -86,6 +88,10 @@ extension KeyboardViewController {
                 if pro6.contextualEmoji && wordSuggestionsEnabled {
                     results += TypingProText.emoji(word).filter{!results.contains($0)}
                 }
+                if wordSuggestionsEnabled && (pro7.abbreviations || pro7.spellCheck || pro7.regional != "all") {
+                    let local=EverydayLanguage.candidates(word:word,preferences:pro7,known:SmartTyping.vietnameseSet)
+                    results=[word]+local+results.filter{$0 != word && !local.contains($0)}
+                }
                 let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2,minimum:max(2,min(5,pro6.confidence)))
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
@@ -103,6 +109,7 @@ extension KeyboardViewController {
                             labels.append(label)
                         }
                         self.learnedPhraseAnchor=phraseContext;self.learnedPhraseDocument=phraseDocument
+                        self.everydayCompletionLabel=pro7.liveCompletion ? labels.first(where:{$0.contains(" ")}) : nil
                         let rest=results.filter{!labels.contains($0) && $0 != word}
                         results=[word]+labels+rest
                     }
@@ -126,7 +133,8 @@ extension KeyboardViewController {
             && fullGlideOptions.count > results.count
         if results == candidateWords,
            candidateScroll.isHidden == shouldHide,
-           (candidateExpandButton?.isHidden ?? true) == !needsExpand { return }
+           (candidateExpandButton?.isHidden ?? true) == !needsExpand,
+           !everyday7.liveCompletion { return }
 
         candidateWords = results
         if candidateScroll.isHidden != shouldHide {
@@ -156,10 +164,13 @@ extension KeyboardViewController {
             let visible = index < results.count
             if visible {
                 let word = results[index]
-                if button.title(for: .normal) != word {
-                    button.setTitle(word, for: .normal)
+                let ghost=everyday7.liveCompletion && word==everydayCompletionLabel
+                let title=ghost ? "… "+word : word
+                if button.title(for: .normal) != title {
+                    button.setTitle(title, for: .normal)
                     button.accessibilityLabel = "Chọn từ " + word
                 }
+                button.alpha=ghost ? 0.72 : 1
             }
             if button.isHidden == visible {
                 button.isHidden = !visible

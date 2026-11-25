@@ -64,6 +64,14 @@ final class KeyboardViewController: UIInputViewController {
     var learnedWordDirty = false
     var recentWord = ""
     var typingPro6 = TypingProPreferences.current
+    var everyday7=EverydayPreferences.current
+    var everydayHeatmap=EverydayTouchMap()
+    var everydayHeatmapDirty=false
+    var everydayGeometryWidth:CGFloat = -1
+    var everydayLandscape=false
+    weak var everydayExpandGesture:UISwipeGestureRecognizer?
+    var everydayCompletionLabel:String?
+    var everydayHeatmapRevision=""
     var pro6Feedback = TypingProFeedback()
     var pro6LastCorrectionDocument: UUID?
     var pro6GlideDocument: UUID?
@@ -119,6 +127,7 @@ final class KeyboardViewController: UIInputViewController {
             words += TypingProText.emoji(last).filter { !words.contains($0) }
         }
         words=personalized+words.filter{!personalized.contains($0)}
+        everydayCompletionLabel=everyday7.liveCompletion && useSentenceSuggestions ? personalized.first(where:{$0.contains(" ")}) : nil
         guard !words.isEmpty else { updateCandidates(); return }
         nextWordAnchor = anchor
         nextWordDocument = textDocumentProxy.documentIdentifier
@@ -204,6 +213,12 @@ final class KeyboardViewController: UIInputViewController {
         offlineConfig = OfflineKeyboardConfig.current
         proPrivate = KeyboardSettings.privateTypingMode
         typingPro6 = TypingProPreferences.current
+        everyday7=EverydayPreferences.current
+        everydayHeatmapRevision=EverydayTouchMap.revision
+        everydayHeatmap=everyday7.heatmap && !proPrivate ? EverydayTouchMap.current : EverydayTouchMap()
+        everydayHeatmapDirty=false
+        everydayExpandGesture?.isEnabled=everyday7.expandedBar
+        everydayGeometryWidth = -1
         pro6DeletePanRecognizer?.isEnabled=typingPro6.backspacePan
         pro6FeedbackRevision = TypingProFeedback.revision
         pro6Feedback = proPrivate ? TypingProFeedback() : TypingProFeedback.current
@@ -296,6 +311,8 @@ final class KeyboardViewController: UIInputViewController {
         flushPhraseLearning()
         finishProSession()
         clearPro6Transient()
+        flushEverydayHeatmap()
+        everydayCompletionLabel=nil
         proHistory.clear(); proHangulLast = nil; proHangulDocument = nil
         proSoundPlayer?.stop(); proSoundPlayer = nil
         clearProParticles()
@@ -357,6 +374,10 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        if everyday7.geometry && (abs(view.bounds.width-everydayGeometryWidth)>1 || everydayLandscape != isEverydayLandscape) {
+            everydayGeometryWidth=view.bounds.width;everydayLandscape=isEverydayLandscape
+            updateAdaptiveLayout();updateAdaptiveTouchTargets()
+        }
         view.layer.sublayers?.first(where: { $0.name == "viepn.aurora" })?.frame = view.bounds
         proWallpaperLayer?.frame = view.bounds
         refreshToolbarLayout()
