@@ -18,6 +18,12 @@ struct VerifyBilingualComposer {
         check("too", "too")
         check("book", "book")
         check("boo", "boo")
+        check("Too", "Too")
+        check("Boo", "Boo")
+        check("too", "tô", .vietnamese)
+        check("boo", "bô", .vietnamese)
+        check("boof", "bồ")
+        check("toos", "tố")
         check("boos", "bố")
         check("coong", "công")
         check("store", "store")
@@ -113,6 +119,7 @@ struct VerifyBilingualComposer {
         }
         for (raw, expected) in [
             ("tooi", "tôi"), ("tool", "tool"), ("store", "store"),
+            ("too", "too"), ("boo", "boo"), ("boof", "bồ"), ("toos", "tố"),
             ("thuongw", "thương"), ("thuongwf", "thường"),
             ("vieets", "viết"), ("banf", "bàn"),
             ("book", "book"), ("thanks", "thanks")

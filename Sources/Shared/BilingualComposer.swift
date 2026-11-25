@@ -53,6 +53,13 @@ enum BilingualComposer {
         if SmartTyping.isEnglishWord(lower) {
             return Decision(rendered: raw, language: "en")
         }
+        // A doubled vowel alone is not enough evidence to change a live
+        // English prefix into a Vietnamese syllable (e.g. boo -> bô).
+        // Keep the independent Telex candidate for the next physical key.
+        if SmartTyping.isEnglishPrefix(lower),
+           ["aa","ee","oo"].contains(where: { lower.hasSuffix($0) }) {
+            return Decision(rendered: raw, language: "en-prefix")
+        }
         // Vietnamese completed words beat ambiguous English prefixes,
         // e.g. too + i -> tôi, but too + l -> tool.
         if vi != raw && SmartTyping.isVietnameseWord(vi) {

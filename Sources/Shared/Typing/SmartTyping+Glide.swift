@@ -105,9 +105,12 @@ extension SmartTyping {
             if a != b { return a < b }
             let fa = learned[$0] ?? 0, fb = learned[$1] ?? 0
             if fa != fb { return fa > fb }
-            // Preserve the dictionary order for equally plausible tones:
-            // common Vietnamese variants remain available for manual choice.
-            return false
+            // Expanded syllable inventory must not displace established
+            // common candidates merely because several rare tones tie.
+            let coreA = coreVietnameseSet.contains($0) || englishSet.contains($0)
+            let coreB = coreVietnameseSet.contains($1) || englishSet.contains($1)
+            if coreA != coreB { return coreA }
+            return $0 < $1
         }.filter { seen.insert($0).inserted }.prefix(limit))
     }
 
