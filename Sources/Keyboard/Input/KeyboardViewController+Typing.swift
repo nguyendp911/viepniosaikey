@@ -9,6 +9,7 @@ extension KeyboardViewController {
         beginTyping()
         resetProHangul()
         guard let character = sender.title(for: .normal) else { return }
+        commitPhraseWord(boundary:character)
         tactileFeedback()
         resetBilingualComposition()
         textDocumentProxy.insertText(character)
@@ -46,6 +47,7 @@ extension KeyboardViewController {
         beginTyping()
         recordPremiumTouch(sender)
         let key = isUppercase && !isNumbers ? title.uppercased() : title
+        beginPhraseKey(key)
 
         if !isNumbers && typingMode == "telex" && telexEnabled,
            key.count == 1, key.first?.isLetter == true {
@@ -167,6 +169,7 @@ extension KeyboardViewController {
     }
 
     @objc func spaceTapped() {
+        commitPhraseWord(boundary:" ")
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
         resetProHangul()
@@ -224,6 +227,7 @@ extension KeyboardViewController {
         }
     }
     @objc func returnTapped() {
+        commitPhraseWord(boundary:"\n")
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
         resetProHangul()
@@ -284,6 +288,7 @@ extension KeyboardViewController {
 
     @objc func deleteWordGesture(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
+        resetPhraseContext()
         let snapshot = proSnapshot()
         defer { recordProEdit(snapshot) }
         resetProHangul()
@@ -326,7 +331,7 @@ extension KeyboardViewController {
     }
 
     @objc func spaceCursorPanned(_ recognizer: UIPanGestureRecognizer) {
-        if recognizer.state == .began { resetBilingualComposition(); resetProHangul(); proHistory.clear(); cancelAIRequest(); studioEdit = nil }
+        if recognizer.state == .began { resetPhraseContext(); resetBilingualComposition(); resetProHangul(); proHistory.clear(); cancelAIRequest(); studioEdit = nil }
         if premiumPreferences.spaceGesture != "cursor" {
             if recognizer.state == .ended {
                 let delta = recognizer.translation(in: recognizer.view)

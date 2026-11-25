@@ -95,14 +95,17 @@ extension ContentView {
                         cloudEnabled = KeyboardSettings.allowCloudAI
                     }
                 keyboardDivider()
-                keyboardToggleRow("Ghi nhớ từ đã gõ (trên máy)",
+                keyboardToggleRow("Học từ và cụm từ đã gõ (trên máy)",
                                   symbol: "book.closed", isOn: $autoLearnWords)
                     .onChange(of: autoLearnWords) { KeyboardSettings.autoLearnWords = $0 }
+                Text("Học cụm từ 2–9 tiếng từ nội dung bạn tự gõ; sau ít nhất hai lần lặp, ưu tiên gợi ý phần còn thiếu. Không gửi mạng. Chế độ riêng tư dừng học và gợi ý cá nhân. Không học mã số; bộ lọc không thể nhận diện mọi bí mật.")
+                    .font(.system(size: 11)).foregroundStyle(muted)
                 if autoLearnWords {
                     Button(role: .destructive) {
                         KeyboardSettings.learnedWords = [:]
+                        PersonalPhraseStore.clear()
                     } label: {
-                        Label("Xóa từ cá nhân đã học", systemImage: "trash")
+                        Label("Xóa từ và cụm từ đã học", systemImage: "trash")
                             .font(.system(size: 11))
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)

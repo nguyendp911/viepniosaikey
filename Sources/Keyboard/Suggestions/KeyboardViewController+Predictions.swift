@@ -43,6 +43,11 @@ extension KeyboardViewController {
         let sentenceSuggestionsEnabled = useSentenceSuggestions
         let wordSuggestionsEnabled = useSuggestions
         let sentenceTone = KeyboardSettings.preferredTone
+        let phraseContext = (textDocumentProxy.documentContextBeforeInput ?? "")
+        let phraseDocument = textDocumentProxy.documentIdentifier
+        let prefixContext = phraseContext.hasSuffix(word) ? String(phraseContext.dropLast(word.count)) : ""
+        let phraseSnapshot = learnWordsEnabled && !proPrivate && sentenceSuggestionsEnabled ? phraseModel : PersonalPhraseModel()
+        let phraseVersion = phraseRevision
         // Debounce on main before scheduling any CPU work. Previously each
         // touch scheduled a global-queue worker (even if soon cancelled),
         // causing contention after sustained fast typing.
@@ -63,9 +68,17 @@ extension KeyboardViewController {
                         results.insert(phrase, at: min(1, results.count))
                     }
                 }
+                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:2)
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
                           self.recentWord == word else { return }
+                    if !learned.isEmpty,phraseVersion==PersonalPhraseStore.revision,
+                       KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,
+                       self.textDocumentProxy.documentIdentifier==phraseDocument,
+                       (self.textDocumentProxy.documentContextBeforeInput ?? "")==phraseContext {
+                        let rest=results.filter{!learned.contains($0) && $0 != word}
+                        results=[word]+learned+rest
+                    }
                     self.renderCandidates(results)
                 }
             }
@@ -154,6 +167,7 @@ extension KeyboardViewController {
     @objc func candidateTapped(_ sender: UIButton) {
         guard candidateWords.indices.contains(sender.tag) else { return }
         let chosen = candidateWords[sender.tag]
+        resetPhraseContext()
         if let anchor = nextWordAnchor {
             guard nextWordDocument == textDocumentProxy.documentIdentifier,
                   (textDocumentProxy.selectedText?.isEmpty ?? true),

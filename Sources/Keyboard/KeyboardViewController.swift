@@ -63,6 +63,14 @@ final class KeyboardViewController: UIInputViewController {
     var learnedWordFlushWork: DispatchWorkItem?
     var learnedWordDirty = false
     var recentWord = ""
+    var phraseModel=PersonalPhraseModel()
+    var phraseRevision=""
+    var phraseDocument:UUID?
+    var phraseStart:String?
+    var phraseEnd:String?
+    var phraseChain:[String]=[]
+    var phraseSaveWork:DispatchWorkItem?
+    let phraseStorageQueue=DispatchQueue(label:"com.viepn.phrase-storage",qos:.utility)
     var nextWordAnchor: String?
     var nextWordDocument: UUID?
 
@@ -79,6 +87,8 @@ final class KeyboardViewController: UIInputViewController {
         if premiumPreferences.ghost, !performanceMode, let suffix = GhostCompletion.suffix(after: anchor), !words.contains(suffix) {
             words.insert(suffix, at: 0)
         }
+        let personalized=personalPhraseSuggestions(context:anchor)
+        words=personalized+words.filter{!personalized.contains($0)}
         guard !words.isEmpty else { updateCandidates(); return }
         nextWordAnchor = anchor
         nextWordDocument = textDocumentProxy.documentIdentifier
@@ -195,6 +205,7 @@ final class KeyboardViewController: UIInputViewController {
         cachedReplacements = KeyboardSettings.replacementDictionary
         autocapitalizeEnabled = KeyboardSettings.autoCapitalize
         learnWordsEnabled = KeyboardSettings.autoLearnWords && !performanceMode && !KeyboardSettings.privateTypingMode
+        reloadPhraseLearning()
     }
     var currentTheme: String = ""
     var themeScheduleTimer: Timer?
@@ -243,6 +254,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         // Persist at the end of a typing session, not on every space key.
+        commitPhraseWord(boundary:"\n")
+        flushPhraseLearning()
         finishProSession()
         proHistory.clear(); proHangulLast = nil; proHangulDocument = nil
         proSoundPlayer?.stop(); proSoundPlayer = nil

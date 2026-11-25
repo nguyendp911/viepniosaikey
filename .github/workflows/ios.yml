@@ -170,6 +170,21 @@ jobs:
             Sources/Shared/ReplyEngine.swift \
             Scripts/verify_offline_pro.swift
           "$RUNNER_TEMP/verify-offline"
+      - name: Verify personal phrase learning
+        run: |
+          set -euo pipefail
+          swiftc -O -swift-version 5 -o "$RUNNER_TEMP/verify-phrases" \
+            Sources/Shared/KeyboardSettings.swift \
+            Sources/Shared/Settings/*.swift \
+            Sources/Shared/TypingEngine/Prediction/PersonalPhraseModel.swift \
+            Sources/Shared/Privacy/MessageSafety.swift \
+            Sources/Shared/CoupleStyleCatalog.swift \
+            Sources/Shared/CoupleReplyGuide.swift \
+            Sources/Shared/ConversationContext.swift \
+            Sources/Shared/PersonalTools.swift \
+            Sources/Shared/ReplyEngine.swift \
+            Scripts/verify_phrase_learning.swift
+          "$RUNNER_TEMP/verify-phrases"
       - name: Install XcodeGen
         run: brew install xcodegen librsvg
       - name: Prepare ViePN AI Keyboard logo
