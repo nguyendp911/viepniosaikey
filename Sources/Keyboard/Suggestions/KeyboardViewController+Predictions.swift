@@ -75,7 +75,13 @@ extension KeyboardViewController {
                 }
                 if pro6.corrections {
                     let preferred=feedback.preferred(word,minimum:max(1,min(5,pro6.confidence)))
-                    results=[word]+preferred+results.filter{$0 != word && !preferred.contains($0) && !feedback.rejects(word,$0)}
+                    let accepted=preferred.filter{sentenceSuggestionsEnabled || !$0.contains(" ")}
+                    results=[word]+accepted+results.filter{$0 != word && !accepted.contains($0) && !feedback.rejects(word,$0)}
+                }
+                if pro6.accentRecovery && wordSuggestionsEnabled && word.count>=3 &&
+                    word.allSatisfy({$0.isASCII && $0.isLetter}) && !SmartTyping.isEnglishWord(word) {
+                    let alternatives=TypingProText.recover(word,vocabulary:SmartTyping.coreVietnameseWords,learned:personalWords,limit:2)
+                    results += alternatives.filter{!results.contains($0)}
                 }
                 if pro6.contextualEmoji && wordSuggestionsEnabled {
                     results += TypingProText.emoji(word).filter{!results.contains($0)}

@@ -14,8 +14,8 @@ final class AdaptiveKeyButton: UIButton {
         let expansion = max(0, min(4, horizontalHitExpansion))
         // Never shrink the visible key or reach into its neighbor.
         let shift=max(-expansion,min(expansion,calibrationOffset))
-        let left=max(0,expansion+min(0,shift))
-        let right=max(0,expansion-max(0,shift))
+        let left=max(0,expansion-max(0,shift))
+        let right=max(0,expansion+min(0,shift))
         return CGRect(x:bounds.minX-left,y:bounds.minY,width:bounds.width+left+right,height:bounds.height).contains(point)
     }
 }

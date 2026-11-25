@@ -28,3 +28,6 @@ Keep UIKit lifecycle overrides and stored controller state in the primary class.
 
 ### Typing Engine 5.0
 `Shared/TypingEngine/Vietnamese/` provides shared orthography; `Shared/TypingEngine/Prediction/PersonalPhraseModel.swift` provides bounded personalized n-grams, context ranking and persistence. `Keyboard/TypingEngine/KeyboardViewController+PhraseLearning.swift` verifies document boundaries, stages final words in RAM, debounces storage, and rejects stale contexts. All inference is on-device. The phrase regression suite also reports a bounded-model lookup benchmark; it is not an iPhone end-to-end latency benchmark.
+
+### Typing Premium 6.0
+Shared/TypingEngine/Pro6 holds optional preferences, feedback, bounded text recovery and customization; Keyboard/TypingEngine/KeyboardViewController+Pro6.swift integrates guarded actions; App/KeyboardStudio/TypingPro* isolates settings and asynchronous dashboard from the large Keyboard tab. Existing phrase store schema is additive. CLI tests cover pure logic and migration; simulator smoke covers host navigation, not actual keyboard extension gestures.

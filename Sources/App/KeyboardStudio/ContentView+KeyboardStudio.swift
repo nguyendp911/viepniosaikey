@@ -19,6 +19,7 @@ extension ContentView {
     var personalization: some View {
         LazyVStack(spacing: 12) {
             AnyView(keyboardInputCard).accessibilityIdentifier("keyboard.input")
+            AnyView(TypingProEntryView())
             AnyView(keyboardPreferencesCard)
             AnyView(smartTypingCard).accessibilityIdentifier("keyboard.smart")
             AnyView(personalWritingCard)

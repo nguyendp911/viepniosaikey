@@ -131,6 +131,7 @@ extension ContentView {
                     Button(role: .destructive) {
                         KeyboardSettings.learnedWords = [:]
                         PersonalPhraseStore.clear()
+                        TypingProFeedback.clear()
                         phraseCountRefresh = UUID()
                     } label: {
                         Label("Xóa từ và cụm từ đã học", systemImage: "trash")

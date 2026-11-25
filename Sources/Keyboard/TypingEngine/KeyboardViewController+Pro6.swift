@@ -44,7 +44,9 @@ extension KeyboardViewController {
         // choice in ordinary mixed chat. Protect URL/email/code-like tokens.
         if let tail=context.split(whereSeparator:{$0.isWhitespace}).last,!context.hasSuffix(" "),
            tail.contains("@") || tail.contains("://") || tail.contains("_") {return .english}
-        if words.count>=2,words.allSatisfy({SmartTyping.isEnglishWord($0) && !SmartTyping.isVietnameseWord($0)}) {return .english}
+        // A previous English phrase alone is not evidence that the next
+        // word is English; never lock the composer out of Vietnamese.
+        _ = words
         return nil
     }
     func recordPro6Feedback(source:String,target:String,accepted:Bool) {

@@ -51,9 +51,14 @@ struct TypingProFeedback: Codable, Equatable {
     static func valid(_ word:String) -> Bool {
         (1...24).contains(word.count) && word.allSatisfy(\.isLetter) && PersonalPhraseModel.token(word) != nil
     }
+    static func validTarget(_ text:String,source:String)->Bool {
+        if valid(text){return true}
+        let words=text.split(separator:" ").map(String.init)
+        return source.count<=6 && (2...5).contains(words.count) && text.count<=80 && PersonalPhraseModel.safe(words)
+    }
     mutating func record(source:String,target:String,accept:Bool) {
         let a=source.lowercased(), b=target.lowercased()
-        guard a != b,Self.valid(a),Self.valid(b) else{return}
+        guard a != b,Self.valid(a),Self.validTarget(b,source:a) else{return}
         let index=pairs.firstIndex{$0.source==a && $0.target==b}
         var pair=index.map{pairs.remove(at:$0)} ?? Pair(source:a,target:b)
         if accept {
@@ -67,7 +72,7 @@ struct TypingProFeedback: Codable, Equatable {
         pairs.insert(pair,at:0);pairs=Array(pairs.prefix(240))
     }
     func preferred(_ source:String,minimum:Int)->[String] {
-        pairs.filter{$0.source==source.lowercased() && Self.valid($0.target) && $0.accepted >= minimum && $0.accepted > $0.rejected}
+        pairs.filter{$0.source==source.lowercased() && Self.validTarget($0.target,source:$0.source) && $0.accepted >= minimum && $0.accepted > $0.rejected}
             .sorted{(min(1000,max(0,$0.accepted))-min(1000,max(0,$0.rejected)))>(min(1000,max(0,$1.accepted))-min(1000,max(0,$1.rejected)))}.map(\.target)
     }
     func rejects(_ source:String,_ target:String)->Bool {
