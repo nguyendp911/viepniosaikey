@@ -37,7 +37,7 @@ extension KeyboardViewController {
     }
     func confirmPersonalMemory(source:String,context:String,persona:String){
         let (stack,palette)=premiumPanel(title:"Xác nhận bối cảnh AI")
-        let text=UILabel();text.text=String(context.prefix(1000));text.numberOfLines=0;text.font=.systemFont(ofSize:13);text.textColor=palette.text
+        let text=UILabel();text.text=String(context.prefix(1000));text.numberOfLines=0;text.font = .systemFont(ofSize:13);text.textColor=palette.text
         let scroll=UIScrollView();text.translatesAutoresizingMaskIntoConstraints=false;scroll.addSubview(text)
         NSLayoutConstraint.activate([text.leadingAnchor.constraint(equalTo:scroll.contentLayoutGuide.leadingAnchor),text.trailingAnchor.constraint(equalTo:scroll.contentLayoutGuide.trailingAnchor),text.topAnchor.constraint(equalTo:scroll.contentLayoutGuide.topAnchor),text.bottomAnchor.constraint(equalTo:scroll.contentLayoutGuide.bottomAnchor),text.widthAnchor.constraint(equalTo:scroll.frameLayoutGuide.widthAnchor)])
         stack.addArrangedSubview(scroll)
@@ -66,7 +66,7 @@ extension KeyboardViewController {
         let source=premiumSource()
         guard !isRequestRunning,hasFullAccess,KeyboardSettings.allowCloudAI,!source.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,MessageSafety.warnings(in:source).isEmpty else{showStatus("Cần Full Access, AI online và dữ liệu không nhạy cảm.");return}
         let (stack,palette)=premiumPanel(title:"Response Arena")
-        let label=UILabel();label.text="Gửi cùng nội dung đến Gemini và OpenAI. Hai yêu cầu API; cần hai khóa. Kết quả chỉ để xem trước.";label.numberOfLines=0;label.textColor=palette.text;label.font=.systemFont(ofSize:14)
+        let label=UILabel();label.text="Gửi cùng nội dung đến Gemini và OpenAI. Hai yêu cầu API; cần hai khóa. Kết quả chỉ để xem trước.";label.numberOfLines=0;label.textColor=palette.text;label.font = .systemFont(ofSize:14)
         stack.addArrangedSubview(label)
         let document=textDocumentProxy.documentIdentifier;let persona=PersonaStore.activeID
         stack.addArrangedSubview(premiumKey("Xác nhận so sánh",palette:palette){[weak self] in
