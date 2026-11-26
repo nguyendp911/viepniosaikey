@@ -48,8 +48,11 @@ extension KeyboardViewController {
     func performWritingAction(_ action: AIWritingAction) {
         guard !isRequestRunning else { return }
         guard hasFullAccess else { showStatus("Cần Full Access để dùng AI"); return }
-        let source = selectedText.isEmpty
-            ? (textDocumentProxy.documentContextBeforeInput ?? "") : selectedText
+        let source = textDocumentProxy.selectedText.flatMap { $0.isEmpty ? nil : $0 }
+            ?? (textDocumentProxy.documentContextBeforeInput.flatMap { $0.isEmpty ? nil : $0 } ?? selectedText)
+        let inlineBefore = textDocumentProxy.documentContextBeforeInput
+        let inlineAfter = textDocumentProxy.documentContextAfterInput
+        let inlineSelection = textDocumentProxy.selectedText
         if !MessageSafety.warnings(in: source).isEmpty {
             showStatus("Có dữ liệu nhạy cảm · Mở tab Trợ lý để ẩn rồi xử lý.")
             return
@@ -69,8 +72,14 @@ extension KeyboardViewController {
                 await MainActor.run {
                     guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
-                    guard self.textDocumentProxy.documentIdentifier == documentID else { return }
+                    guard self.textDocumentProxy.documentIdentifier == documentID,
+                          self.textDocumentProxy.documentContextBeforeInput == inlineBefore,
+                          self.textDocumentProxy.documentContextAfterInput == inlineAfter,
+                          self.textDocumentProxy.selectedText == inlineSelection else {
+                        self.showStatus("Văn bản đã đổi · chạy lại công cụ"); return
+                    }
                     self.show([ReplySuggestion(tone: action.rawValue, text: transformed)])
+                    self.inlineRewriteSource = source
                 }
             } catch {
                 await MainActor.run {
@@ -85,8 +94,11 @@ extension KeyboardViewController {
     func performWritingVariants() {
         guard !isRequestRunning else { return }
         guard hasFullAccess else { showStatus("Cần Full Access để dùng AI"); return }
-        let source = selectedText.isEmpty
-            ? (textDocumentProxy.documentContextBeforeInput ?? "") : selectedText
+        let source = textDocumentProxy.selectedText.flatMap { $0.isEmpty ? nil : $0 }
+            ?? (textDocumentProxy.documentContextBeforeInput.flatMap { $0.isEmpty ? nil : $0 } ?? selectedText)
+        let inlineBefore = textDocumentProxy.documentContextBeforeInput
+        let inlineAfter = textDocumentProxy.documentContextAfterInput
+        let inlineSelection = textDocumentProxy.selectedText
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             showStatus("Hãy nhập hoặc Dán nội dung trước khi dùng AI")
             return
@@ -106,11 +118,17 @@ extension KeyboardViewController {
                 await MainActor.run {
                     guard let self, self.requestID == activeID else { return }
                     self.isRequestRunning = false
-                    guard self.textDocumentProxy.documentIdentifier == documentID else { return }
+                    guard self.textDocumentProxy.documentIdentifier == documentID,
+                          self.textDocumentProxy.documentContextBeforeInput == inlineBefore,
+                          self.textDocumentProxy.documentContextAfterInput == inlineAfter,
+                          self.textDocumentProxy.selectedText == inlineSelection else {
+                        self.showStatus("Văn bản đã đổi · chạy lại công cụ"); return
+                    }
                     let labels = ["Tự nhiên", "Lịch sự", "Ngắn gọn"]
                     self.show(texts.enumerated().map {
                         ReplySuggestion(tone: labels[$0.offset], text: $0.element)
                     })
+                    self.inlineRewriteSource = source
                 }
             } catch {
                 await MainActor.run {
