@@ -23,6 +23,7 @@ struct CoupleConversationStudio:View {
     @State private var usedCloud=false
     @State private var useSignature=false
     @State private var followup=""
+    @State private var sentFollowup=""
     @State private var showSignatureLab=false
     @State private var shownOffline=Set<String>()
     private var target:CoupleTurn? {CoupleTranscript.target(source,selected:selectedTurn)}
@@ -119,15 +120,17 @@ struct CoupleConversationStudio:View {
             if !replies.isEmpty {
                 DisclosureGroup("Smart Follow-up · phản hồi mới"){
                     Text("Chỉ thêm lời nhắn thực tế. Nếu bạn đã gửi câu nào, tự xác nhận và thêm vào hội thoại; không giả định đã gửi.").font(.caption)
+                    TextField("Tin tôi thực sự đã gửi (nếu có)",text:$sentFollowup,axis:.vertical)
                     TextField("Tin mới nhận được",text:$followup,axis:.vertical)
                     Button("Thêm tin nhận & cập nhật hội thoại"){
                         let text=followup.trimmingCharacters(in:.whitespacesAndNewlines)
-                        guard !text.isEmpty,source.count+text.count+20<=12000 else{return}
+                        let sent=sentFollowup.trimmingCharacters(in:.whitespacesAndNewlines)
+                        guard !text.isEmpty,source.count+text.count+sent.count+40<=12000 else{status="Hội thoại quá dài.";return}
                         let parsed=CoupleTranscript.turns(source)
                         let previous=parsed.map{turn in
                             (turn.speaker=="me" ? "Tôi: ":turn.speaker=="other" ? "Đối phương: ":"Chưa rõ: ")+turn.text
                         }.joined(separator:"\n")
-                        source=previous+"\nĐối phương: "+text;followup="";selectedTurn=nil
+                        source=previous+(sent.isEmpty ? "":"\nTôi: "+sent)+"\nĐối phương: "+text;followup="";sentFollowup="";selectedTurn=nil
                         status="Đã cập nhật hội thoại. Chọn Phản hồi offline hoặc AI."
                     }.disabled(followup.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
                 }

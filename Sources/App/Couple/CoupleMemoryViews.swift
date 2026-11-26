@@ -57,7 +57,14 @@ struct CoupleVaultView:View{
     private func reset(){editing=nil;title="";detail="";date=Date()}
 }
 struct CoupleTimelineView:View{
-    @State private var items=CouplePrivateStore.read("signature-vault",as:CoupleMemoryItem.self)
+    @State private var items:[CoupleMemoryItem]=[]
+    private func reload(){
+        let memories=CouplePrivateStore.read("signature-vault",as:CoupleMemoryItem.self)
+        let moments=CouplePrivateStore.read("moments",as:CoupleMoment.self).map{
+            CoupleMemoryItem(id:$0.id,date:$0.date,title:$0.title,detail:"Ngày đặc biệt đã lưu")
+        }
+        items=memories+moments
+    }
     var body:some View{
         List{
             if KeyboardSettings.privateTypingMode {Text("Đang riêng tư.")}
@@ -71,6 +78,6 @@ struct CoupleTimelineView:View{
                     }
                 }
             }
-        }.navigationTitle("Relationship Timeline").onAppear{items=CouplePrivateStore.read("signature-vault",as:CoupleMemoryItem.self)}
+        }.navigationTitle("Relationship Timeline").onAppear{reload()}
     }
 }

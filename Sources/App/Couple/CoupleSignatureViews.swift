@@ -23,6 +23,11 @@ struct CoupleSignatureProfileView:View{
                 LabeledContent("Mẫu đã xác nhận",value:String(stats.samples))
                 LabeledContent("Độ dài trung bình",value:String(stats.meanLength))
                 LabeledContent("Tiểu từ thường dùng",value:stats.preferredEnding ?? "Chưa đủ mẫu")
+                LabeledContent("Từ ngữ thường dùng",value:stats.preferredWords.isEmpty ? "Chưa đủ mẫu":stats.preferredWords.joined(separator:", "))
+                Button("Áp dụng độ dài & emoji đã học"){
+                    CoupleStudioPreferences.current=stats.applying(to:CoupleStudioPreferences.current)
+                    prefs=CoupleStudioPreferences.current;status="Đã áp dụng thói quen viết."
+                }.disabled(stats.samples<3 || KeyboardSettings.privateTypingMode)
                 Button("Xóa thống kê Signature",role:.destructive){CoupleSignature.clear();stats = .init()}
                 Text(status).font(.caption)
             }
@@ -104,7 +109,7 @@ struct CoupleSignatureLabView:View{
                 Button("Humanize bằng AI hiện có"){confirmAI=true}.buttonStyle(.bordered)
                     .disabled(busy || draft.isEmpty || draft.count>3000 || !KeyboardSettings.allowCloudAI || KeyboardSettings.privateTypingMode)
                 Text("Conversation Forecast · nhánh giả định").font(.headline)
-                insights(CoupleSignatureTools.forecast(draft))
+                insights(CoupleSignatureTools.forecast(draft,incoming:incoming))
                 Button("Sao chép"){UIPasteboard.general.string=draft;status="Đã sao chép."}.disabled(draft.isEmpty)
             }else{
                 TextField("Phương án A",text:$a,axis:.vertical).textFieldStyle(.roundedBorder)
@@ -134,7 +139,7 @@ struct CoupleSignatureLabView:View{
     private func compare(_ title:String,_ text:String)->some View{
         VStack(alignment:.leading){
             Text(title+" · "+String(text.count)+" ký tự").font(.headline)
-            insights(CoupleSignatureTools.review(text))
+            insights(CoupleSignatureTools.compare(text))
             Button("Sao chép "+title){UIPasteboard.general.string=text}.disabled(text.isEmpty)
         }
     }
@@ -155,6 +160,7 @@ struct CoupleSignatureLabView:View{
 struct CoupleSignatureWritingView:View{
     var initial=""
     @State private var kind:CoupleSignatureTools.Writing = .deep
+    @State private var style=KeyboardSettings.coupleStyle
     @State private var facts=""
     @State private var results:[ReplySuggestion]=[]
     @State private var status=""
@@ -166,9 +172,11 @@ struct CoupleSignatureWritingView:View{
             Picker("Loại lời nhắn",selection:$kind){ForEach(CoupleSignatureTools.Writing.allCases){Text($0.title).tag($0)}}
             Text("Nhập sự việc hoặc cảm xúc thật. Offline sử dụng mẫu theo mục đích; AI hiện có viết lại nội dung khi bạn xác nhận. Không tự gửi.").font(.caption)
             TextEditor(text:$facts).frame(minHeight:120)
+            Picker("Phong cách AI",selection:$style){ForEach(CoupleStyleCatalog.styles){Text($0.title).tag($0.id)}}
+            Text("Nội dung tối đa 1.500 ký tự. Offline giữ nguyên chi tiết bạn nhập; phong cách chuyên sâu dùng AI khi được chọn.").font(.caption2).foregroundStyle(.secondary)
             Button("Tạo offline"){
                 results=CoupleSignatureTools.write(kind,facts:facts,address:KeyboardSettings.coupleAddress)
-            }.buttonStyle(.borderedProminent).disabled(kind.needsFacts && facts.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
+            }.buttonStyle(.borderedProminent).disabled(facts.count>1500 || (kind.needsFacts && facts.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty))
             Button("Viết bằng AI hiện có"){confirm=true}.buttonStyle(.bordered)
                 .disabled(busy || !KeyboardSettings.allowCloudAI || KeyboardSettings.privateTypingMode || (kind.needsFacts && facts.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) || facts.count>1500)
             if kind == .silent{Text("Không dùng để liên hệ người đã yêu cầu ngừng liên lạc.").font(.caption).foregroundStyle(.orange)}
@@ -187,7 +195,7 @@ struct CoupleSignatureWritingView:View{
         let source=facts.isEmpty ? kind.title:facts,selected=kind
         guard !KeyboardSettings.privateTypingMode,MessageSafety.warnings(in:source).isEmpty else{status="Ẩn thông tin nhạy cảm trước.";return}
         let (me,you)=CoupleLocalEngine.address(KeyboardSettings.coupleAddress)
-        let prompt=selected.instruction+" Use Vietnamese, self "+me+", recipient "+you+". Only use supplied facts. No pressure, no invented memories. Return one editable message."
+        let prompt=selected.instruction+" Use Vietnamese, self "+me+", recipient "+you+". Only use supplied facts. No pressure, no invented memories. Return one editable message. Style: "+CoupleStyleCatalog.selected(style).guidance
         busy=true;task=Task{@MainActor in
             defer{busy=false}
             do{let value=try await AIWritingService.studio(source,instruction:prompt,includeStyle:false)

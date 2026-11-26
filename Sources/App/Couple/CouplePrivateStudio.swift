@@ -1,7 +1,7 @@
 import SwiftUI
 import UserNotifications
 
-private struct CoupleMoment:Codable,Identifiable{
+struct CoupleMoment:Codable,Identifiable{
     var id=UUID();var title:String;var date:Date;var reminder=false
 }
 private struct CoupleJournalEntry:Codable,Identifiable{

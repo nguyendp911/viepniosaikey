@@ -78,6 +78,12 @@ struct VerifyVietnameseConversationRoles {
         for _ in 0..<3{signature.observe("Ngủ ngon nha")}
         precondition(signature.samples==3 && signature.preferredEnding=="nha")
         precondition(signature.personalize("Ngủ ngon nhé.")=="Ngủ ngon nha.")
+        precondition(signature.preferredWords.contains("ngủ ngon"))
+        precondition(signature.applying(to:.init()).length=="short")
+        var layered=CoupleStudioPreferences();layered.customEmotion=true;layered.cold=80;layered.warmth=80;layered.hurt=70
+        let layers=CoupleSignatureTools.layered("Em bận",address:"anh/em",preferences:layered)
+        precondition(layers.count==3 && layers[0].text.contains("chạnh lòng") && layers[0].text.contains("nghỉ ngơi"))
+        precondition(CoupleSignatureTools.compare("Anh xin lỗi nhé.").first?.detail.contains("xin lỗi")==true)
         precondition(CoupleSignatureTools.humanize("Anh muốn bày tỏ rằng anh nhớ em.")=="Anh muốn nói rằng anh nhớ em.")
         precondition(CoupleSignatureTools.spectrum("Em bận",address:"anh/em").count==6)
         precondition(CoupleSignatureTools.spectrum("Em cần không gian",address:"anh/em").count==3)

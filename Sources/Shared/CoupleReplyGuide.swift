@@ -517,6 +517,9 @@ struct CoupleSignature:Codable {
     var periodCount=0
     var questionCount=0
     var endings:[String:Int]=[:]
+    // Optional additive field for migration. Only a fixed vocabulary is counted.
+    var vocabulary:[String:Int]?=nil
+    static let approvedWords=["ừ","ừm","uh","ok","hông","không","thôi","thật lòng","nhớ","thương","ngủ ngon","cảm ơn","xin lỗi","bình yên"]
     static let particles=["nha","nhé","nè","ạ","hen","đó"]
     var preferredEnding:String? {
         guard samples>=3 else{return nil}
@@ -526,6 +529,20 @@ struct CoupleSignature:Codable {
         }.first
     }
     var meanLength:Int {samples>0 ? characters/samples : 0}
+    var preferredWords:[String]{
+        guard samples>=3 else{return []}
+        let counts=vocabulary ?? [:]
+        return Array(Self.approvedWords.filter{(counts[$0] ?? 0)>=2}.sorted{
+            let a=counts[$0] ?? 0,b=counts[$1] ?? 0;return a==b ? $0<$1 : a>b
+        }.prefix(5))
+    }
+    func applying(to input:CoupleStudioPreferences)->CoupleStudioPreferences{
+        guard samples>=3 else{return input}
+        var prefs=input;prefs.customEmotion=true
+        prefs.length=meanLength<55 ? "short":meanLength>120 ? "long":"medium"
+        prefs.emoji=emojiCount*2>=samples
+        return prefs
+    }
     mutating func observe(_ text:String){
         guard samples<10000,!text.isEmpty,text.count<=500 else{return}
         samples+=1;characters+=text.count
@@ -535,6 +552,11 @@ struct CoupleSignature:Codable {
         if clean.hasSuffix("?"){questionCount+=1}
         let last=clean.lowercased().split(whereSeparator:{!$0.isLetter}).last.map(String.init)
         if let last,Self.particles.contains(last){endings[last]=min(samples,max(0,min(10000,endings[last] ?? 0))+1)}
+        var counts=vocabulary ?? [:]
+        for word in Self.approvedWords where CoupleLocalEngine.hasPhrase(clean,word) {
+            counts[word]=min(samples,max(0,min(10000,counts[word] ?? 0))+1)
+        }
+        vocabulary=counts
     }
     static var enabled:Bool{
         get{KeyboardSettings.defaults.bool(forKey:"couple.signature.enabled")}
@@ -555,7 +577,7 @@ struct CoupleSignature:Codable {
     static func clear(){KeyboardSettings.defaults.removeObject(forKey:"couple.signature.stats")}
     var instruction:String{
         guard samples>=3 else{return ""}
-        return "Approved aggregate writing habits: mean length \(meanLength) characters, emoji in \(emojiCount) of \(samples) examples, final punctuation: periods \(periodCount), questions \(questionCount). Preferred conversational particle: \(preferredEnding ?? "none"). Use these only when appropriate; preserve intent and boundaries."
+        return "Approved aggregate writing habits: mean length \(meanLength) characters, emoji in \(emojiCount) of \(samples) examples, final punctuation: periods \(periodCount), questions \(questionCount). Preferred conversational particle: \(preferredEnding ?? "none"). Frequently approved everyday words: \(preferredWords.joined(separator:", ")). Use these only when appropriate; preserve intent and boundaries."
     }
     func personalize(_ text:String)->String{
         guard samples>=3,let particle=preferredEnding,!text.hasSuffix("?"),!CoupleSignatureTools.sensitive(text) else{return text}
@@ -629,15 +651,32 @@ enum CoupleSignatureTools {
         if results.isEmpty{results.append(.init(title:"Chưa thấy mẫu rủi ro",detail:"Bộ quy tắc không phát hiện dấu hiệu rõ ràng; vẫn cần tự đọc lại trước khi gửi."))}
         return results
     }
-    static func forecast(_ draft:String)->[Insight]{
-        guard !draft.isEmpty else{return []}
-        let boundary=CoupleLocalEngine.reading(draft).topic=="Ranh giới"
+    static func forecast(_ draft:String,incoming:String="")->[Insight]{
+        guard !draft.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else{return []}
+        let boundary=CoupleLocalEngine.reading(draft).topic=="Ranh giới" || CoupleLocalEngine.reading(incoming).topic=="Ranh giới"
         let pressure=CoupleLocalEngine.guardian(draft).count>0
+        let topic=CoupleLocalEngine.reading(incoming).topic
+        let branch:String
+        if boundary{branch="Ví dụ giả định: «Mình hiểu rồi.»\nCó thể đáp: «Cảm ơn vì đã tôn trọng điều mình vừa nói.»"}
+        else if topic=="Bận"{branch="Ví dụ giả định: «Khi nào rảnh mình nhắn nhé.»\nCó thể đáp: «Ừ, khi nào tiện mình nói tiếp.»"}
+        else if ["Buồn","Mệt mỏi","Mâu thuẫn"].contains(topic){branch="Ví dụ giả định: «Mình muốn nói thêm.»\nCó thể đáp: «Mình nghe đây, cứ từ từ nhé.»"}
+        else{branch="Ví dụ giả định: «Mình muốn nói rõ hơn.»\nCó thể đáp: «Ừ, mình cùng làm rõ nhé.»"}
         return [
-            .init(title:"Nếu đối phương muốn trao đổi",detail:boundary ? "Giữ ranh giới đã nêu, không cần đổi quyết định để làm vừa lòng.":"Có thể tiếp tục làm rõ điều hai bên đang nói."),
-            .init(title:"Nếu có hiểu lầm",detail:pressure ? "Có thể cần giải thích lại mà không quy kết hoặc yêu cầu chứng minh tình cảm.":"Hỏi họ hiểu câu này như thế nào và làm rõ ý của mình."),
-            .init(title:"Nếu họ chưa muốn trả lời",detail:"Tôn trọng khoảng lặng. Không cần nhắn dồn. Đây chỉ là các nhánh giả định, không phải dự đoán phản ứng.")
+            .init(title:"Nếu họ muốn trao đổi",detail:branch),
+            .init(title:"Nếu có hiểu lầm",detail:pressure ? "Ví dụ giả định: «Mình thấy bị áp lực.»\nCó thể đáp: «Mình xin lỗi vì cách nói. Mình muốn nói rõ nhu cầu của mình, không ép bạn.»":"Ví dụ giả định: «Ý bạn là sao?»\nCó thể đáp: «Để mình giải thích rõ hơn, mình không muốn bạn hiểu nhầm.»"),
+            .init(title:"Nếu họ chưa muốn trả lời",detail:"Không cần nhắn dồn. Tôn trọng khoảng lặng và ranh giới. Các nhánh trên là tình huống luyện tập, không phải dự đoán.")
         ]
+    }
+    static func compare(_ text:String)->[Insight]{
+        guard !text.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else{return []}
+        let trimmed=text.trimmingCharacters(in:.whitespacesAndNewlines)
+        let signals:[String]=[
+            trimmed.contains("?") ? "Có câu hỏi":"",
+            ["xin lỗi","cảm ơn"].contains(where:{CoupleLocalEngine.hasPhrase(trimmed,$0)}) ? "Có lời xin lỗi/cảm ơn":"",
+            ["không muốn","không đồng ý","cần thời gian"].contains(where:{CoupleLocalEngine.hasPhrase(trimmed,$0)}) ? "Có lời nêu giới hạn":"",
+            trimmed.unicodeScalars.contains(where:{$0.properties.isEmojiPresentation}) ? "Có emoji":""
+        ].filter{!$0.isEmpty}
+        return [.init(title:"Dấu hiệu cách diễn đạt",detail:signals.isEmpty ? "Chưa có dấu hiệu nổi bật trong bộ quy tắc.":signals.joined(separator:" · "))]+review(trimmed)
     }
     static func spectrum(_ incoming:String,address:String)->[ReplySuggestion]{
         guard !incoming.isEmpty else{return []}
@@ -655,18 +694,35 @@ enum CoupleSignatureTools {
         return choices.map{ReplySuggestion(tone:$0.0,text:CoupleLocalEngine.render($0.1,address:address))}
     }
     static func layered(_ incoming:String,address:String,preferences:CoupleStudioPreferences)->[ReplySuggestion]{
-        guard !incoming.isEmpty else{return []}
+        guard !incoming.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else{return []}
         if sensitive(incoming){return spectrum(incoming,address:address)}
         let topic=CoupleLocalEngine.reading(incoming).topic
-        var base=CoupleLocalEngine.replyPool(incoming,style:preferences.cold>=65 ? "cold":"natural",address:address,preferences:.init(),goal:.natural)
-        if topic=="Bận",preferences.hurt>=45,preferences.warmth>=45 {
-            base=spectrum(incoming,address:address).filter{["Hơi hờn","Lạnh nhưng còn thương","Tổn thương"].contains($0.tone)}
-        }
+        let (me,you)=CoupleLocalEngine.address(address)
+        let base=CoupleLocalEngine.replyPool(incoming,style:preferences.cold>=65 ? "cold":"natural",address:address,preferences:.init(),goal:.natural)
+        let layers:[String]
+        if topic=="Bận" {
+            layers=preferences.cold>=65 ? ["Ừ, khi nào rảnh thì nói tiếp.","\(you.capitalized) cứ lo việc trước.","\(me.capitalized) hiểu rồi."] :
+                ["\(me.capitalized) hiểu \(you) đang bận.","\(you.capitalized) cứ lo việc trước nhé.","Mình nói tiếp khi thuận tiện nhé."]
+        }else{layers=base.map(\.text)}
         let options=CoupleRequestOptions(goal:.natural,style:"natural",address:address,preferences:preferences)
-        return base.map{reply in
-            var body=reply.text
-            if preferences.customEmotion,preferences.length=="long",preferences.cold<65{body+=" "+CoupleLocalEngine.render("Khi nào {you} thoải mái, mình nói thêm nhé.",address:address)}
-            return ReplySuggestion(tone:reply.tone,text:options.cleaned(body,tone:reply.tone))
+        var seen=Set<String>()
+        return layers.enumerated().compactMap{index,core in
+            var parts=[core]
+            if preferences.hurt>=55 {
+                parts.insert(index==0 ? "\(me.capitalized) hơi chạnh lòng." : index==1 ? "\(me.capitalized) cũng có cảm xúc riêng." : "\(me.capitalized) muốn nói thật cảm xúc của mình.",at:0)
+            }else if preferences.hurt>=30 && index==0 {parts.insert("\(me.capitalized) có hơi buồn một chút.",at:0)}
+            if preferences.warmth>=65{
+                parts.append(index==0 ? "Nhớ nghỉ ngơi nhé." : index==1 ? "Khi nào tiện, \(me) vẫn muốn nghe \(you)." : "Mình cứ từ từ thôi nhé.")
+            }else if preferences.warmth>=35 && preferences.cold>=65{parts.append("Giữ gìn sức khỏe nhé.")}
+            if preferences.length=="long",preferences.cold<65,parts.count<3{parts.append("Khi nào cả hai thấy thoải mái, mình nói thêm nhé.")}
+            // Short still retains both chosen layers, rather than dropping meaning.
+            if preferences.length=="short",parts.count>2{parts.remove(at:1)}
+            var body=parts.joined(separator:" ")
+            if preferences.emoji,preferences.cold<50,preferences.warmth>=65{body+=" 🤍"}
+            body=options.cleaned(body,tone:"Đa tầng")
+            guard !body.isEmpty,seen.insert(body).inserted else{return nil}
+            let label=preferences.cold>=65 && preferences.warmth>=35 ? "Kiềm chế · còn quan tâm":preferences.hurt>=30 && preferences.warmth>=35 ? "Tổn thương · dịu dàng":preferences.cold>=65 ? "Kiềm chế":"Tự nhiên"
+            return ReplySuggestion(tone:label+" "+String(index+1),text:body)
         }
     }
     enum Writing: String, CaseIterable,Identifiable {

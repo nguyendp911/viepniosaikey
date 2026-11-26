@@ -211,7 +211,7 @@ extension KeyboardViewController {
             KeyboardSettings.favoriteReplies = items
             if CoupleReplyGuide.isEnabled {
                 CouplePersonalDNA.record(answer,style:KeyboardSettings.coupleStyle)
-                CoupleSignature.record(answer)
+                if !proPrivate && MessageSafety.warnings(in:answer).isEmpty {CoupleSignature.record(answer)}
             }
         }
         showStatus("✓ Đã lưu vào thư viện câu trả lời")
