@@ -8,6 +8,7 @@ struct CoupleWritingStudio:View {
     @State private var status=""
     var body:some View {
         VStack(alignment:.leading,spacing:14){
+            NavigationLink("Signature · lời nhắn chuyên biệt"){ScrollView{CoupleSignatureWritingView().padding()}.navigationTitle("Lời nhắn Signature")}
             Picker("Nội dung",selection:$kind){
                 Text("Viết lại").tag("rewrite");Text("Mở đầu").tag("starter");Text("Viết tiếp").tag("continue");Text("Thư / lời chúc").tag("letter")
             }.pickerStyle(.segmented)

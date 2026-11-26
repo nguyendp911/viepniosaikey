@@ -645,6 +645,8 @@ enum CoupleSignatureTools {
         let choices:[(String,String)]
         if topic=="Bận"{
             choices=[("Dịu dàng","{me} hiểu mà, {you} cứ lo việc trước nhé."),("Hơi hờn","{me} hơi buồn một chút, nhưng vẫn hiểu {you} đang bận."),("Lạnh nhưng còn thương","Ừ, {you} cứ lo việc đi. Nhớ nghỉ ngơi nhé."),("Tổn thương","{me} thấy hơi chạnh lòng. Khi nào rảnh mình nói rõ hơn nhé."),("Lạnh lùng","Ừ, khi nào rảnh thì nói tiếp."),("Dứt khoát","{me} muốn nói chuyện khi cả hai thật sự có thời gian.")]
+        }else if ["Ranh giới","Lời mời ở lại"].contains(topic){
+            return CoupleLocalEngine.suggest(incoming,style:"boundaries",address:address,preferences:.init())
         }else if sensitive(incoming){
             choices=[("Lắng nghe","{me} nghe đây. {you} muốn nói thêm không?"),("Tôn trọng","{me} tôn trọng điều {you} vừa nói."),("Bình tĩnh","Mình không cần vội quyết định gì lúc này.")]
         }else{

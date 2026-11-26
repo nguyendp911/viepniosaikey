@@ -113,6 +113,9 @@ struct CoupleEmotionStudio:View {
                 Toggle("Cho phép emoji",isOn:$prefs.emoji)
                 Text("Offline dùng các nhóm mức cảm xúc; AI hiện có dùng các mức đã chọn khi Couple được bật. Đây là lựa chọn cách viết, không đo cảm xúc thực.").font(.caption)
             }
+            Section("Signature"){
+                NavigationLink("Dải cảm xúc & cảm xúc đa tầng"){ScrollView{CoupleSignatureLabView(initial:incoming).padding()}.navigationTitle("Dải cảm xúc")}
+            }
             Section("Xem trước offline"){
                 TextField("Tin nhắn nhận được",text:$incoming,axis:.vertical)
                 ForEach(CoupleLocalEngine.suggest(incoming,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs)){item in
@@ -144,6 +147,9 @@ struct CoupleProfileStudio:View {
                 Picker("Giai đoạn",selection:$stage){ForEach(["Mới quen","Đang tìm hiểu","Đang yêu","Yêu xa","Đã kết hôn"],id:\.self){Text($0)}}
                     .onChange(of:stage){KeyboardSettings.coupleStage=$0}
                 Picker("Phong cách",selection:$style){ForEach(CoupleStyleCatalog.styles){Text($0.title).tag($0.id)}}.onChange(of:style){KeyboardSettings.coupleStyle=$0}
+            }
+            Section("Love Signature"){
+                NavigationLink("Dấu ấn ngôn từ & preset"){CoupleSignatureProfileView()}
             }
             Section("Personal DNA"){
                 Toggle("Học khi tôi chủ động lưu câu",isOn:$prefs.learnFromSaved)

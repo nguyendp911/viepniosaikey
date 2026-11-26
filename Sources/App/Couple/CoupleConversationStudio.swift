@@ -21,11 +21,14 @@ struct CoupleConversationStudio:View {
     @State private var prefs=CoupleStudioPreferences.current
     @State private var includeExistingContext=false
     @State private var usedCloud=false
+    @State private var useSignature=false
+    @State private var followup=""
+    @State private var showSignatureLab=false
     @State private var shownOffline=Set<String>()
     private var target:CoupleTurn? {CoupleTranscript.target(source,selected:selectedTurn)}
     private var excerpt:String? {CoupleTranscript.excerpt(source,selected:selectedTurn)}
     private var options:CoupleRequestOptions {
-        .init(goal:goal,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,includeExistingContext:includeExistingContext)
+        .init(goal:goal,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,includeExistingContext:includeExistingContext,signature:useSignature && CoupleSignature.enabled && !KeyboardSettings.privateTypingMode ? CoupleSignature.current:nil)
     }
     @State private var picker:PhotosPickerItem?
     @State private var lines:[OCRChatLine]=[]
@@ -77,6 +80,16 @@ struct CoupleConversationStudio:View {
                     Toggle("Emoji",isOn:$prefs.emoji)
                 }
             }
+            if CoupleSignature.enabled && !KeyboardSettings.privateTypingMode {
+                Toggle("Áp dụng dấu ấn ngôn từ đã học",isOn:$useSignature).font(.caption)
+            }
+            if !CoupleStylePreset.current.isEmpty {
+                Menu("Áp dụng preset cho lượt này"){
+                    ForEach(CoupleStylePreset.current){preset in Button(preset.name){style=preset.style;prefs=preset.applying(to:prefs)}}
+                }
+            }
+            Button("Phân tích & dải cảm xúc Signature"){showSignatureLab=true}
+                .buttonStyle(.bordered).disabled(target==nil)
             Toggle("Dùng thêm lịch sử & ghi chú AI đã cho phép",isOn:$includeExistingContext).font(.caption)
             Text("Mặc định chỉ gửi đoạn hội thoại đã chọn, không gửi thêm lịch sử hay ghi chú cũ. Vai trò người nhận đã thiết lập vẫn được tôn trọng.").font(.caption2).foregroundStyle(.secondary)
             HStack{
@@ -103,13 +116,29 @@ struct CoupleConversationStudio:View {
                 Text("Tinh chỉnh nhanh dùng offline; tạo lại bằng AI cần xác nhận gửi.").font(.caption2).foregroundStyle(.secondary)
             }
             ForEach(replies){reply in CoupleReplyCard(reply:reply,style:style,status:$status)}
+            if !replies.isEmpty {
+                DisclosureGroup("Smart Follow-up · phản hồi mới"){
+                    Text("Chỉ thêm lời nhắn thực tế. Nếu bạn đã gửi câu nào, tự xác nhận và thêm vào hội thoại; không giả định đã gửi.").font(.caption)
+                    TextField("Tin mới nhận được",text:$followup,axis:.vertical)
+                    Button("Thêm tin nhận & tạo phản hồi"){
+                        let text=followup.trimmingCharacters(in:.whitespacesAndNewlines)
+                        guard !text.isEmpty,source.count+text.count+20<=12000 else{return}
+                        source=(excerpt ?? source)+"\nĐối phương: "+text;followup="";selectedTurn=nil
+                        status="Đã cập nhật hội thoại. Chọn Phản hồi offline hoặc AI."
+                    }.disabled(followup.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
+                }
+            }
             if !status.isEmpty{Text(status).font(.caption).foregroundStyle(.secondary)}
         }.onAppear{if source.isEmpty{source=initial};if conflict{style="reconcile"}}
             .onChange(of:source){_ in selectedTurn=nil;resetResults()}
             .onChange(of:selectedTurn){_ in resetResults()}
             .onChange(of:style){_ in resetResults()}
             .onChange(of:goal){_ in resetResults()}
-            .onDisappear{request?.cancel();ticket=UUID()}
+            .sheet(isPresented:$showSignatureLab){
+                NavigationStack{ScrollView{CoupleSignatureLabView(initial:target?.text ?? "").padding()}
+                    .navigationTitle("Couple Signature").toolbar{ToolbarItem(placement:.cancellationAction){Button("Đóng"){showSignatureLab=false}}}}
+            }
+            .onDisappear{if !showSignatureLab{request?.cancel();ticket=UUID()}}
             .alert("Gửi văn bản đã chọn đến AI?",isPresented:$confirmCloud){
                 Button("Gửi"){if let cloudOptions{generateCloud(cloudSource,options:cloudOptions)}}
                 Button("Hủy",role:.cancel){}
@@ -139,9 +168,11 @@ struct CoupleConversationStudio:View {
         else if !context.romanticInstructionsAllowed{replies=OfflineReplyEngine.suggest(for:target.text)}
         else {
             let next=CoupleLocalEngine.replyPool(excerpt,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,goal:goal,round:round)
-            let fresh=next.filter{!shownOffline.contains($0.text)}
+            let signature=options.signature
+            let adapted=next.map{reply in ReplySuggestion(tone:reply.tone,text:signature?.personalize(reply.text) ?? reply.text)}
+            let fresh=adapted.filter{!shownOffline.contains($0.text)}
             if another && fresh.isEmpty{status="Kho offline hiện không còn lựa chọn mới cho tình huống này. Thử đổi mục đích hoặc phong cách.";return}
-            replies=another ? fresh : next
+            replies=another ? fresh : adapted
             shownOffline.formUnion(replies.map(\.text))
         }
         status="Gợi ý offline · chọn và chỉnh lại theo ý bạn."
@@ -181,6 +212,10 @@ struct CoupleReplyCard:View {
         VStack(alignment:.leading,spacing:8){
             Text(reply.tone).font(.caption.bold()).foregroundStyle(.pink)
             TextField("Tin nhắn",text:$draft,axis:.vertical).font(.subheadline)
+            DisclosureGroup("Before You Send"){
+                ForEach(CoupleSignatureTools.review(draft)){item in Text(item.title+": "+item.detail).font(.caption)}
+                Button("Làm lời nhắn tự nhiên hơn"){draft=CoupleSignatureTools.humanize(draft)}.font(.caption)
+            }
             ForEach(CoupleLocalEngine.guardian(draft),id:\.self){Text($0).font(.caption).foregroundStyle(.orange)}
             HStack{
                 Button("Sao chép"){UIPasteboard.general.string=draft;status="Đã sao chép."}.buttonStyle(.bordered)

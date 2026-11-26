@@ -8,7 +8,7 @@ private struct CoupleJournalEntry:Codable,Identifiable{
     var id=UUID();var text:String;var date=Date()
 }
 /// Only the host app's private, protected local directory. Never in App Group.
-private enum CouplePrivateStore{
+enum CouplePrivateStore{
     static func url(_ name:String)->URL? {
         guard let base=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask).first else{return nil}
         let dir=base.appendingPathComponent("CouplePrivate",isDirectory:true)
@@ -22,13 +22,13 @@ private enum CouplePrivateStore{
         guard !KeyboardSettings.privateTypingMode,let url=url(name),let data=try? Data(contentsOf:url),data.count<=1_000_000 else{return []}
         return (try? JSONDecoder().decode([T].self,from:data)) ?? []
     }
-    static func write<T:Encodable>(_ values:[T],name:String)->Bool{
+    static func write<T:Codable>(_ values:[T],name:String)->Bool{
         guard !KeyboardSettings.privateTypingMode,let url=url(name),let data=try? JSONEncoder().encode(values),data.count<=1_000_000 else{return false}
         // Never replace an existing unreadable or corrupt file with an empty
         // in-memory model (e.g. before first unlock).
         if FileManager.default.fileExists(atPath:url.path) {
             guard let existing=try? Data(contentsOf:url),existing.count<=1_000_000,
-                  (try? JSONSerialization.jsonObject(with:existing)) is [Any] else{return false}
+                  (try? JSONDecoder().decode([T].self,from:existing)) != nil else{return false}
         }
         do{try data.write(to:url,options:[.atomic,.completeFileProtection]);return true}catch{return false}
     }
@@ -73,6 +73,10 @@ struct CoupleMomentsStudio:View{
     @State private var busy=false
     var body:some View{
         List{
+            Section("Dòng thời gian & kho kỷ niệm"){
+                NavigationLink("Relationship Timeline"){CoupleTimelineView()}
+                NavigationLink("Couple Memory Vault"){CoupleVaultView()}
+            }
             Section("Ngày đặc biệt"){
                 TextField("Tên kỷ niệm",text:$title)
                 DatePicker("Ngày",selection:$date,displayedComponents:.date)
