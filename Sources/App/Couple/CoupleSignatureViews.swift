@@ -1,62 +1,178 @@
 import SwiftUI
 import UIKit
 
-struct CoupleSignatureProfileView:View{
-    @State private var enabled=CoupleSignature.enabled
-    @State private var stats=CoupleSignature.current
-    @State private var sample=""
-    @State private var status=""
-    @State private var presets=CoupleStylePreset.current
-    @State private var name=""
-    @State private var style=KeyboardSettings.coupleStyle
-    @State private var prefs=CoupleStudioPreferences.current
-    var body:some View{
-        Form{
-            Section("Love Signature"){
-                Toggle("Học từ câu tôi chủ động lưu",isOn:$enabled).onChange(of:enabled){CoupleSignature.enabled=$0}
-                Text("Chỉ lưu số đếm, độ dài, emoji, dấu câu và tiểu từ đã định sẵn. Không lưu nguyên văn mẫu trong kho Signature. Cần ít nhất ba mẫu để sử dụng.").font(.caption)
-                TextField("Nhập một mẫu câu của bạn",text:$sample,axis:.vertical)
-                Button("Xác nhận mẫu"){
-                    guard enabled,!KeyboardSettings.privateTypingMode,!sample.isEmpty,sample.count<=500,MessageSafety.warnings(in:sample).isEmpty else{status="Bật học, kiểm tra mẫu và chế độ riêng tư.";return}
-                    CoupleSignature.record(sample);stats=CoupleSignature.current;sample="";status="Đã học thống kê."
-                }
-                LabeledContent("Mẫu đã xác nhận",value:String(stats.samples))
-                LabeledContent("Độ dài trung bình",value:String(stats.meanLength))
-                LabeledContent("Tiểu từ thường dùng",value:stats.preferredEnding ?? "Chưa đủ mẫu")
-                LabeledContent("Từ ngữ thường dùng",value:stats.preferredWords.isEmpty ? "Chưa đủ mẫu":stats.preferredWords.joined(separator:", "))
-                Button("Áp dụng độ dài & emoji đã học"){
-                    CoupleStudioPreferences.current=stats.applying(to:CoupleStudioPreferences.current)
-                    prefs=CoupleStudioPreferences.current;status="Đã áp dụng thói quen viết."
-                }.disabled(stats.samples<3 || KeyboardSettings.privateTypingMode)
-                Button("Xóa thống kê Signature",role:.destructive){CoupleSignature.clear();stats = .init()}
+struct CoupleSignatureProfileView: View {
+    @State private var enabled = CoupleSignature.enabled
+    @State private var stats = CoupleSignature.current
+    @State private var sample = ""
+    @State private var status = ""
+    @State private var presets = CoupleStylePreset.current
+    @State private var name = ""
+    @State private var style = KeyboardSettings.coupleStyle
+    @State private var prefs = CoupleStudioPreferences.current
+
+    var body: some View {
+        Form {
+            signatureInput
+            signatureStatistics
+            presetEditor
+            savedPresets
+            if !status.isEmpty {
                 Text(status).font(.caption)
             }
-            Section("Personal Style Presets"){
-                TextField("Tên preset",text:$name)
-                Picker("Phong cách",selection:$style){ForEach(CoupleStyleCatalog.styles){Text($0.title).tag($0.id)}}
-                Stepper("Lạnh lùng: \(prefs.cold)%",value:$prefs.cold,in:0...100,step:5)
-                Stepper("Tổn thương: \(prefs.hurt)%",value:$prefs.hurt,in:0...100,step:5)
-                Stepper("Dịu dàng: \(prefs.warmth)%",value:$prefs.warmth,in:0...100,step:5)
-                Picker("Độ dài",selection:$prefs.length){Text("Ngắn").tag("short");Text("Vừa").tag("medium");Text("Dài").tag("long")}
-                Toggle("Emoji",isOn:$prefs.emoji)
-                Button("Lưu preset"){
-                    let clean=name.trimmingCharacters(in:.whitespacesAndNewlines)
-                    guard !KeyboardSettings.privateTypingMode,!clean.isEmpty,clean.count<=40,presets.count<20 else{status="Tên tối đa 40 ký tự, 20 preset; không lưu trong riêng tư.";return}
-                    presets.append(.init(name:clean,style:style,cold:prefs.cold,hurt:prefs.hurt,warmth:prefs.warmth,length:prefs.length,emoji:prefs.emoji))
-                    CoupleStylePreset.current=presets;name=""
-                }
-                ForEach(presets){preset in
-                    VStack(alignment:.leading){
-                        Text(preset.name).font(.headline)
-                        Text(CoupleStyleCatalog.selected(preset.style).title+" · "+String(preset.cold)+"/"+String(preset.hurt)+"/"+String(preset.warmth)).font(.caption)
-                        Button("Dùng làm mặc định"){KeyboardSettings.coupleStyle=preset.style;CoupleStudioPreferences.current=preset.applying(to:CoupleStudioPreferences.current)}
-                        Button("Xóa",role:.destructive){presets.removeAll{$0.id==preset.id};CoupleStylePreset.current=presets}
-                    }.buttonStyle(.borderless)
-                }
+        }
+        .navigationTitle("Dấu ấn ngôn từ")
+    }
+
+    private var signatureInput: some View {
+        Section("Love Signature") {
+            Toggle("Học từ câu tôi chủ động lưu", isOn: $enabled)
+                .onChange(of: enabled) { value in CoupleSignature.enabled = value }
+            Text("Chỉ lưu số đếm, độ dài, emoji, dấu câu, tiểu từ và từ ngữ đã định sẵn. Không lưu nguyên văn mẫu trong kho Signature. Cần ít nhất ba mẫu để sử dụng.")
+                .font(.caption)
+            TextField("Nhập một mẫu câu của bạn", text: $sample, axis: .vertical)
+            Button("Xác nhận mẫu", action: recordSample)
+        }
+    }
+
+    private var signatureStatistics: some View {
+        Section("Thống kê đã học") {
+            LabeledContent("Mẫu đã xác nhận", value: String(stats.samples))
+            LabeledContent("Độ dài trung bình", value: String(stats.meanLength))
+            LabeledContent("Tiểu từ thường dùng", value: stats.preferredEnding ?? "Chưa đủ mẫu")
+            LabeledContent("Từ ngữ thường dùng", value: preferredWordsText)
+            Button("Áp dụng độ dài & emoji đã học", action: applyLearnedStyle)
+                .disabled(stats.samples < 3 || KeyboardSettings.privateTypingMode)
+            Button("Xóa thống kê Signature", role: .destructive, action: clearSignature)
+        }
+    }
+
+    private var preferredWordsText: String {
+        let words = stats.preferredWords
+        return words.isEmpty ? "Chưa đủ mẫu" : words.joined(separator: ", ")
+    }
+
+    private var presetEditor: some View {
+        Section("Personal Style Presets") {
+            TextField("Tên preset", text: $name)
+            stylePicker
+            emotionControls
+            Button("Lưu preset", action: savePreset)
+        }
+    }
+
+    private var stylePicker: some View {
+        Picker("Phong cách", selection: $style) {
+            ForEach(CoupleStyleCatalog.styles) { item in
+                Text(item.title).tag(item.id)
             }
-        }.navigationTitle("Dấu ấn ngôn từ")
+        }
+    }
+
+    private var emotionControls: some View {
+        Group {
+            Stepper("Lạnh lùng: \(prefs.cold)%", value: $prefs.cold, in: 0...100, step: 5)
+            Stepper("Tổn thương: \(prefs.hurt)%", value: $prefs.hurt, in: 0...100, step: 5)
+            Stepper("Dịu dàng: \(prefs.warmth)%", value: $prefs.warmth, in: 0...100, step: 5)
+            Picker("Độ dài", selection: $prefs.length) {
+                Text("Ngắn").tag("short")
+                Text("Vừa").tag("medium")
+                Text("Dài").tag("long")
+            }
+            Toggle("Emoji", isOn: $prefs.emoji)
+        }
+    }
+
+    private var savedPresets: some View {
+        Section("Preset đã lưu") {
+            ForEach(presets) { preset in
+                CoupleSignaturePresetRow(
+                    preset: preset,
+                    apply: { applyPreset(preset) },
+                    remove: { removePreset(preset) }
+                )
+            }
+        }
+    }
+
+    private func recordSample() {
+        guard enabled, !KeyboardSettings.privateTypingMode, !sample.isEmpty,
+              sample.count <= 500, MessageSafety.warnings(in: sample).isEmpty else {
+            status = "Bật học, kiểm tra mẫu và chế độ riêng tư."
+            return
+        }
+        CoupleSignature.record(sample)
+        stats = CoupleSignature.current
+        sample = ""
+        status = "Đã học thống kê."
+    }
+
+    private func applyLearnedStyle() {
+        guard stats.samples >= 3, !KeyboardSettings.privateTypingMode else { return }
+        let updated = stats.applying(to: CoupleStudioPreferences.current)
+        CoupleStudioPreferences.current = updated
+        prefs = updated
+        status = "Đã áp dụng thói quen viết."
+    }
+
+    private func clearSignature() {
+        CoupleSignature.clear()
+        stats = CoupleSignature()
+    }
+
+    private func savePreset() {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !KeyboardSettings.privateTypingMode, !clean.isEmpty,
+              clean.count <= 40, presets.count < 20 else {
+            status = "Tên tối đa 40 ký tự, 20 preset; không lưu trong riêng tư."
+            return
+        }
+        let preset = CoupleStylePreset(name: clean, style: style, cold: prefs.cold,
+                                      hurt: prefs.hurt, warmth: prefs.warmth,
+                                      length: prefs.length, emoji: prefs.emoji)
+        presets.append(preset)
+        CoupleStylePreset.current = presets
+        name = ""
+        status = "Đã lưu preset."
+    }
+
+    private func applyPreset(_ preset: CoupleStylePreset) {
+        guard !KeyboardSettings.privateTypingMode else { return }
+        KeyboardSettings.coupleStyle = preset.style
+        CoupleStudioPreferences.current = preset.applying(to: CoupleStudioPreferences.current)
+        style = preset.style
+        prefs = CoupleStudioPreferences.current
+        status = "Đã áp dụng preset."
+    }
+
+    private func removePreset(_ preset: CoupleStylePreset) {
+        guard !KeyboardSettings.privateTypingMode else { return }
+        presets.removeAll { $0.id == preset.id }
+        CoupleStylePreset.current = presets
     }
 }
+
+private struct CoupleSignaturePresetRow: View {
+    let preset: CoupleStylePreset
+    let apply: () -> Void
+    let remove: () -> Void
+
+    private var summary: String {
+        let title = CoupleStyleCatalog.selected(preset.style).title
+        return "\(title) · \(preset.cold)/\(preset.hurt)/\(preset.warmth)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(preset.name).font(.headline)
+            Text(summary).font(.caption)
+            Button("Dùng làm mặc định", action: apply)
+            Button("Xóa", role: .destructive, action: remove)
+        }
+        .buttonStyle(.borderless)
+    }
+}
+
 struct CoupleSignatureLabView:View{
     var initial=""
     @State private var incoming=""
