@@ -58,7 +58,7 @@ struct PersonalPhraseModel: Codable {
     /// Context is read only for ranking, never stored by this method.
     /// With a partial word, return a replacement for that word + continuation;
     /// at a space boundary return just the missing suffix.
-    func suggestions(context:[String], partial:String="", day:Int=Self.day(),limit:Int=3,minimum:Int=2,period:Int=Self.period())->[String] {
+    func suggestions(context:[String], partial:String="", day:Int=Self.day(),limit:Int=3,minimum:Int=2,period:Int=Self.period(),accentFallback:Bool=false)->[String] {
         let prior=context.suffix(8).compactMap(Self.token)
         guard !prior.isEmpty,prior.count==min(8,context.count),limit>0 else{return []}
         let typed=partial.isEmpty ? "" : (Self.token(partial) ?? "")
@@ -70,13 +70,16 @@ struct PersonalPhraseModel: Codable {
                 guard phrase.hasPrefix(prefix.text) else{continue}
                 let n=prefix.length
                 let rest=phrase.dropFirst(prefix.text.count).split(separator:" ").map(String.init)
-                guard !rest.isEmpty,typed.isEmpty || rest[0].hasPrefix(typed) else{continue}
+                guard !rest.isEmpty else{continue}
+                let exact=typed.isEmpty || rest[0].hasPrefix(typed)
+                let folded=accentFallback && !typed.isEmpty && typed.allSatisfy(\.isASCII) && TypingProText.fold(rest[0]).hasPrefix(typed)
+                guard exact || folded else{continue}
                 if !typed.isEmpty && rest.count==1 && rest[0]==typed {continue}
                 let result=rest.joined(separator:" ")
                 // Prefer longer exact context, then repeated use and recency;
                 // length is only a small tie-breaker.
                 let timeWeight=entry.periods.flatMap{$0.indices.contains(period) ? max(0,min(8,$0[period])) : nil} ?? 0
-                let score=n*1000+min(entry.count,30)*35-Int(min(90,max(0,Double(day)-Double(entry.day))))*3+rest.count*5+timeWeight*4+(entry.pinned == true ? 350 : 0)
+                let score=n*1000+min(entry.count,30)*35-Int(min(90,max(0,Double(day)-Double(entry.day))))*3+rest.count*5+timeWeight*4+(entry.pinned == true ? 350 : 0)-(exact ? 0 : 200)
                 ranked[result]=max(ranked[result] ?? 0,score)
                 break
             }

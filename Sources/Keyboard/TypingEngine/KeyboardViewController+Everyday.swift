@@ -39,7 +39,7 @@ extension KeyboardViewController {
         } else if let full=learnedPhraseChoices[label],learnedPhraseDocument==proxy.documentIdentifier,
                   learnedPhraseAnchor==before,!recentWord.isEmpty,before.hasSuffix(recentWord) {
             let words=full.split(separator:" ").map(String.init)
-            guard let first=words.first,first.hasPrefix(recentWord.lowercased()) else{return}
+            guard let first=words.first,first.hasPrefix(recentWord.lowercased()) || (vietnameseAutoCorrect.restoreAccents && vietnameseAutoCorrect.mode != "off" && recentWord.allSatisfy(\.isASCII) && TypingProText.fold(first).hasPrefix(recentWord.lowercased())) else{return}
             let take=first==recentWord.lowercased() ? min(2,words.count) : 1
             let part=words.prefix(take).joined(separator:" ")
             resetPhraseContext();resetBilingualComposition()

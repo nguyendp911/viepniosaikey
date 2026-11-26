@@ -143,7 +143,7 @@ struct CoupleConversationStudio:View {
             .onChange(of:goal){_ in resetResults()}
             .sheet(isPresented:$showSignatureLab){
                 NavigationStack{ScrollView{CoupleSignatureLabView(initial:target?.text ?? "").padding()}
-                    .navigationTitle("Couple Signature").toolbar{ToolbarItem(placement:.cancellationAction){Button("Đóng"){showSignatureLab=false}}}}
+                    .navigationTitle("Couple Signature").toolbar{ToolbarItem(placement:.cancellationAction){Button("Đóng"){showSignatureLab=false}.accessibilityIdentifier("couple.signature.close")}}}
             }
             .onDisappear{request?.cancel();ticket=UUID()}
             .alert("Gửi văn bản đã chọn đến AI?",isPresented:$confirmCloud){

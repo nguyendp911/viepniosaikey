@@ -32,7 +32,9 @@ extension KeyboardViewController {
         let header = UIStackView()
         header.alignment = .center
         let label = UILabel()
-        label.text = "ViePN Intelligence"
+        label.text = "ViePN Tool Studio"
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
         label.font = .systemFont(ofSize: 17, weight: .bold)
         label.textColor = palette.text
         let close = UIButton(type: .system)
@@ -43,6 +45,23 @@ extension KeyboardViewController {
         close.widthAnchor.constraint(equalToConstant: 44).isActive = true
         close.heightAnchor.constraint(equalToConstant: 44).isActive = true
         header.addArrangedSubview(label)
+        let search=UIButton(type:.system)
+        search.setImage(UIImage(systemName:"magnifyingglass"),for:.normal)
+        search.tintColor=palette.text;search.accessibilityLabel="Tìm công cụ"
+        search.widthAnchor.constraint(equalToConstant:40).isActive=true
+        search.addAction(UIAction{[weak self] _ in self?.openToolSearch()},for:.touchUpInside)
+        header.addArrangedSubview(search)
+        let workspace=UIButton(type:.system)
+        workspace.setImage(UIImage(systemName:"square.stack"),for:.normal)
+        workspace.tintColor=palette.text;workspace.accessibilityLabel="Workspace công cụ"
+        workspace.widthAnchor.constraint(equalToConstant:40).isActive=true
+        workspace.menu=UIMenu(title:"Workspace",children:[("personal","Cá nhân"),("work","Công việc"),("couple","Tình cảm")].map{key,title in
+            UIAction(title:title,state:ToolStudioPreferences.current.workspace==key ? .on:.off){[weak self] _ in
+                var value=ToolStudioPreferences.current;value.workspace=key;ToolStudioPreferences.current=value;self?.openIntelligenceHub()
+            }
+        })
+        workspace.showsMenuAsPrimaryAction=true
+        header.addArrangedSubview(workspace)
         header.addArrangedSubview(close)
         stack.addArrangedSubview(header)
         let scroll = UIScrollView()
@@ -59,7 +78,42 @@ extension KeyboardViewController {
             rows.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
         ])
         stack.addArrangedSubview(scroll)
-        let groups: [(String, String, UIMenu?, (() -> Void)?)] = [
+        let groups=toolStudioGroups()
+        let prefs=ToolStudioPreferences.current
+        let quick=prefs.quick(hasSelection:!(textDocumentProxy.selectedText ?? "").isEmpty,hasDraft:!(textDocumentProxy.documentContextBeforeInput ?? "").isEmpty)
+        let sections=[("TRUY CẬP NHANH",quick)]+ToolStudioCatalog.sections
+        let columns = view.bounds.width >= 420 ? 4 : (view.bounds.width < 300 ? 2 : 3)
+        for (title, names) in sections {
+            let section = UILabel()
+            section.text = title
+            section.font = .systemFont(ofSize: 10, weight: .semibold)
+            section.textColor = palette.text.withAlphaComponent(0.75)
+            section.accessibilityTraits = .header
+            rows.addArrangedSubview(section)
+            let items = names.compactMap { name in groups.first { $0.0 == name } }
+            for start in stride(from: 0, to: items.count, by: columns) {
+                let row = UIStackView()
+                row.distribution = .fillEqually
+                row.spacing = 6
+                let end = min(start + columns, items.count)
+                for spec in items[start..<end] {
+                    let cell = IntelligenceToolCell(title: spec.0, symbol: spec.1, palette: palette)
+                    if let menu = spec.2 { cell.menu = menu; cell.showsMenuAsPrimaryAction = true }
+                    else if let action = spec.3 {
+                        cell.addAction(UIAction { [weak self] _ in self?.closeIntelligenceHub(); action() }, for: .touchUpInside)
+                    }
+                    row.addArrangedSubview(cell)
+                }
+                for _ in (end-start)..<columns { row.addArrangedSubview(UIView()) }
+                rows.addArrangedSubview(row)
+            }
+        }
+        UIAccessibility.post(notification: .screenChanged, argument: label)
+    }
+    func toolStudioGroups()->[(String,String,UIMenu?,(() -> Void)?)] {
+        return [
+            ("Smart Text Editor", "square.and.pencil", nil, { [weak self] in self?.openToolTextEditor() }),
+            ("Clipboard Studio", "doc.on.clipboard", nil, { [weak self] in self?.openToolClipboard() }),
             ("Typing Premium", "keyboard", UIMenu(title:"Typing Premium",children:[pro6ToolsMenu(),everydayToolsMenu()]), nil),
             ("Keyboard Pro", "keyboard", proKeyboardMenu(), nil),
             ("Time Machine", "clock.arrow.circlepath", proHistoryMenu(), nil),
@@ -118,42 +172,6 @@ extension KeyboardViewController {
                 self?.showStatus("DNA · \(metrics.count) mẫu · \(metrics.averageWords) từ/mẫu")
             })
         ]
-        let sections: [(String, [String])] = [
-            ("TYPING PREMIUM", ["Typing Premium"]),
-            ("OFFLINE EDITION 4.0", ["Keyboard Pro", "Time Machine", "Text Studio", "Profiles", "Ký tự Pro"]),
-            ("PERSONAL INTELLIGENCE 3.0", ["Personal AI", "Tone Mixer", "Arena", "Second Brain", "Mini Apps"]),
-            ("PREMIUM 2.0", ["Command", "AI Premium", "Workflow", "Macro", "Biến mẫu", "Kho nháp", "Bộ sưu tập", "Máy tính", "Định dạng", "Văn bản"]),
-            ("GIAO TIẾP THÔNG MINH", ["Hội thoại", "Tình cảm", "Bật/tắt Couple", "Công việc", "Dịch"]),
-            ("SOẠN THẢO", ["Viết lại", "Mẫu câu", "Prompt", "Đọc ảnh", "Offline", "Bản nháp"]),
-            ("TIỆN ÍCH", ["Emoji", "Clipboard", "Hoàn tác", "Làm lại", "Con trỏ", "Riêng tư", "Nhà cung cấp", "Văn phong"])
-        ]
-        let columns = view.bounds.width >= 420 ? 4 : (view.bounds.width < 300 ? 2 : 3)
-        for (title, names) in sections {
-            let section = UILabel()
-            section.text = title
-            section.font = .systemFont(ofSize: 10, weight: .semibold)
-            section.textColor = palette.text.withAlphaComponent(0.75)
-            section.accessibilityTraits = .header
-            rows.addArrangedSubview(section)
-            let items = names.compactMap { name in groups.first { $0.0 == name } }
-            for start in stride(from: 0, to: items.count, by: columns) {
-                let row = UIStackView()
-                row.distribution = .fillEqually
-                row.spacing = 6
-                let end = min(start + columns, items.count)
-                for spec in items[start..<end] {
-                    let cell = IntelligenceToolCell(title: spec.0, symbol: spec.1, palette: palette)
-                    if let menu = spec.2 { cell.menu = menu; cell.showsMenuAsPrimaryAction = true }
-                    else if let action = spec.3 {
-                        cell.addAction(UIAction { [weak self] _ in self?.closeIntelligenceHub(); action() }, for: .touchUpInside)
-                    }
-                    row.addArrangedSubview(cell)
-                }
-                for _ in (end-start)..<columns { row.addArrangedSubview(UIView()) }
-                rows.addArrangedSubview(row)
-            }
-        }
-        UIAccessibility.post(notification: .screenChanged, argument: label)
     }
     func closeIntelligenceHub() {
         guard intelligenceOverlay != nil else { return }

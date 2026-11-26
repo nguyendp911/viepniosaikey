@@ -76,6 +76,10 @@ struct TypingPremiumHomeView: View {
                     row("Heatmap & chẩn đoán","Vùng chạm, độ trễ, báo cáo lỗi","waveform.path.ecg")
                 }.accessibilityIdentifier("typingPremium.diagnostics")
             }
+            Section("Tool Studio"){
+                NavigationLink("Workspace & ghim công cụ"){ToolStudioSettingsView()}
+                    .accessibilityIdentifier("typingPremium.toolStudio")
+            }
             Section("Trên bàn phím"){
                 Text("Công cụ → Typing Premium: khôi phục dấu, dấu câu, định dạng số, hoàn tác, xem trước clipboard, phạm vi văn bản và hồ sơ yên lặng. Các công cụ cũ vẫn có sẵn.").font(.caption).foregroundStyle(.secondary)
                 Text("Mở lại bàn phím sau khi thay đổi thiết lập.").font(.caption).foregroundStyle(.secondary)

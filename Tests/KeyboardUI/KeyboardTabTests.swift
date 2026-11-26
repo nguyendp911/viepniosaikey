@@ -30,7 +30,8 @@ final class KeyboardTabTests: XCTestCase {
         XCTAssertTrue(app.buttons["Tạo các sắc thái"].waitForExistence(timeout:10))
         app.buttons["Tạo các sắc thái"].tap()
         XCTAssertEqual(app.state,.runningForeground)
-        app.navigationBars.buttons["Đóng"].tap()
+        let signatureClose=app.buttons["couple.signature.close"]
+        XCTAssertTrue(signatureClose.waitForExistence(timeout:10));signatureClose.tap()
         app.buttons["couple.studio.close"].tap()
         XCTAssertEqual(app.state,.runningForeground)
     }

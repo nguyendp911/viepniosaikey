@@ -103,7 +103,7 @@ extension KeyboardViewController {
                     results=[word]+choices+results.filter{$0 != word && !choices.contains($0)}
                 }
                 let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []
-                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:pro7.expandedBar ? 8 : 2,minimum:max(2,min(5,pro6.confidence)))
+                let learned=phraseSnapshot.suggestions(context:PersonalPhraseModel.context(prefixContext),partial:word,limit:pro7.expandedBar ? 8 : 2,minimum:max(2,min(5,pro6.confidence)),accentFallback:autoLanguageAllowed && autoSettings.restoreAccents && autoSettings.mode != "off" && !SmartTyping.englishSet.contains(word.lowercased()))
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.candidateGeneration == generation,
                           self.recentWord == word else { return }
@@ -236,7 +236,7 @@ extension KeyboardViewController {
                   learnedPhraseAnchor==(textDocumentProxy.documentContextBeforeInput ?? ""),
                   (textDocumentProxy.selectedText?.isEmpty ?? true),
                   textDocumentProxy.documentContextAfterInput?.first?.isLetter != true,
-                  KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode else{updateCandidates();return}
+                  KeyboardSettings.autoLearnWords,!KeyboardSettings.privateTypingMode,phraseRevision==PersonalPhraseStore.revision else{updateCandidates();return}
             resetBilingualComposition()
             replaceCurrentWord(completion)
             if completion.contains(" ") {

@@ -79,6 +79,20 @@ import CryptoKit
         precondition(VietnameseAutoCorrect.typoVariants("stroe",known:known).contains("store"))
         print("PASS Vietnamese AutoCorrect: contextual accent restoration, spelling, English protection, dictionary and typo variants")
         }
+        var foldedModel=PersonalPhraseModel()
+        for _ in 0..<3{foldedModel.observe(["em","ăn","cơm","chưa"])}
+        precondition(foldedModel.suggestions(context:["em","ăn"],partial:"com",accentFallback:true).contains("cơm chưa"))
+        precondition(foldedModel.suggestions(context:["em","ăn"],partial:"com").isEmpty)
+        precondition(ToolStudioCatalog.matches("Bật/tắt Couple",query:"couple lanh"))
+        precondition(ToolStudioCatalog.matches("Dịch",query:"dich"))
+        precondition(Set(ToolStudioCatalog.names).count==ToolStudioCatalog.names.count)
+        var tools=ToolStudioPreferences();tools.workspace="work";tools.pins["work"]=["Máy tính","Máy tính","unknown"]
+        precondition(tools.normalized.favorites==["Máy tính"])
+        precondition(tools.normalized.quick(hasSelection:true,hasDraft:true).first=="Smart Text Editor")
+        precondition(ToolTextTransform.unaccent.apply("Đặng Thị Ánh")=="Dang Thi Anh")
+        precondition(ToolTextTransform.unique.apply("a\nb\na")=="a\nb")
+        precondition(ToolTextTransform.numbered.apply("a\n\nb")=="1. a\n2. b")
+        print("PASS Tool Studio: search, workspaces, bounded text transforms and learned accent fallback")
         let start=Date()
         for _ in 0..<10000{_ = EverydayLanguage.spell("giử",known:known)}
         print("PASS Everyday 7: migration, pinned persistence, edits, merge, region, spelling, tone, heatmap and authenticated encryption")
