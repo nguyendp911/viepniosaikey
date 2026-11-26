@@ -59,7 +59,19 @@ struct VerifyVietnameseConversationRoles {
         let local=CoupleLocalEngine.suggest("Em bận",style:"cold",address:"em/anh",preferences:CoupleStudioPreferences())
         precondition(local.count==3 && local[2].text.contains("Anh"))
         precondition(CoupleLocalEngine.guardian("Nếu yêu anh thì phải trả lời").count>0)
-        print("PASS Couple Studio local scene, address, styles and guardian")
+        let transcript="Đối phương: Em bận\nTôi: Anh hiểu"
+        precondition(CoupleTranscript.target(transcript)==nil)
+        precondition(CoupleTranscript.excerpt(transcript,selected:0)=="Đối phương: Em bận")
+        let multiline="Đối phương: Em bận\nmai nói tiếp nhé"
+        precondition(CoupleTranscript.target(multiline)?.text=="Em bận\nmai nói tiếp nhé")
+        let first=CoupleLocalEngine.replyPool("Em bận",style:"natural",address:"anh/em",preferences:.init(),goal:.natural)
+        let second=CoupleLocalEngine.replyPool("Em bận",style:"natural",address:"anh/em",preferences:.init(),goal:.natural,round:1)
+        precondition(first.count==3 && second.count==3 && Set(first.map(\.text)).isDisjoint(with:Set(second.map(\.text))))
+        let refuse=CoupleLocalEngine.replyPool("Cuối tuần đi chơi không?",style:"natural",address:"anh/em",preferences:.init(),goal:.decline)
+        precondition(refuse.count==3 && refuse[0].text.contains("không"))
+        let boundary=CoupleLocalEngine.replyPool("Em không muốn",style:"sweet",address:"anh/em",preferences:.init(),goal:.agree)
+        precondition(boundary.count==3 && boundary[0].text.contains("tôn trọng"))
+        print("PASS Couple Studio local scene, address, styles, transcript selection, reply goals and guardian")
         KeyboardSettings.coupleEnabled = false
 
         guard !uncle.accepts("Anh nhớ em, em về sớm nhé"),
