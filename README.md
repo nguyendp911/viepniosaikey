@@ -304,3 +304,6 @@ Bàn phím → Typing Premium now replaces the two 6.0 and 7.0 entry cards with 
 
 ### Couple Studio · Midnight Rose
 Unified host studio for conversation/OCR (speaker review), emotion presets, profile/DNA aggregate learning on explicit save, conflict/guardian, existing favorites, local writing templates, simulation, protected private journal and yearly local reminders. 32 styles; existing Couple settings, online providers and toolbar are preserved. Offline is a bounded keyword/template engine, not sentiment certainty or a general generative model. Cloud replies use existing consent and provider. No automatic sending. Journal and moments remain host-local, excluded from backups. UI smoke opens the new conversation screen.
+
+### Couple conversation controls
+Select an incoming turn, choose a reply goal, adjust per-request emotion and generate alternate offline templates. Cloud requests use explicit typed options and omit saved notes/history by default; the existing recipient role is still respected. Original Couple preferences are retained.

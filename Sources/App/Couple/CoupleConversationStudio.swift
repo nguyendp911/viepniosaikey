@@ -14,6 +14,18 @@ struct CoupleConversationStudio:View {
     @State private var request:Task<Void,Never>?
     @State private var confirmCloud=false
     @State private var cloudSource=""
+    @State private var cloudOptions:CoupleRequestOptions?
+    @State private var selectedTurn:Int?
+    @State private var goal:CoupleReplyGoal = .natural
+    @State private var round=0
+    @State private var prefs=CoupleStudioPreferences.current
+    @State private var includeExistingContext=false
+    @State private var usedCloud=false
+    private var target:CoupleTurn? {CoupleTranscript.target(source,selected:selectedTurn)}
+    private var excerpt:String? {CoupleTranscript.excerpt(source,selected:selectedTurn)}
+    private var options:CoupleRequestOptions {
+        .init(goal:goal,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,includeExistingContext:includeExistingContext)
+    }
     @State private var picker:PhotosPickerItem?
     @State private var lines:[OCRChatLine]=[]
     @State private var ticket=UUID()
@@ -40,13 +52,38 @@ struct CoupleConversationStudio:View {
                     lines=[]
                 }.buttonStyle(.bordered)
             }
+            if !source.isEmpty {
+                Picker("Tin nhắn cần trả lời",selection:$selectedTurn){
+                    Text("Tin cuối (tự chọn)").tag(nil as Int?)
+                    ForEach(CoupleTranscript.turns(source).filter{$0.speaker=="other" || $0.speaker=="unlabeled"}){turn in
+                        Text(String(turn.text.prefix(75))).tag(Optional(turn.id))
+                    }
+                }
+                if let target {
+                    Text("Đang trả lời: "+target.text).font(.subheadline).padding(10)
+                        .frame(maxWidth:.infinity,alignment:.leading).background(.white.opacity(0.06),in:RoundedRectangle(cornerRadius:10))
+                }else{Text("Tin cuối là của bạn hoặc chưa rõ người nói. Chọn tin nhận được.").font(.caption).foregroundStyle(.orange)}
+            }
+            Picker("Mục đích",selection:$goal){ForEach(CoupleReplyGoal.allCases){Text($0.title).tag($0)}}
             Picker("Phong cách",selection:$style){ForEach(CoupleStyleCatalog.styles){Text($0.title).tag($0.id)}}
+            DisclosureGroup("Tinh chỉnh riêng cho lượt này"){
+                Toggle("Tùy chỉnh cảm xúc",isOn:$prefs.customEmotion)
+                if prefs.customEmotion{
+                    toneSlider("Lạnh lùng",value:$prefs.cold)
+                    toneSlider("Tổn thương",value:$prefs.hurt)
+                    toneSlider("Dịu dàng",value:$prefs.warmth)
+                    Picker("Độ dài",selection:$prefs.length){Text("Ngắn").tag("short");Text("Vừa").tag("medium");Text("Dài").tag("long")}
+                    Toggle("Emoji",isOn:$prefs.emoji)
+                }
+            }
+            Toggle("Dùng thêm lịch sử & ghi chú AI đã cho phép",isOn:$includeExistingContext).font(.caption)
+            Text("Mặc định chỉ gửi đoạn hội thoại đã chọn, không gửi thêm lịch sử hay ghi chú cũ. Vai trò người nhận đã thiết lập vẫn được tôn trọng.").font(.caption2).foregroundStyle(.secondary)
             HStack{
                 Button("Phản hồi offline"){generateLocal()}.buttonStyle(.borderedProminent).accessibilityIdentifier("couple.conversation.offline")
                 Button("Dùng AI hiện có"){
-                    cloudSource=String(source.prefix(3000));confirmCloud=true
+                    prepareCloud()
                 }.buttonStyle(.bordered).disabled(busy || !KeyboardSettings.allowCloudAI || KeyboardSettings.privateTypingMode)
-            }.disabled(source.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty || ocrBusy)
+            }.disabled(excerpt==nil || ocrBusy)
             if !source.isEmpty {Button("Ẩn dữ liệu nhạy cảm"){source=MessageSafety.redacted(source)}.font(.caption)}
             if busy{ProgressView();Button("Hủy"){request?.cancel();busy=false}}
             if let reading{
@@ -56,34 +93,65 @@ struct CoupleConversationStudio:View {
                     Text(reading.caution).font(.caption).foregroundStyle(.secondary)
                 }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(.white.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
             }
+            if !replies.isEmpty && !busy {
+                HStack{
+                    Button("Câu khác"){if usedCloud{prepareCloud()}else{generateLocal(another:true)}}.buttonStyle(.bordered)
+                    Button("Ngắn hơn"){prefs.customEmotion=true;prefs.length="short";generateLocal()}.buttonStyle(.bordered)
+                }
+                Button("Dịu dàng hơn"){prefs.customEmotion=true;prefs.warmth=min(100,prefs.warmth+25);prefs.cold=max(0,prefs.cold-25);generateLocal()}.buttonStyle(.bordered)
+                Text("Tinh chỉnh nhanh dùng offline; tạo lại bằng AI cần xác nhận gửi.").font(.caption2).foregroundStyle(.secondary)
+            }
             ForEach(replies){reply in CoupleReplyCard(reply:reply,style:style,status:$status)}
             if !status.isEmpty{Text(status).font(.caption).foregroundStyle(.secondary)}
         }.onAppear{if source.isEmpty{source=initial};if conflict{style="reconcile"}}
-            .onChange(of:source){_ in request?.cancel();busy=false;replies=[];reading=nil}
+            .onChange(of:source){_ in selectedTurn=nil;resetResults()}
+            .onChange(of:selectedTurn){_ in resetResults()}
+            .onChange(of:style){_ in resetResults()}
+            .onChange(of:goal){_ in resetResults()}
             .onDisappear{request?.cancel();ticket=UUID()}
             .alert("Gửi văn bản đã chọn đến AI?",isPresented:$confirmCloud){
-                Button("Gửi"){generateCloud(cloudSource)}
+                Button("Gửi"){if let cloudOptions{generateCloud(cloudSource,options:cloudOptions)}}
                 Button("Hủy",role:.cancel){}
-            }message:{Text("Sử dụng nhà cung cấp AI đã cấu hình. Hồ sơ/ngữ cảnh đã cho phép trong hệ thống hiện tại có thể được dùng cùng đoạn hội thoại.\n\n"+cloudSource)}
+            }message:{Text("Sử dụng nhà cung cấp AI đã cấu hình. Kiểm tra đoạn hội thoại và tùy chọn lịch sử trước khi gửi.\n\n"+cloudSource)}
     }
-    private func generateLocal(){
-        request?.cancel();busy=false
-        reading=CoupleLocalEngine.reading(source)
-        let context=ConversationContextResolver.resolve(source)
-        if let family=ConversationContextResolver.offlineFamilyReplies(for:source,context:context){replies=family}
-        else {replies=CoupleLocalEngine.suggest(source,style:style,address:KeyboardSettings.coupleAddress,preferences:CoupleStudioPreferences.current)}
+    private func resetResults(){
+        request?.cancel();busy=false;replies=[];reading=nil;round=0
+    }
+    private func toneSlider(_ label:String,value:Binding<Int>)->some View {
+        VStack(alignment:.leading){
+            Text(label+" · "+String(value.wrappedValue)+"%").font(.caption)
+            Slider(value:Binding(get:{Double(value.wrappedValue)},set:{value.wrappedValue=Int($0)}),in:0...100,step:5)
+        }
+    }
+    private func prepareCloud(){
+        guard let excerpt else{status="Chọn tin nhận được hợp lệ.";return}
+        cloudSource=excerpt;cloudOptions=options;confirmCloud=true
+    }
+    private func generateLocal(another:Bool=false){
+        guard let excerpt,let target else{return}
+        request?.cancel();busy=false;usedCloud=false
+        round=another ? (round+1)%1000 : 0
+        reading=CoupleLocalEngine.reading(excerpt)
+        let context=ConversationContextResolver.resolve(target.text)
+        if let family=ConversationContextResolver.offlineFamilyReplies(for:target.text,context:context){replies=family}
+        else if !context.romanticInstructionsAllowed{replies=OfflineReplyEngine.suggest(for:target.text)}
+        else {
+            let old=Set(replies.map(\.text))
+            let next=CoupleLocalEngine.replyPool(excerpt,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,goal:goal,round:round)
+            replies=next
+            if another && old==Set(next.map(\.text)){status="Kho offline hiện không còn lựa chọn mới cho tình huống này.";return}
+        }
         status="Gợi ý offline · chọn và chỉnh lại theo ý bạn."
     }
-    private func generateCloud(_ input:String){
+    private func generateCloud(_ input:String,options:CoupleRequestOptions){
         guard !KeyboardSettings.privateTypingMode,MessageSafety.warnings(in:input).isEmpty else{status="Hãy ẩn thông tin nhạy cảm trước khi gửi.";return}
-        guard KeyboardSettings.coupleEnabled else{status="Bật Couple trong Thiết lập Couple hiện tại để sử dụng phong cách đã chọn với AI.";return}
+        guard KeyboardSettings.coupleEnabled else{status="Bật Couple trong thiết lập để sử dụng AI.";return}
         request?.cancel();busy=true;reading=CoupleLocalEngine.reading(input)
-        // Explicitly selected style, using the existing shared preference.
-        KeyboardSettings.coupleStyle=style
         request=Task{@MainActor in
             do{
-                let result=try await AIService.reply(to:input)
-                guard !Task.isCancelled else{return};replies=result;status="Đã tạo bằng AI hiện có."
+                let result=try await AIService.reply(to:input,coupleOptions:options)
+                guard !Task.isCancelled else{return}
+                replies=result;usedCloud=true;status="Đã tạo bằng AI hiện có."
             }catch{guard !Task.isCancelled else{return};status=error.localizedDescription}
             busy=false
         }

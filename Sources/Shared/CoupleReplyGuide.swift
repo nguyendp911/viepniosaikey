@@ -433,7 +433,7 @@ struct CoupleRequestOptions {
         """
     }
     func cleaned(_ text:String,tone:String)->String {
-        if !preferences.customEmotion{return EmojiEnhancer.decorate(text,tone:tone)}
+        if !preferences.customEmotion{return text}
         if preferences.emoji{return text}
         // Remove standalone emoji glyphs and presentation modifiers, not digits,
         // normal letters or punctuation.

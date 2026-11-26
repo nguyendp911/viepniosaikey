@@ -44,7 +44,7 @@ enum AIService {
         dateFormatter.timeZone = .current
         dateFormatter.dateFormat = "EEEE, dd/MM/yyyy"
         let localToday = dateFormatter.string(from: Date())
-        let recipientContext = ConversationContextResolver.resolve(incoming)
+        let recipientContext = ConversationContextResolver.resolve(coupleOptions != nil ? (CoupleTranscript.target(incoming)?.text ?? incoming) : incoming)
         // Prefer a small set of genuinely relevant memories rather than
         // transmitting the full recent conversation at every AI request.
         let useSavedContext = coupleOptions?.includeExistingContext ?? true
