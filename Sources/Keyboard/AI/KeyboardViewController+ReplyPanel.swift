@@ -22,6 +22,10 @@ extension KeyboardViewController {
             old.removeFromSuperview()
             suggestionContainer = nil
         }
+        inlineRewriteSource = nil
+        inlinePreviewBefore = nil
+        inlinePreviewAfter = nil
+        inlinePreviewSelection = nil
         lastSuggestions = []
         suggestionDocumentID = nil
         suggestionPersonaID = ""
@@ -46,6 +50,9 @@ extension KeyboardViewController {
         clearSuggestions()
         lastSuggestions = Array(items.prefix(3))
         suggestionDocumentID = textDocumentProxy.documentIdentifier
+        inlinePreviewBefore = textDocumentProxy.documentContextBeforeInput
+        inlinePreviewAfter = textDocumentProxy.documentContextAfterInput
+        inlinePreviewSelection = textDocumentProxy.selectedText
         suggestionPersonaID = PersonaStore.activeID
         guard !lastSuggestions.isEmpty else {
             showStatus("Không có gợi ý. Thử tin nhắn khác.")
@@ -183,7 +190,10 @@ extension KeyboardViewController {
 
     func selectedReply() -> String? {
         guard suggestionDocumentID == textDocumentProxy.documentIdentifier,
-              suggestionPersonaID == PersonaStore.activeID else {
+              suggestionPersonaID == PersonaStore.activeID,
+              inlinePreviewBefore == textDocumentProxy.documentContextBeforeInput,
+              inlinePreviewAfter == textDocumentProxy.documentContextAfterInput,
+              inlinePreviewSelection == textDocumentProxy.selectedText else {
             clearSuggestions()
             showStatus("Hội thoại đã thay đổi · Tạo gợi ý mới")
             return nil
@@ -219,15 +229,29 @@ extension KeyboardViewController {
 
     @objc func replaceDraft() {
         guard let answer = selectedReply() else { return }
-        // Prevent deleting unrelated content after the caret, or deleting
-        // incomplete context exposed by secure/restricted third-party fields.
-        guard let selection = textDocumentProxy.selectedText, !selection.isEmpty else {
-            showStatus("Hãy bôi đen đoạn cần thay, hoặc Sao chép rồi tự dán")
+        if let selection = textDocumentProxy.selectedText, !selection.isEmpty {
+            insertTrackedStudioText(answer)
+        } else if let source = inlineRewriteSource, !source.isEmpty,
+                  source.count <= 500,
+                  textDocumentProxy.documentContextBeforeInput == source,
+                  let after = textDocumentProxy.documentContextAfterInput {
+            let proxy = textDocumentProxy
+            let document = proxy.documentIdentifier
+            for _ in source { proxy.deleteBackward() }
+            proxy.insertText(answer)
+            resetBilingualComposition()
+            recentWord = ""
+            updateCandidates()
+            studioEdit = nil
+            if proxy.documentContextBeforeInput == answer,
+               proxy.documentContextAfterInput == after, answer.count <= 500 {
+                studioEdit = StudioEdit(document: document, before: "", after: after,
+                                        original: source, replacement: answer, applied: true)
+            }
+        } else {
+            showStatus("Chọn đoạn cần thay hoặc dùng Chèn · iOS giới hạn ngữ cảnh")
             return
         }
-        // UIKit replaces the explicit selection; never loop over an unknown
-        // documentContextBeforeInput (iOS may expose only a truncated suffix).
-        insertTrackedStudioText(answer)
         dismissSuggestions()
         showStatus("Đã thay bản nháp bằng CHỈ câu trả lời")
     }
