@@ -15,6 +15,10 @@ final class KeyboardViewController: UIInputViewController {
     var isShiftLocked = false
     var lastSuggestions: [ReplySuggestion] = []
     var suggestionDocumentID: UUID?
+    var inlineRewriteSource: String?
+    var inlinePreviewBefore: String?
+    var inlinePreviewAfter: String?
+    var inlinePreviewSelection: String?
     var suggestionPersonaID = ""
     var chosenIndex = 0
     var suggestionContainer: UIStackView?
