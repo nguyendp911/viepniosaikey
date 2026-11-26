@@ -173,7 +173,10 @@ extension KeyboardViewController {
                 self?.showStatus("Couple: " + style.title)
             }
         }
-        return UIMenu(title: "Couple", children: [toggle] + styles)
+        let quick=UIAction(title:"Couple Quick Mode",image:UIImage(systemName:"heart.text.square")){[weak self] _ in
+            self?.openCoupleQuickMode()
+        }
+        return UIMenu(title: "Couple", children: [toggle,quick] + styles)
     }
     func clipboardHubMenu() -> UIMenu {
         let paste = UIAction(title: "Dán", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in

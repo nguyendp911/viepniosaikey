@@ -21,6 +21,16 @@ final class KeyboardTabTests: XCTestCase {
         XCTAssertTrue(offline.exists && offline.isHittable)
         offline.tap()
         XCTAssertEqual(app.state,.runningForeground)
+        let lab=app.buttons["Phân tích & dải cảm xúc Signature"]
+        for _ in 0..<6 {
+            if lab.exists && lab.isHittable{break}
+            app.swipeDown()
+        }
+        XCTAssertTrue(lab.exists && lab.isHittable);lab.tap()
+        XCTAssertTrue(app.buttons["Tạo các sắc thái"].waitForExistence(timeout:10))
+        app.buttons["Tạo các sắc thái"].tap()
+        XCTAssertEqual(app.state,.runningForeground)
+        app.navigationBars.buttons["Đóng"].tap()
         app.buttons["couple.studio.close"].tap()
         XCTAssertEqual(app.state,.runningForeground)
     }

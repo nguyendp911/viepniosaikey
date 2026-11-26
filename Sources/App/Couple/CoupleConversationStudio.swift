@@ -120,10 +120,14 @@ struct CoupleConversationStudio:View {
                 DisclosureGroup("Smart Follow-up · phản hồi mới"){
                     Text("Chỉ thêm lời nhắn thực tế. Nếu bạn đã gửi câu nào, tự xác nhận và thêm vào hội thoại; không giả định đã gửi.").font(.caption)
                     TextField("Tin mới nhận được",text:$followup,axis:.vertical)
-                    Button("Thêm tin nhận & tạo phản hồi"){
+                    Button("Thêm tin nhận & cập nhật hội thoại"){
                         let text=followup.trimmingCharacters(in:.whitespacesAndNewlines)
                         guard !text.isEmpty,source.count+text.count+20<=12000 else{return}
-                        source=(excerpt ?? source)+"\nĐối phương: "+text;followup="";selectedTurn=nil
+                        let parsed=CoupleTranscript.turns(source)
+                        let previous=parsed.map{turn in
+                            (turn.speaker=="me" ? "Tôi: ":turn.speaker=="other" ? "Đối phương: ":"Chưa rõ: ")+turn.text
+                        }.joined(separator:"\n")
+                        source=previous+"\nĐối phương: "+text;followup="";selectedTurn=nil
                         status="Đã cập nhật hội thoại. Chọn Phản hồi offline hoặc AI."
                     }.disabled(followup.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
                 }
@@ -138,7 +142,7 @@ struct CoupleConversationStudio:View {
                 NavigationStack{ScrollView{CoupleSignatureLabView(initial:target?.text ?? "").padding()}
                     .navigationTitle("Couple Signature").toolbar{ToolbarItem(placement:.cancellationAction){Button("Đóng"){showSignatureLab=false}}}}
             }
-            .onDisappear{if !showSignatureLab{request?.cancel();ticket=UUID()}}
+            .onDisappear{request?.cancel();ticket=UUID()}
             .alert("Gửi văn bản đã chọn đến AI?",isPresented:$confirmCloud){
                 Button("Gửi"){if let cloudOptions{generateCloud(cloudSource,options:cloudOptions)}}
                 Button("Hủy",role:.cancel){}

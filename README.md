@@ -307,3 +307,6 @@ Unified host studio for conversation/OCR (speaker review), emotion presets, prof
 
 ### Couple conversation controls
 Select an incoming turn, choose a reply goal, adjust per-request emotion and generate alternate offline templates. Cloud requests use explicit typed options and omit saved notes/history by default; the existing recipient role is still respected. Original Couple preferences are retained.
+
+### Couple Signature
+Integrated under existing Couple Studio: conversation Signature lab (spectrum, layer, literal/possible meanings, review, hypothetical branches, comparison, offline/AI humanize), explicit follow-up, profile aggregate language habits and reusable presets, writing modes, and a private searchable memory vault and timeline in Kỷ niệm. Quick Mode is in the existing Couple Hub menu; explicit selected text or clipboard input, offline preview, no toolbar change or auto-send. The vault stays in host application storage with complete file protection and is excluded from backup. Signature keeps only bounded aggregate statistics, not raw messages. Cloud calls require explicit confirmation; saved history and notes remain opt-in. Offline templates and qualitative review are limited and are not actual predictions of another person's feelings or actions.

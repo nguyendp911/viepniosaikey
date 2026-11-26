@@ -722,7 +722,7 @@ enum CoupleSignatureTools {
             var text=CoupleLocalEngine.render(template,address:address)
             if kind.needsFacts{text+=clean}
             else if !clean.isEmpty{text+="\n"+clean}
-            if kind == .apology{text+=". "+CoupleLocalEngine.render("{me} không yêu cầu {you} phải tha thứ ngay.",address:address)}
+            if kind == .apology{text+=(clean.last.map{".!?".contains($0)} == true ? " ":". ")+CoupleLocalEngine.render("{me} không yêu cầu {you} phải tha thứ ngay.",address:address)}
             return ReplySuggestion(tone:kind.title+" "+String(index+1),text:text)
         }
     }
