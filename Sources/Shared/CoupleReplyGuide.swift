@@ -218,7 +218,7 @@ enum CoupleLocalEngine {
         ("Chào hỏi",["chào","hello","hi","buổi sáng"])
     ]
     static func reading(_ conversation:String)->Reading {
-        let last=incoming(conversation)
+        let last=CoupleTranscript.target(conversation)?.text ?? incoming(conversation)
         let match=topics.lazy.compactMap{topic,keys in keys.first(where:{hasPhrase(last,$0)}).map{(topic,$0)}}.first
         if let match{return Reading(topic:match.0,evidence:match.1,caution:"Từ khóa gợi ý sắc thái, không xác định chắc chắn cảm xúc hoặc ý định.")}
         // Only earlier explicitly labeled incoming turns provide a tentative
@@ -402,7 +402,7 @@ enum CoupleTranscript {
     static func excerpt(_ text:String,selected:Int?=nil)->String?{
         let parsed=turns(text)
         guard let target=target(text,selected:selected),target.text.count<=2700 else{return nil}
-        var rows=[(target.speaker=="other" ? "Đối phương: ":"")+target.text]
+        var rows=["Đối phương: "+target.text]
         var count=rows[0].count
         for prior in parsed.filter({$0.id<target.id}).suffix(12).reversed(){
             let prefix=prior.speaker=="me" ? "Tôi: ":prior.speaker=="other" ? "Đối phương: ":"Chưa rõ: "
@@ -476,14 +476,23 @@ extension CoupleLocalEngine {
         // Reserve/hurt/warmth are independent compositional dimensions, not
         // measures of the other person's emotions. Do not add invented facts.
         let safeSensitive=["Buồn","Mệt mỏi","Mâu thuẫn","Ghen tuông","Ranh giới"].contains(topic)
-        let trimmed=templates.map{template -> String in
+        let effective=preferences.customEmotion ? (preferences.cold>=65 ? "cold":preferences.hurt>=55 ? "hurt":preferences.warmth>=65 ? "sweet":style) : style
+        var candidates=templates
+        if goal == .natural && ["cold","coldwarm","hurt","sulky","firm","disappointed","minimal","sweet","gentle","caring","romantic"].contains(effective) {
+            let originals=suggest(conversation,style:effective,address:address,preferences:preferences)
+            // Preserve the selected style in the first batch, then offer the
+            // additional topic-specific alternatives for regeneration.
+            let extra=templates.map{render($0,address:address)}
+            candidates=originals.map(\.text)+extra
+        }
+        let trimmed=candidates.map{template -> String in
             var value=render(template,address:address)
-            if preferences.customEmotion && goal == .natural && topic=="Bận"{
+            if preferences.customEmotion && goal == .natural && topic=="Bận" && template.contains("{") {
                 if preferences.hurt>=55{value=render("{me} hơi chạnh lòng. ",address:address)+value}
                 if preferences.warmth>=65 && preferences.cold<65{value+=" "+render("{me} vẫn muốn nghe {you} khi rảnh.",address:address)}
             }
             if preferences.customEmotion && preferences.length=="short",let stop=value.firstIndex(where:{".!?".contains($0)}){value=String(value[...stop])}
-            if preferences.customEmotion && preferences.emoji && !safeSensitive && preferences.cold<50 && goal == .natural{value+=" 🤍"}
+            if preferences.customEmotion && preferences.emoji && !safeSensitive && preferences.cold<50 && goal == .natural && !value.unicodeScalars.contains(where:{$0.properties.isEmojiPresentation}){value+=" 🤍"}
             return value
         }
         var seen=Set<String>()

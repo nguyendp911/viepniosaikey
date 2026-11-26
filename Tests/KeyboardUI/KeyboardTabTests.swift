@@ -9,7 +9,18 @@ final class KeyboardTabTests: XCTestCase {
         let entry=app.buttons["couple.studio.conversation"]
         XCTAssertTrue(entry.waitForExistence(timeout:10));entry.tap()
         XCTAssertTrue(app.buttons["couple.studio.close"].waitForExistence(timeout:10))
-        XCTAssertTrue(app.textViews["couple.conversation.input"].exists)
+        let input=app.textViews["couple.conversation.input"]
+        XCTAssertTrue(input.exists)
+        input.tap()
+        input.typeText("Em ban")
+        let offline=app.buttons["couple.conversation.offline"]
+        for _ in 0..<6 {
+            if offline.exists && offline.isHittable{break}
+            app.swipeUp()
+        }
+        XCTAssertTrue(offline.exists && offline.isHittable)
+        offline.tap()
+        XCTAssertEqual(app.state,.runningForeground)
         app.buttons["couple.studio.close"].tap()
         XCTAssertEqual(app.state,.runningForeground)
     }

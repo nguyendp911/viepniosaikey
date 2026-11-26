@@ -62,6 +62,9 @@ struct VerifyVietnameseConversationRoles {
         let transcript="Đối phương: Em bận\nTôi: Anh hiểu"
         precondition(CoupleTranscript.target(transcript)==nil)
         precondition(CoupleTranscript.excerpt(transcript,selected:0)=="Đối phương: Em bận")
+        precondition(CoupleTranscript.excerpt("Em bận")=="Đối phương: Em bận")
+        precondition(CoupleTranscript.target("Chưa rõ: Ừ")==nil)
+        precondition(CoupleTranscript.excerpt("Tôi: Anh hiểu\nĐối phương: Em mệt\nTôi: Ừ",selected:1)=="Tôi: Anh hiểu\nĐối phương: Em mệt")
         let multiline="Đối phương: Em bận\nmai nói tiếp nhé"
         precondition(CoupleTranscript.target(multiline)?.text=="Em bận\nmai nói tiếp nhé")
         let first=CoupleLocalEngine.replyPool("Em bận",style:"natural",address:"anh/em",preferences:.init(),goal:.natural)

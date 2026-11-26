@@ -21,6 +21,7 @@ struct CoupleConversationStudio:View {
     @State private var prefs=CoupleStudioPreferences.current
     @State private var includeExistingContext=false
     @State private var usedCloud=false
+    @State private var shownOffline=Set<String>()
     private var target:CoupleTurn? {CoupleTranscript.target(source,selected:selectedTurn)}
     private var excerpt:String? {CoupleTranscript.excerpt(source,selected:selectedTurn)}
     private var options:CoupleRequestOptions {
@@ -115,7 +116,7 @@ struct CoupleConversationStudio:View {
             }message:{Text("Sử dụng nhà cung cấp AI đã cấu hình. Kiểm tra đoạn hội thoại và tùy chọn lịch sử trước khi gửi.\n\n"+cloudSource)}
     }
     private func resetResults(){
-        request?.cancel();busy=false;replies=[];reading=nil;round=0
+        request?.cancel();busy=false;replies=[];reading=nil;round=0;shownOffline=[]
     }
     private func toneSlider(_ label:String,value:Binding<Int>)->some View {
         VStack(alignment:.leading){
@@ -131,15 +132,17 @@ struct CoupleConversationStudio:View {
         guard let excerpt,let target else{return}
         request?.cancel();busy=false;usedCloud=false
         round=another ? (round+1)%1000 : 0
+        if !another {shownOffline=[]}
         reading=CoupleLocalEngine.reading(excerpt)
         let context=ConversationContextResolver.resolve(target.text)
         if let family=ConversationContextResolver.offlineFamilyReplies(for:target.text,context:context){replies=family}
         else if !context.romanticInstructionsAllowed{replies=OfflineReplyEngine.suggest(for:target.text)}
         else {
-            let old=Set(replies.map(\.text))
             let next=CoupleLocalEngine.replyPool(excerpt,style:style,address:KeyboardSettings.coupleAddress,preferences:prefs,goal:goal,round:round)
-            replies=next
-            if another && old==Set(next.map(\.text)){status="Kho offline hiện không còn lựa chọn mới cho tình huống này.";return}
+            let fresh=next.filter{!shownOffline.contains($0.text)}
+            if another && fresh.isEmpty{status="Kho offline hiện không còn lựa chọn mới cho tình huống này. Thử đổi mục đích hoặc phong cách.";return}
+            replies=another ? fresh : next
+            shownOffline.formUnion(replies.map(\.text))
         }
         status="Gợi ý offline · chọn và chỉnh lại theo ý bạn."
     }
