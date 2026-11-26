@@ -74,6 +74,19 @@ struct VerifyVietnameseConversationRoles {
         precondition(refuse.count==3 && refuse[0].text.contains("không"))
         let boundary=CoupleLocalEngine.replyPool("Em không muốn",style:"sweet",address:"anh/em",preferences:.init(),goal:.agree)
         precondition(boundary.count==3 && boundary[0].text.contains("tôn trọng"))
+        var signature=CoupleSignature()
+        for _ in 0..<3{signature.observe("Ngủ ngon nha")}
+        precondition(signature.samples==3 && signature.preferredEnding=="nha")
+        precondition(signature.personalize("Ngủ ngon nhé.")=="Ngủ ngon nha.")
+        precondition(CoupleSignatureTools.humanize("Anh muốn bày tỏ rằng anh nhớ em.")=="Anh muốn nói rằng anh nhớ em.")
+        precondition(CoupleSignatureTools.spectrum("Em bận",address:"anh/em").count==6)
+        precondition(CoupleSignatureTools.spectrum("Em cần không gian",address:"anh/em").count==3)
+        precondition(CoupleSignatureTools.write(.story,facts:"",address:"anh/em").isEmpty)
+        precondition(CoupleSignatureTools.write(.story,facts:"Gặp ở Đà Lạt",address:"anh/em").allSatisfy{$0.text.contains("Gặp ở Đà Lạt")})
+        precondition(CoupleSignatureTools.review("Nếu yêu anh thì phải trả lời!!!").count>=2)
+        precondition(CoupleSignatureTools.betweenLines("Tùy anh").count==4)
+        precondition(CoupleSignatureTools.forecast("Anh cần không gian").count==3)
+        print("PASS Couple Signature: approved aggregate style, layered tone, spectrum, review and factual writing")
         print("PASS Couple Studio local scene, address, styles, transcript selection, reply goals and guardian")
         KeyboardSettings.coupleEnabled = false
 

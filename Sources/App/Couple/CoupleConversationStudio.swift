@@ -189,7 +189,7 @@ struct CoupleReplyCard:View {
                     var items=KeyboardSettings.favoriteReplies
                     guard !items.contains(draft)else{status="Câu đã được lưu.";return}
                     items.insert(draft,at:0);KeyboardSettings.favoriteReplies=items
-                    CouplePersonalDNA.record(draft,style:style);status="Đã lưu vào kho yêu thích."
+                    CouplePersonalDNA.record(draft,style:style);CoupleSignature.record(draft);status="Đã lưu vào kho yêu thích."
                 }.buttonStyle(.bordered)
             }
         }.padding(12).background(.white.opacity(0.055),in:RoundedRectangle(cornerRadius:12)).onAppear{draft=reply.text}
