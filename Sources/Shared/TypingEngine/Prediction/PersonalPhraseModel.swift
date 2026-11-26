@@ -16,6 +16,9 @@ struct PersonalPhraseModel: Codable {
     private(set) var entries:[String:Entry] = [:]
     static let maximum = 1000
     static func day(_ date:Date=Date())->Int { Int(date.timeIntervalSince1970/86400) }
+    private static func foldForPrediction(_ word:String)->String {
+        word.folding(options:.diacriticInsensitive,locale:Locale(identifier:"vi_VN")).replacingOccurrences(of:"đ",with:"d")
+    }
     static func token(_ word:String)->String? {
         let value=word.precomposedStringWithCanonicalMapping.lowercased()
         guard (1...24).contains(value.count),value.allSatisfy({$0.isLetter}),
@@ -72,7 +75,7 @@ struct PersonalPhraseModel: Codable {
                 let rest=phrase.dropFirst(prefix.text.count).split(separator:" ").map(String.init)
                 guard !rest.isEmpty else{continue}
                 let exact=typed.isEmpty || rest[0].hasPrefix(typed)
-                let folded=accentFallback && !typed.isEmpty && typed.allSatisfy(\.isASCII) && TypingProText.fold(rest[0]).hasPrefix(typed)
+                let folded=accentFallback && !typed.isEmpty && typed.allSatisfy(\.isASCII) && Self.foldForPrediction(rest[0]).hasPrefix(typed)
                 guard exact || folded else{continue}
                 if !typed.isEmpty && rest.count==1 && rest[0]==typed {continue}
                 let result=rest.joined(separator:" ")

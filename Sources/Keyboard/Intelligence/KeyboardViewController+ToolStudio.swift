@@ -73,6 +73,7 @@ extension KeyboardViewController {
             let p=self.textDocumentProxy
             guard !output.isEmpty,p.documentIdentifier==doc,p.documentContextBeforeInput==before,p.documentContextAfterInput==after,p.selectedText==selection,
                   allowReplace ? selection==source : (selection?.isEmpty ?? true) else{self.showStatus("Vị trí nhập đã thay đổi hoặc đang chọn văn bản");return}
+            self.resetPhraseContext();self.resetAutoWord();self.autoPreviousWord=nil
             self.insertProExplicit(output)
         })
         buttons.heightAnchor.constraint(equalToConstant:40).isActive=true;stack.addArrangedSubview(buttons)
