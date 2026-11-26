@@ -200,7 +200,7 @@ extension KeyboardViewController {
         let paste = UIAction(title: "Dán", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
             self?.closeIntelligenceHub(); self?.pasteTapped()
         }
-        let entries = ClipboardVault.items.map { value in
+        let entries = (KeyboardSettings.privateTypingMode || proPrivate ? [] : ClipboardVault.items).map { value in
             UIAction(title: String(value.prefix(40))) { [weak self] _ in
                 guard let self else { return }
                 self.closeIntelligenceHub()

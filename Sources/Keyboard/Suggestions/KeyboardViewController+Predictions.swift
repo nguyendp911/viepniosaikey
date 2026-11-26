@@ -99,7 +99,7 @@ extension KeyboardViewController {
                     results=[word]+local+results.filter{$0 != word && !local.contains($0)}
                 }
                 if autoLanguageAllowed && wordSuggestionsEnabled && autoSettings.mode != "off" {
-                    let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(prefixContext),settings:autoSettings,explicitVietnamese:autoVietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,protected:autoProtected,feedback:autoFeedback,learned:phraseSnapshot,includeTypos:true).map(\.text)
+                    let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(prefixContext),settings:autoSettings,explicitVietnamese:autoVietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,protected:autoProtected,feedback:autoFeedback,learned:phraseSnapshot,includeTypos:true,accentBuckets:SmartTyping.accentBuckets).map(\.text)
                     results=[word]+choices+results.filter{$0 != word && !choices.contains($0)}
                 }
                 let extra=pro7.expandedBar && wordSuggestionsEnabled ? SmartTyping.predictions(prefix:word,learned:personalWords,limit:12) : []

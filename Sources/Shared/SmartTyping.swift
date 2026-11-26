@@ -90,6 +90,15 @@ enum SmartTyping {
     }()
 
     static let vietnameseSet: Set<String> = Set(vietnameseWords.map { $0.lowercased() })
+    // Built once from the bundled vocabulary; no full dictionary scan per key.
+    static let accentBuckets: [String:[String]] = {
+        var result:[String:Set<String>]=[:]
+        for word in vietnameseSet where (2...24).contains(word.count) && word.allSatisfy(\.isLetter) {
+            let key=word.folding(options:.diacriticInsensitive,locale:Locale(identifier:"vi_VN")).replacingOccurrences(of:"đ",with:"d")
+            result[key,default:[]].insert(word)
+        }
+        return result.mapValues{$0.sorted()}
+    }()
 
     // Group built-in words by their first two characters once. The hot
     // prediction path only visits a small bucket instead of both dictionaries

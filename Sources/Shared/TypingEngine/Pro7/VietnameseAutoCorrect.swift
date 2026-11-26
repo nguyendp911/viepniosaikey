@@ -101,7 +101,7 @@ enum VietnameseAutoCorrect {
         if source.first?.isUppercase==true{return target.prefix(1).uppercased()+target.dropFirst()}
         return target
     }
-    static func choices(word:String,context prior:[String],settings:VietnameseAutoCorrectSettings,explicitVietnamese:Bool,english:Set<String>,known:Set<String>,protected:Set<String>=[],feedback:TypingProFeedback=TypingProFeedback(),learned:PersonalPhraseModel?=nil,includeTypos:Bool=false)->[Choice] {
+    static func choices(word:String,context prior:[String],settings:VietnameseAutoCorrectSettings,explicitVietnamese:Bool,english:Set<String>,known:Set<String>,protected:Set<String>=[],feedback:TypingProFeedback=TypingProFeedback(),learned:PersonalPhraseModel?=nil,includeTypos:Bool=false,accentBuckets:[String:[String]]=[:])->[Choice] {
         guard settings.mode != "off",(2...24).contains(word.count),word.allSatisfy(\.isLetter),
               word != word.uppercased() || word.count<2 else{return []}
         let w=word.lowercased(), ascii=w.allSatisfy(\.isASCII)
@@ -122,6 +122,16 @@ enum VietnameseAutoCorrect {
             let score=strong.contains(w) && !english.contains(w) ? 94 : viContext && settings.mode=="advanced" && !english.contains(w) ? 92 : 45
             ranked[target]=max(ranked[target] ?? 0,score)
         }
+        if ascii,settings.restoreAccents,viContext,!english.contains(w) {
+            let variants=(accentBuckets[w] ?? []).filter{$0 != w}
+            // Dictionary-only evidence is never enough in careful mode.
+            // Even in advanced mode, require explicit Vietnamese and a single
+            // unambiguous dictionary match, not a valid unaccented word.
+            for candidate in variants.prefix(8) {
+                let score=explicitVietnamese && settings.mode=="advanced" && variants.count==1 && !known.contains(w) ? 90 : 35
+                ranked[candidate]=max(ranked[candidate] ?? 0,score)
+            }
+        }
         if viContext || !english.contains(w) {
             for target in feedback.preferred(w,minimum:3) where !target.contains(" ") && (!ascii || settings.restoreAccents) {
                 ranked[target]=max(ranked[target] ?? 0,105)
@@ -130,12 +140,17 @@ enum VietnameseAutoCorrect {
         if ascii,settings.restoreAccents,viContext,let learned,!preceding.isEmpty {
             // Exact previous context, then accent-insensitive match of the
             // next word. No learned rewrite from a single observation.
-            for (phrase,entry) in learned.entries where entry.count>=3 {
-                let words=phrase.split(separator:" ").map(String.init)
-                guard words.count>=2,let target=words.last,target != w,TypingProText.fold(target)==w else{continue}
-                let prefix=Array(words.dropLast().suffix(4))
-                guard preceding.count>=prefix.count,Array(preceding.suffix(prefix.count))==prefix else{continue}
-                ranked[target]=max(ranked[target] ?? 0,92+min(15,entry.count)+prefix.count*5)
+            let day=PersonalPhraseModel.day()
+            let prefixes=(1...preceding.count).map{preceding.suffix($0).joined(separator:" ")}
+            for (phrase,entry) in learned.entries where entry.count>=3 && entry.day<=day && (entry.pinned==true || entry.day>=day-90) {
+                guard let split=phrase.lastIndex(of:" ") else{continue}
+                let leading=phrase[..<split]
+                let prefix=prefixes.last(where:{leading==$0 || ($0==prefixes.last && leading.hasSuffix(" "+$0))})
+                guard let prefix else{continue}
+                let target=String(phrase[phrase.index(after:split)...])
+                guard target != w,TypingProText.fold(target)==w else{continue}
+                let length=prefix.split(separator:" ").count
+                ranked[target]=max(ranked[target] ?? 0,92+min(15,entry.count)+length*5)
             }
         }
         if includeTypos {

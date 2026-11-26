@@ -92,6 +92,11 @@ import CryptoKit
         precondition(ToolTextTransform.unaccent.apply("Đặng Thị Ánh")=="Dang Thi Anh")
         precondition(ToolTextTransform.unique.apply("a\nb\na")=="a\nb")
         precondition(ToolTextTransform.numbered.apply("a\n\nb")=="1. a\n2. b")
+        var advanced=VietnameseAutoCorrectSettings();advanced.mode="advanced"
+        let uniqueAccent=VietnameseAutoCorrect.choices(word:"tuyet",context:[],settings:advanced,explicitVietnamese:true,english:[],known:["tuyệt"],accentBuckets:["tuyet":["tuyệt"]])
+        precondition(uniqueAccent.first?.text=="tuyệt" && uniqueAccent.first?.automatic==true)
+        let ambiguousAccent=VietnameseAutoCorrect.choices(word:"tuyet",context:[],settings:advanced,explicitVietnamese:true,english:[],known:["tuyệt","tuyết"],accentBuckets:["tuyet":["tuyết","tuyệt"]])
+        precondition(ambiguousAccent.count==2 && ambiguousAccent.allSatisfy{!$0.automatic})
         print("PASS Tool Studio: search, workspaces, bounded text transforms and learned accent fallback")
         let start=Date()
         for _ in 0..<10000{_ = EverydayLanguage.spell("giử",known:known)}

@@ -82,7 +82,7 @@ extension KeyboardViewController {
         let learned=learnWordsEnabled && !proPrivate && phraseRevision==PersonalPhraseStore.revision ? phraseModel : nil
         let choices=VietnameseAutoCorrect.choices(word:word,context:VietnameseAutoCorrect.context(previous),settings:vietnameseAutoCorrect,
               explicitVietnamese:useSmartBilingual && bilingualPreference == .vietnamese,english:SmartTyping.englishSet,known:SmartTyping.vietnameseSet,
-              protected:protected,feedback:feedback,learned:learned)
+              protected:protected,feedback:feedback,learned:learned,accentBuckets:SmartTyping.accentBuckets)
         guard let choice=choices.first,choice.automatic else{
             if boundary==" " {autoPreviousWord=AutoPreviousWord(document:textDocumentProxy.documentIdentifier,prefix:prefix,word:word,after:autoWordAfter ?? "")}
             return nil

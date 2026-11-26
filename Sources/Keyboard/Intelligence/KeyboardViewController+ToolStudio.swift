@@ -78,11 +78,12 @@ extension KeyboardViewController {
         })
         buttons.heightAnchor.constraint(equalToConstant:40).isActive=true;stack.addArrangedSubview(buttons)
     }
-    func openToolClipboard(){
+    func openToolClipboard(searching:Bool=false){
         guard !proPrivate,!KeyboardSettings.privateTypingMode else{showStatus("Không hiển thị dữ liệu clipboard trong gõ riêng tư");return}
         let (stack,palette)=premiumPanel(title:"Clipboard Studio")
         let actions=UIStackView();actions.distribution = .fillEqually;actions.spacing=4
         actions.addArrangedSubview(premiumKey("Xem clipboard",palette:palette){[weak self] in self?.everydayPastePreview()})
+        actions.addArrangedSubview(premiumKey("Tìm",palette:palette){[weak self] in self?.openToolClipboard(searching:true)})
         actions.addArrangedSubview(premiumKey("Lưu clipboard",palette:palette){[weak self] in
             guard let self,self.hasFullAccess,!KeyboardSettings.privateTypingMode,let value=UIPasteboard.general.string,!value.isEmpty,value.count<=1000,MessageSafety.warnings(in:value).isEmpty else{self?.showStatus("Clipboard trống, nhạy cảm hoặc quá dài");return}
             if ClipboardVault.saveExplicitly(value){self.openToolClipboard()}else{self.showStatus("Không lưu được")}
@@ -93,18 +94,59 @@ extension KeyboardViewController {
         NSLayoutConstraint.activate([list.leadingAnchor.constraint(equalTo:scroll.contentLayoutGuide.leadingAnchor),list.trailingAnchor.constraint(equalTo:scroll.contentLayoutGuide.trailingAnchor),list.topAnchor.constraint(equalTo:scroll.contentLayoutGuide.topAnchor),list.bottomAnchor.constraint(equalTo:scroll.contentLayoutGuide.bottomAnchor),list.widthAnchor.constraint(equalTo:scroll.frameLayoutGuide.widthAnchor)])
         let items=ClipboardVault.items
         let notes=PremiumStore.clipboard
-        if items.isEmpty && notes.isEmpty{let label=UILabel();label.text="Chưa có nội dung đã lưu";label.textColor=palette.text;list.addArrangedSubview(label)}
-        for value in items{
-            let key=premiumKey(String(value.prefix(60)),palette:palette){[weak self] in self?.toolTransformPreview(value,allowReplace:false)}
-            key.heightAnchor.constraint(equalToConstant:38).isActive=true
-            key.menu=UIMenu(children:[UIAction(title:"Xem trước"){[weak self] _ in self?.toolTransformPreview(value,allowReplace:false)},UIAction(title:"Xóa",attributes:.destructive){[weak self] _ in
-                guard !KeyboardSettings.privateTypingMode else{return};ClipboardVault.items=ClipboardVault.items.filter{$0 != value};self?.openToolClipboard()
-            }])
-            list.addArrangedSubview(key)
+        var query=""
+        let searchLabel=UILabel();searchLabel.font = .systemFont(ofSize:12);searchLabel.textColor=palette.text
+        if searching{
+            stack.insertArrangedSubview(searchLabel,at:2)
+            for letters in ["qwertyuiop","asdfghjkl","zxcvbnm"]{
+                let row=UIStackView();row.spacing=3;row.distribution = .fillEqually
+                // Actions installed after render is defined.
+                row.accessibilityIdentifier=letters
+                row.heightAnchor.constraint(equalToConstant:28).isActive=true
+                stack.addArrangedSubview(row)
+            }
         }
-        for note in notes{
-            let key=premiumKey(note.category+" · "+note.title,palette:palette){[weak self] in self?.toolTransformPreview(note.text,allowReplace:false)}
-            key.heightAnchor.constraint(equalToConstant:38).isActive=true;list.addArrangedSubview(key)
+        let render:()->Void={ [weak self,weak list,weak searchLabel] in
+            guard let self,let list else{return}
+            searchLabel?.text=query.isEmpty ? "Tìm nội dung không dấu":query
+            list.arrangedSubviews.forEach{list.removeArrangedSubview($0);$0.removeFromSuperview()}
+            let folded=TypingProText.fold(query)
+            let matching=items.filter{folded.isEmpty || TypingProText.fold($0).contains(folded)}
+            let collections=notes.filter{folded.isEmpty || TypingProText.fold($0.title+" "+$0.text+" "+$0.category).contains(folded)}
+            if matching.isEmpty && collections.isEmpty{let label=UILabel();label.text="Không có nội dung phù hợp";label.textColor=palette.text;list.addArrangedSubview(label)}
+            for value in matching{
+                let key=self.premiumKey(String(value.prefix(60)),palette:palette){[weak self] in self?.toolTransformPreview(value,allowReplace:false)}
+                key.heightAnchor.constraint(equalToConstant:38).isActive=true
+                let categories=PremiumStore.categories.map{category in
+                    UIAction(title:category){[weak self] _ in
+                        guard !KeyboardSettings.privateTypingMode else{return}
+                        if PremiumStore.clipboard.contains(where:{$0.text==value && $0.category==category}){self?.showStatus("Đã có trong bộ sưu tập");return}
+                        let saved=PremiumStore.save(value,title:String(value.prefix(40)),category:category,isClipboard:true)
+                        if saved{self?.openToolClipboard()}else{self?.showStatus("Không lưu được nội dung")}
+                    }
+                }
+                key.menu=UIMenu(children:[UIAction(title:"Xem trước"){[weak self] _ in self?.toolTransformPreview(value,allowReplace:false)},
+                    UIMenu(title:"Lưu vào bộ sưu tập (7 ngày)",children:categories),
+                    UIAction(title:"Xóa",attributes:.destructive){[weak self] _ in
+                        guard !KeyboardSettings.privateTypingMode else{return};ClipboardVault.items=ClipboardVault.items.filter{$0 != value};self?.openToolClipboard()
+                    }])
+                list.addArrangedSubview(key)
+            }
+            for note in collections{
+                let key=self.premiumKey(note.category+" · "+note.title,palette:palette){[weak self] in self?.toolTransformPreview(note.text,allowReplace:false)}
+                key.heightAnchor.constraint(equalToConstant:38).isActive=true
+                key.menu=UIMenu(children:[UIAction(title:"Xem trước"){[weak self] _ in self?.toolTransformPreview(note.text,allowReplace:false)},UIAction(title:"Xóa khỏi bộ sưu tập",attributes:.destructive){[weak self] _ in
+                    guard !KeyboardSettings.privateTypingMode else{return};PremiumStore.clipboard=PremiumStore.clipboard.filter{$0.id != note.id};self?.openToolClipboard()
+                }]);list.addArrangedSubview(key)
+            }
         }
+        if searching{
+            for case let row as UIStackView in stack.arrangedSubviews{
+                guard let letters=row.accessibilityIdentifier,["qwertyuiop","asdfghjkl","zxcvbnm"].contains(letters) else{continue}
+                for letter in letters{row.addArrangedSubview(premiumKey(String(letter),palette:palette){if query.count<40{query.append(letter);render()}})}
+                if letters=="zxcvbnm"{row.addArrangedSubview(premiumKey("⌫",palette:palette){if !query.isEmpty{query.removeLast();render()}})}
+            }
+        }
+        render()
     }
 }

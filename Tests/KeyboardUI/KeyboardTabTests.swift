@@ -67,6 +67,14 @@ final class KeyboardTabTests: XCTestCase {
         }
         XCTAssertTrue(phrases.exists && phrases.isHittable);phrases.tap()
         XCTAssertTrue(app.navigationBars["Cụm từ cá nhân"].waitForExistence(timeout:10))
+        app.navigationBars.buttons["Typing Premium"].tap()
+        let tools=app.buttons["typingPremium.toolStudio"]
+        for _ in 0..<10 {
+            if tools.exists && tools.isHittable{break}
+            app.swipeUp()
+        }
+        XCTAssertTrue(tools.exists && tools.isHittable);tools.tap()
+        XCTAssertTrue(app.navigationBars["Tool Studio"].waitForExistence(timeout:10))
         XCTAssertEqual(app.state,.runningForeground)
     }
     func testKeyboardTabOpensAndReopens() {
