@@ -2,7 +2,7 @@ import UIKit
 
 extension KeyboardViewController {
     func premiumSource() -> String {
-        String((selectedText.isEmpty ? (textDocumentProxy.selectedText ?? requestedInput()) : selectedText).prefix(3000))
+        String(inlineHostSource().prefix(3000))
     }
     func executePremium(_ command: PremiumCommand, source: String? = nil) {
         closeIntelligenceHub()
@@ -16,7 +16,9 @@ extension KeyboardViewController {
         default: result = PremiumOffline.format(value,mode:command.id)
         }
         guard !result.isEmpty else { showStatus("Chưa có văn bản."); return }
-        show([ReplySuggestion(tone:command.title,text:result)])
+        if ["ngay","gio"].contains(command.id) { insertInlineTool(result) }
+        else if command.id == "canhbao" { show([ReplySuggestion(tone:command.title,text:result)]) }
+        else { showInlineResult([ReplySuggestion(tone:command.title,text:result)],source:value) }
     }
     func runPremiumAI(title:String, source:String, steps:[String]) {
         guard !isRequestRunning, hasFullAccess, KeyboardSettings.allowCloudAI,
@@ -25,6 +27,7 @@ extension KeyboardViewController {
         }
         let ticket = UUID(); requestID = ticket; isRequestRunning = true
         let document = textDocumentProxy.documentIdentifier
+        let before = textDocumentProxy.documentContextBeforeInput, after = textDocumentProxy.documentContextAfterInput, selection = textDocumentProxy.selectedText
         let persona = PersonaStore.activeID
         let provider = KeyboardSettings.provider
         showStatus("Đang xử lý · "+title)
@@ -33,8 +36,8 @@ extension KeyboardViewController {
                 let result = try await PremiumWorkflowService.run(source,steps:steps,provider:provider)
                 guard let self, self.requestID == ticket else { return }
                 self.isRequestRunning = false
-                guard self.textDocumentProxy.documentIdentifier == document, PersonaStore.activeID == persona else { return }
-                self.show([ReplySuggestion(tone:title,text:result)])
+                guard self.textDocumentProxy.documentIdentifier == document, PersonaStore.activeID == persona,self.textDocumentProxy.documentContextBeforeInput == before,self.textDocumentProxy.documentContextAfterInput == after,self.textDocumentProxy.selectedText == selection else { self.showStatus("Văn bản đã đổi · chạy lại công cụ"); return }
+                self.showInlineResult([ReplySuggestion(tone:title,text:result)],source:source)
             } catch {
                 guard let self, self.requestID == ticket else { return }
                 self.isRequestRunning = false; self.showStatus(error.localizedDescription)
@@ -70,7 +73,7 @@ extension KeyboardViewController {
                 guard let self else { return }; self.closeIntelligenceHub()
                 guard !KeyboardSettings.privateTypingMode else { self.showStatus("Tắt gõ riêng tư để dùng macro cá nhân."); return }
                 let value = PremiumOffline.variables(macro.template,name:PersonaStore.active?.name ?? "",custom:PremiumStore.variables)
-                if macro.steps.isEmpty { self.show([ReplySuggestion(tone:macro.title,text:value)]) }
+                if macro.steps.isEmpty { self.insertInlineTool(value) }
                 else { self.runPremiumAI(title:macro.title,source:value,steps:macro.steps) }
             }
         }
@@ -83,7 +86,7 @@ extension KeyboardViewController {
                 guard let self else { return }; self.closeIntelligenceHub()
                 guard !KeyboardSettings.privateTypingMode || ["ngay","gio"].contains(key) else { self.showStatus("Đang gõ riêng tư."); return }
                 let text = PremiumOffline.variables("{{"+key+"}}",name:PersonaStore.active?.name ?? "",custom:PremiumStore.variables)
-                self.show([ReplySuggestion(tone:"Biến mẫu",text:text)])
+                self.insertInlineTool(text)
             }
         })
     }
@@ -97,7 +100,7 @@ extension KeyboardViewController {
                 self.showStatus(saved ? "Đã lưu vào "+category : "Không lưu: riêng tư, nhạy cảm, trống hoặc quá dài.")
             }] + notes.filter { $0.category == category }.map { note in
                 UIAction(title:note.title) { [weak self] _ in
-                    guard let self else { return }; self.closeIntelligenceHub(); self.show([ReplySuggestion(tone:category,text:note.text)])
+                    guard let self else { return }; self.closeIntelligenceHub(); self.insertInlineTool(note.text)
                 }
             })
         }
