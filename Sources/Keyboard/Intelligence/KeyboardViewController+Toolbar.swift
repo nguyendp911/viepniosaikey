@@ -9,10 +9,30 @@ extension KeyboardViewController {
         }
         container.addArrangedSubview(keyboardToolbar)
         refreshToolbarLayout(force: true)
+        installInlineToolsMenu()
         installWritingActions()
         installClipboardMenu()
         updateCoupleTool()
         refreshProfileIndicator()
+    }
+    func installInlineToolsMenu() {
+        guard let button = toolbarButtons[.tools] else { return }
+        let groups = toolStudioGroups()
+        let quickNames = ["Viết lại","Dịch","Tình cảm","Định dạng","Personal AI","Tone Mixer","AI Premium","Macro","Biến mẫu","Bộ sưu tập","Văn bản","Hoàn tác","Làm lại"]
+        let quick: [UIMenuElement] = quickNames.compactMap { name in
+            guard let spec = groups.first(where: { $0.0 == name }) else { return nil }
+            if let menu = spec.2 { return menu }
+            if let action = spec.3 {
+                return UIAction(title: spec.0, image: UIImage(systemName: spec.1)) { _ in action() }
+            }
+            return nil
+        }
+        let all = UIAction(title: "Tất cả công cụ", image: UIImage(systemName: "square.grid.2x2")) { [weak self] _ in
+            self?.openIntelligenceHub()
+        }
+        button.menu = UIMenu(title: "ViePN · công cụ trực tiếp", children: quick + [all])
+        button.showsMenuAsPrimaryAction = true
+        button.accessibilityHint = "Chọn công cụ để xử lý ngay nội dung đang nhập"
     }
     func reloadToolbarConfiguration() {
         toolbarConfiguration = ToolbarPreferences.configuration
