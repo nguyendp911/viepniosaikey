@@ -205,8 +205,7 @@ extension KeyboardViewController {
                 guard let self else { return }
                 self.closeIntelligenceHub()
                 self.cancelAIRequest()
-                self.selectedText = value
-                self.showStatus("Đã chọn clipboard · Nhấn AI")
+                self.insertInlineTool(value)
             }
         }
         return UIMenu(title: "Clipboard", children: [paste] + entries)
@@ -305,7 +304,7 @@ extension KeyboardViewController {
         guard !isRequestRunning, hasFullAccess, KeyboardSettings.allowCloudAI else {
             showStatus("Cần Full Access, bật AI online và tắt gõ riêng tư."); return
         }
-        let source = (selectedText.isEmpty ? (textDocumentProxy.selectedText ?? requestedInput()) : selectedText)
+        let source = inlineHostSource()
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty, MessageSafety.warnings(in: source).isEmpty else {
             showStatus("Hãy nhập, chọn hoặc dán nội dung không nhạy cảm."); return
@@ -314,6 +313,9 @@ extension KeyboardViewController {
         requestID = ticket
         isRequestRunning = true
         let document = textDocumentProxy.documentIdentifier
+        let before = textDocumentProxy.documentContextBeforeInput
+        let after = textDocumentProxy.documentContextAfterInput
+        let selection = textDocumentProxy.selectedText
         let persona = PersonaStore.activeID
         showStatus("Đang xử lý · " + title)
         aiTask = Task { [weak self] in
@@ -321,8 +323,11 @@ extension KeyboardViewController {
                 let result = try await AIWritingService.studio(source, instruction: instruction, includeStyle: style)
                 guard let self, self.requestID == ticket else { return }
                 self.isRequestRunning = false
-                guard self.textDocumentProxy.documentIdentifier == document, PersonaStore.activeID == persona else { return }
-                self.show([ReplySuggestion(tone: title, text: result)])
+                guard self.textDocumentProxy.documentIdentifier == document, PersonaStore.activeID == persona,
+                      self.textDocumentProxy.documentContextBeforeInput == before,
+                      self.textDocumentProxy.documentContextAfterInput == after,
+                      self.textDocumentProxy.selectedText == selection else { self.showStatus("Văn bản đã đổi · chạy lại công cụ"); return }
+                self.showInlineResult([ReplySuggestion(tone: title, text: result)], source: source)
             } catch {
                 guard let self, self.requestID == ticket else { return }
                 self.isRequestRunning = false
