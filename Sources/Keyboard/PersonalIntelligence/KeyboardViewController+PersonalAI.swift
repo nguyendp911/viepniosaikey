@@ -52,13 +52,14 @@ extension KeyboardViewController {
         guard !isRequestRunning,hasFullAccess,KeyboardSettings.allowCloudAI,!source.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,MessageSafety.warnings(in:source).isEmpty else{showStatus("Cần Full Access, AI online và dữ liệu không nhạy cảm.");return}
         let ticket=UUID();requestID=ticket;isRequestRunning=true
         let document=textDocumentProxy.documentIdentifier;let persona=PersonaStore.activeID;let provider=KeyboardSettings.provider
+        let before=textDocumentProxy.documentContextBeforeInput, after=textDocumentProxy.documentContextAfterInput, selection=textDocumentProxy.selectedText
         showStatus("Đang xử lý · "+title)
         aiTask = Task{[weak self] in
             do{
                 let value=try await AIWritingService.studio(source,instruction:instruction,provider:provider)
                 guard let self,self.requestID==ticket else{return};self.isRequestRunning=false
-                guard self.textDocumentProxy.documentIdentifier==document,PersonaStore.activeID==persona else{return}
-                self.show([ReplySuggestion(tone:title,text:value)])
+                guard self.textDocumentProxy.documentIdentifier==document,PersonaStore.activeID==persona,self.textDocumentProxy.documentContextBeforeInput==before,self.textDocumentProxy.documentContextAfterInput==after,self.textDocumentProxy.selectedText==selection else{self.showStatus("Văn bản đã đổi · chạy lại công cụ");return}
+                self.showInlineResult([ReplySuggestion(tone:title,text:value)],source:source)
             }catch{guard let self,self.requestID==ticket else{return};self.isRequestRunning=false;self.showStatus(error.localizedDescription)}
         }
     }
