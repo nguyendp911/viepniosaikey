@@ -3,6 +3,34 @@ import AudioToolbox
 import Vision
 
 extension KeyboardViewController {
+    // Only explicit user actions can apply text; capture the host state before async work.
+    func inlineHostSource() -> String {
+        let proxy = textDocumentProxy
+        if let selection = proxy.selectedText, !selection.isEmpty { return selection }
+        if let before = proxy.documentContextBeforeInput, !before.isEmpty { return before }
+        return selectedText
+    }
+
+    func showInlineResult(_ items: [ReplySuggestion], source: String) {
+        show(items)
+        if source == textDocumentProxy.documentContextBeforeInput,
+           (textDocumentProxy.selectedText?.isEmpty ?? true) {
+            inlineRewriteSource = source
+        }
+    }
+
+    func insertInlineTool(_ value: String) {
+        guard !value.isEmpty else { showStatus("Không có nội dung để chèn."); return }
+        closeIntelligenceHub()
+        cancelAIRequest()
+        clearSuggestions()
+        resetPhraseContext()
+        resetAutoWord()
+        autoPreviousWord = nil
+        insertTrackedStudioText(value)
+        showStatus("Đã chèn vào ô soạn thảo")
+    }
+
     func showStatus(_ message: String) {
         statusLabel.text = message
         statusLabel.isHidden = false
