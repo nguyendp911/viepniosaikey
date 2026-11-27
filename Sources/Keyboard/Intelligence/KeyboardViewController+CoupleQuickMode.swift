@@ -5,6 +5,13 @@ extension KeyboardViewController {
     /// an incoming message and previews the reply in the existing reply panel.
     func openCoupleQuickMode(){
         let (stack,palette)=premiumPanel(title:"Couple Quick Mode")
+        let draft=premiumKey("Dùng nội dung đang soạn",palette:palette){[weak self] in
+            guard let self else{return}
+            let value=self.inlineHostSource()
+            guard !value.isEmpty,value.count<=2700 else{self.showStatus("Cần nội dung tối đa 2.700 ký tự.");return}
+            self.coupleQuickStyles(source:value)
+        }
+        draft.heightAnchor.constraint(equalToConstant:44).isActive=true;stack.addArrangedSubview(draft)
         let info=UILabel();info.text="Chọn nội dung nhận được. Không tự gửi hay thay văn bản.";info.font = .systemFont(ofSize:12);info.textColor=palette.text;info.numberOfLines=2;stack.addArrangedSubview(info)
         let selected=premiumKey("Dùng đoạn đang chọn",palette:palette){[weak self] in
             guard let self,let value=self.textDocumentProxy.selectedText,!value.isEmpty,value.count<=2700 else{self?.showStatus("Hãy chọn đoạn tin nhắn tối đa 2.700 ký tự.");return}
