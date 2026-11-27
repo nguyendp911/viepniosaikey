@@ -22,8 +22,7 @@ extension KeyboardViewController {
         let items: [UIAction] = ClipboardVault.items.enumerated().map { index, text in
             UIAction(title: String(text.prefix(40)), image: UIImage(systemName: "doc.text")) {
                 [weak self] _ in
-                self?.selectedText = text
-                self?.showStatus("Đã chọn đoạn \(index + 1) · Chạm AI để xử lý")
+                self?.insertInlineTool(text)
             }
         }
         let history = UIMenu(title: "Các đoạn đã lưu",
@@ -80,6 +79,7 @@ extension KeyboardViewController {
 
     func requestedInput() -> String {
         let context = textDocumentProxy.documentContextBeforeInput ?? ""
+        if let selection = textDocumentProxy.selectedText, !selection.isEmpty { return String(selection.prefix(3000)) }
         return selectedText.isEmpty ? String(context.suffix(3000)) : selectedText
     }
 }
