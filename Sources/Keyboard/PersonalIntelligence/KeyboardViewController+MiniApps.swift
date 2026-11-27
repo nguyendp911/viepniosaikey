@@ -5,7 +5,7 @@ extension KeyboardViewController {
         let calc=UIAction(title:"Máy tính",image:UIImage(systemName:"calculator")){[weak self] _ in self?.closeIntelligenceHub();self?.openPremiumCalculator()}
         let date=UIAction(title:"Ngày giờ",image:UIImage(systemName:"clock")){[weak self] _ in
             guard let self else{return};self.closeIntelligenceHub()
-            self.show([ReplySuggestion(tone:"Ngày giờ",text:PremiumOffline.variables("{{ngay}} {{gio}}",name:"",custom:[:]))])
+            self.insertInlineTool(PremiumOffline.variables("{{ngay}} {{gio}}",name:"",custom:[:]))
         }
         let note=UIAction(title:"Ghi chú AI",image:UIImage(systemName:"note.text")){[weak self] _ in
             guard let self else{return};self.closeIntelligenceHub();self.runPersonalAI(title:"Smart Notes",source:self.premiumSource(),instruction:PersonalIntelligenceCatalog.task("notes")!.instruction)
@@ -26,14 +26,14 @@ extension KeyboardViewController {
                 guard let self else{return};self.closeIntelligenceHub()
                 let source=self.premiumSource().trimmingCharacters(in:.whitespacesAndNewlines).replacingOccurrences(of:",",with:".")
                 guard let number=Double(source),let value=PersonalUnits.convert(number,group:group,from:from,to:to)else{self.showStatus("Chọn hoặc dán một số hợp lệ.");return}
-                self.show([ReplySuggestion(tone:label,text:String(format:"%.10g",value))])
+                self.showInlineResult([ReplySuggestion(tone:label,text:String(format:"%.10g",value))],source:self.premiumSource())
             }
         })
         let notes=UIMenu(title:"Ghi chú đã lưu",children:PersonalMemoryStore.all.filter{$0.kind=="Ghi chú" && $0.personaID.isEmpty}.prefix(15).map{record in
             UIAction(title:record.title){[weak self] _ in
                 guard let self else{return};self.closeIntelligenceHub()
                 guard !KeyboardSettings.privateTypingMode else{return}
-                self.show([ReplySuggestion(tone:"Ghi chú",text:record.detail)])
+                self.insertInlineTool(record.detail)
             }
         })
         let help=UIAction(title:"QR, nhắc hẹn, mật khẩu · mở app ViePN",attributes:.disabled){_ in}
